@@ -1,0 +1,50 @@
+from __future__ import annotations
+
+from pydantic import BaseModel, ConfigDict, Field
+
+
+class HistoryPoint(BaseModel):
+    """A single daily price data point."""
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    count: int = 0
+    value: float = 0.0
+    days_ago: int = Field(0, alias="daysAgo")
+
+
+class CurrencyHistoryResponse(BaseModel):
+    """Response from the currency history endpoint (pay + receive directions)."""
+
+    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+
+    pay_currency_graph_data: list[HistoryPoint] = Field([], alias="payCurrencyGraphData")
+    receive_currency_graph_data: list[HistoryPoint] = Field([], alias="receiveCurrencyGraphData")
+
+
+class TrendAnalysis(BaseModel):
+    """Analytics summary for a price history series."""
+
+    current_price: float = 0.0
+    average_7d: float | None = None
+    average_30d: float | None = None
+    change_7d_pct: float | None = None
+    change_30d_pct: float | None = None
+    volatility_30d: float | None = None
+    min_price: float | None = None
+    max_price: float | None = None
+    league_start_price: float | None = None
+    spike_detected: bool = False
+    crash_detected: bool = False
+    trend_direction: str = "stable"
+
+
+class PriceHistory(BaseModel):
+    """Full price history with analytics for an item."""
+
+    item_name: str
+    item_type: str
+    league: str
+    data_points: list[HistoryPoint] = []
+    pay_data_points: list[HistoryPoint] = []
+    analysis: TrendAnalysis = TrendAnalysis()

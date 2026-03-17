@@ -1,0 +1,87 @@
+from __future__ import annotations
+
+import cyclopts
+
+from poe.output import render
+from poe.services.ninja.atlas import AtlasService
+from poe.services.ninja.client import NinjaClient
+from poe.services.ninja.discovery import DiscoveryService
+from poe.services.ninja.economy import EconomyService
+
+atlas_app = cyclopts.App(name="atlas", help="Atlas tree search and analysis. PoE1 only.")
+
+
+def _resolve_league(discovery: DiscoveryService, league: str | None) -> str:
+    if league:
+        return league
+    current = discovery.get_current_league()
+    if not current:
+        raise ValueError("No current league found")
+    return current.name
+
+
+@atlas_app.command(name="search")
+def atlas_search(
+    mechanics: str | None = None,
+    beacons: str | None = None,
+    keystones: str | None = None,
+    *,
+    human: bool = False,
+) -> None:
+    """Search atlas tree nodes with filters.
+
+    Parameters
+    ----------
+    mechanics
+        Mechanic filter.
+    beacons
+        Beacon filter.
+    keystones
+        Keystone filter.
+    human
+        Human-readable output.
+    """
+    with NinjaClient() as client:
+        discovery = DiscoveryService(client)
+        svc = AtlasService(client, discovery)
+        result = svc.search(mechanics=mechanics, beacons=beacons, keystones=keystones)
+        if result is None:
+            render({"error": "No atlas data"}, human=human)
+            return
+        render(result, human=human)
+
+
+@atlas_app.command(name="recommend")
+def atlas_recommend(*, human: bool = False) -> None:
+    """Get popular atlas nodes.
+
+    Parameters
+    ----------
+    human
+        Human-readable output.
+    """
+    with NinjaClient() as client:
+        discovery = DiscoveryService(client)
+        svc = AtlasService(client, discovery)
+        nodes = svc.get_popular_nodes()
+        render(nodes, human=human)
+
+
+@atlas_app.command(name="profit")
+def atlas_profit(league: str | None = None, *, human: bool = False) -> None:
+    """Estimate atlas profit by mechanic.
+
+    Parameters
+    ----------
+    league
+        League name.
+    human
+        Human-readable output.
+    """
+    with NinjaClient() as client:
+        discovery = DiscoveryService(client)
+        resolved_league = _resolve_league(discovery, league)
+        economy = EconomyService(client)
+        svc = AtlasService(client, discovery)
+        profits = svc.estimate_profit(economy, resolved_league)
+        render(profits, human=human)

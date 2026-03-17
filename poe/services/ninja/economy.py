@@ -1,0 +1,303 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING, Any
+
+from poe.models.ninja.economy import (
+    CraftingPrices,
+    CurrencyOverviewResponse,
+    ExchangeOverviewResponse,
+    ItemOverviewResponse,
+    PriceResult,
+)
+from poe.services.ninja import cache as ninja_cache
+from poe.services.ninja.constants import (
+    NINJA_ENDPOINTS,
+    NINJA_LOW_CONFIDENCE_THRESHOLD,
+    NINJA_POE1_CURRENCY_STASH_TYPES,
+    NINJA_POE1_EXCHANGE_TYPES,
+    NINJA_POE1_STASH_TYPES,
+)
+from poe.services.ninja.errors import ApiSchemaError, NinjaError
+
+if TYPE_CHECKING:
+    from poe.services.ninja.client import NinjaClient
+
+NINJA_DETAILS_BASE = "https://poe.ninja"
+
+CRAFTING_TYPE_MAP: dict[str, list[tuple[str, str]]] = {
+    "currency": [("Currency", "poe1_exchange")],
+    "fossils": [("Fossil", "poe1_exchange")],
+    "essences": [("Essence", "poe1_exchange")],
+    "resonators": [("Resonator", "poe1_exchange")],
+    "beasts": [("Beast", "poe1_stash_item")],
+    "fragments": [("Fragment", "poe1_exchange")],
+    "scarabs": [("Scarab", "poe1_exchange")],
+    "oils": [("Oil", "poe1_exchange")],
+}
+
+
+def _route_type(item_type: str, *, game: str) -> str:
+    if game == "poe2":
+        return "poe2_exchange"
+    if item_type in NINJA_POE1_CURRENCY_STASH_TYPES:
+        return "poe1_stash_currency"
+    if item_type in NINJA_POE1_STASH_TYPES:
+        return "poe1_stash_item"
+    if item_type in NINJA_POE1_EXCHANGE_TYPES:
+        return "poe1_exchange"
+    raise ApiSchemaError(f"Unknown item type '{item_type}' for {game}")
+
+
+def _endpoint_path(route: str) -> str:
+    if route == "poe1_stash_currency":
+        return NINJA_ENDPOINTS["poe1_currency_overview"]
+    if route == "poe1_stash_item":
+        return NINJA_ENDPOINTS["poe1_item_overview"]
+    if route == "poe1_exchange":
+        return NINJA_ENDPOINTS["poe1_exchange_overview"]
+    return NINJA_ENDPOINTS["poe2_exchange_overview"]
+
+
+def _exchange_chaos_value(
+    primary_value: float, core_rates: dict[str, float], primary: str
+) -> float:
+    if primary == "chaos":
+        return primary_value
+    chaos_rate = core_rates.get("chaos", 0.0)
+    if chaos_rate <= 0:
+        return 0.0
+    divine_to_chaos = 1.0 / chaos_rate
+    return primary_value * divine_to_chaos
+
+
+class EconomyService:
+    """Fetches and normalizes economy data from poe.ninja."""
+
+    def __init__(self, client: NinjaClient, base_dir: Any = None) -> None:
+        self._client = client
+        self._cache_dir = base_dir or ninja_cache.cache_dir()
+
+    def _fetch_cached(self, cache_key: str, path: str, params: dict[str, str]) -> Any:
+        if ninja_cache.is_fresh(self._cache_dir, cache_key, "economy"):
+            cached = ninja_cache.read_cache(self._cache_dir, cache_key)
+            if cached is not None:
+                return cached
+        data = self._client.get_json(path, params=params)
+        ninja_cache.write_cache(self._cache_dir, cache_key, data)
+        return data
+
+    def get_currency_overview(
+        self, league: str, item_type: str, *, language: str = "en"
+    ) -> CurrencyOverviewResponse:
+        cache_key = f"currency_{league}_{item_type}_{language}"
+        path = NINJA_ENDPOINTS["poe1_currency_overview"]
+        params = {"league": league, "type": item_type, "language": language}
+        raw = self._fetch_cached(cache_key, path, params)
+        return CurrencyOverviewResponse.model_validate(raw)
+
+    def get_item_overview(
+        self, league: str, item_type: str, *, language: str = "en"
+    ) -> ItemOverviewResponse:
+        cache_key = f"item_{league}_{item_type}_{language}"
+        path = NINJA_ENDPOINTS["poe1_item_overview"]
+        params = {"league": league, "type": item_type, "language": language}
+        raw = self._fetch_cached(cache_key, path, params)
+        return ItemOverviewResponse.model_validate(raw)
+
+    def get_exchange_overview(
+        self, league: str, item_type: str, *, game: str = "poe1"
+    ) -> ExchangeOverviewResponse:
+        cache_key = f"exchange_{game}_{league}_{item_type}"
+        endpoint_key = "poe2_exchange_overview" if game == "poe2" else "poe1_exchange_overview"
+        path = NINJA_ENDPOINTS[endpoint_key]
+        params = {"league": league, "type": item_type}
+        raw = self._fetch_cached(cache_key, path, params)
+        return ExchangeOverviewResponse.model_validate(raw)
+
+    def get_prices(
+        self,
+        league: str,
+        item_type: str,
+        *,
+        game: str = "poe1",
+        language: str = "en",
+    ) -> list[PriceResult]:
+        route = _route_type(item_type, game=game)
+
+        if route == "poe1_stash_currency":
+            cache_key = f"currency_{league}_{item_type}_{language}"
+            results = self._prices_from_currency(league, item_type, language=language)
+        elif route == "poe1_stash_item":
+            cache_key = f"item_{league}_{item_type}_{language}"
+            results = self._prices_from_items(league, item_type, language=language)
+        else:
+            cache_key = f"exchange_{game}_{league}_{item_type}"
+            results = self._prices_from_exchange(league, item_type, game=game)
+
+        freshness = ninja_cache.get_freshness(self._cache_dir, cache_key, "economy")
+        for r in results:
+            r.fetched_at = freshness.get("fetched_at")
+            r.cache_age_seconds = freshness.get("cache_age_seconds")
+        return results
+
+    def _prices_from_currency(
+        self, league: str, item_type: str, *, language: str = "en"
+    ) -> list[PriceResult]:
+        resp = self.get_currency_overview(league, item_type, language=language)
+        details_map = {d.name: d for d in resp.currency_details}
+        results = []
+        for line in resp.lines:
+            detail = details_map.get(line.currency_type_name)
+            results.append(
+                PriceResult(
+                    name=line.currency_type_name,
+                    chaos_value=line.chaos_equivalent,
+                    details_id=line.details_id,
+                    trade_id=detail.trade_id if detail else None,
+                    icon=detail.icon if detail else None,
+                    listing_count=line.receive.listing_count if line.receive else None,
+                    sparkline=line.receive_spark_line,
+                    low_confidence=line.receive is None,
+                    category=item_type,
+                ),
+            )
+        return results
+
+    def _prices_from_items(
+        self, league: str, item_type: str, *, language: str = "en"
+    ) -> list[PriceResult]:
+        resp = self.get_item_overview(league, item_type, language=language)
+        results = []
+        for line in resp.lines:
+            chaos = line.chaos_value or 0.0
+            results.append(
+                PriceResult(
+                    name=line.name,
+                    chaos_value=chaos,
+                    divine_value=line.divine_value,
+                    details_id=line.details_id or "",
+                    icon=line.icon,
+                    variant=line.variant,
+                    links=line.links,
+                    corrupted=line.corrupted,
+                    gem_level=line.gem_level,
+                    gem_quality=line.gem_quality,
+                    map_tier=line.map_tier,
+                    listing_count=line.listing_count,
+                    sparkline=line.spark_line,
+                    low_confidence=line.count is not None
+                    and line.count < NINJA_LOW_CONFIDENCE_THRESHOLD,
+                    category=item_type,
+                ),
+            )
+        return results
+
+    def _prices_from_exchange(
+        self, league: str, item_type: str, *, game: str = "poe1"
+    ) -> list[PriceResult]:
+        resp = self.get_exchange_overview(league, item_type, game=game)
+        items_map = {item.id: item for item in resp.items}
+        results = []
+        for line in resp.lines:
+            item = items_map.get(line.id)
+            chaos = _exchange_chaos_value(line.primary_value, resp.core.rates, resp.core.primary)
+            results.append(
+                PriceResult(
+                    name=item.name if item else line.id,
+                    chaos_value=chaos,
+                    details_id=item.details_id if item else "",
+                    icon=item.image if item else None,
+                    sparkline=line.sparkline,
+                    category=item.category if item else item_type,
+                ),
+            )
+        return results
+
+    def price_check(
+        self,
+        league: str,
+        item_name: str,
+        item_type: str,
+        *,
+        game: str = "poe1",
+        language: str = "en",
+    ) -> PriceResult | None:
+        prices = self.get_prices(league, item_type, game=game, language=language)
+        name_lower = item_name.lower()
+        return next(
+            (p for p in prices if p.name.lower() == name_lower),
+            None,
+        )
+
+    def price_list(
+        self,
+        league: str,
+        item_type: str,
+        *,
+        game: str = "poe1",
+        language: str = "en",
+        variant: str | None = None,
+        links: int | None = None,
+        corrupted: bool | None = None,
+        gem_level: int | None = None,
+        gem_quality: int | None = None,
+        map_tier: int | None = None,
+    ) -> list[PriceResult]:
+        prices = self.get_prices(league, item_type, game=game, language=language)
+
+        if variant is not None:
+            variant_lower = variant.lower()
+            prices = [p for p in prices if p.variant and variant_lower in p.variant.lower()]
+        if links is not None:
+            prices = [p for p in prices if p.links == links]
+        if corrupted is not None:
+            prices = [p for p in prices if p.corrupted == corrupted]
+        if gem_level is not None:
+            prices = [p for p in prices if p.gem_level == gem_level]
+        if gem_quality is not None:
+            prices = [p for p in prices if p.gem_quality == gem_quality]
+        if map_tier is not None:
+            prices = [p for p in prices if p.map_tier == map_tier]
+
+        return sorted(prices, key=lambda p: p.chaos_value, reverse=True)
+
+    def currency_convert(
+        self,
+        league: str,
+        amount: float,
+        from_currency: str,
+        to_currency: str,
+        *,
+        game: str = "poe1",
+    ) -> float:
+        prices = self.get_prices(league, "Currency", game=game)
+        price_map = {p.name.lower(): p.chaos_value for p in prices}
+        price_map["chaos orb"] = 1.0
+
+        from_chaos = price_map.get(from_currency.lower(), 0.0)
+        to_chaos = price_map.get(to_currency.lower(), 0.0)
+        if to_chaos <= 0:
+            return 0.0
+        return amount * from_chaos / to_chaos
+
+    def get_crafting_prices(self, league: str) -> CraftingPrices:
+        result: dict[str, dict[str, float]] = {}
+        for category, type_routes in CRAFTING_TYPE_MAP.items():
+            category_prices: dict[str, float] = {}
+            for item_type, _route in type_routes:
+                try:
+                    prices = self.get_prices(league, item_type, game="poe1")
+                    for p in prices:
+                        if p.chaos_value > 0:
+                            category_prices[p.name] = p.chaos_value
+                except NinjaError:
+                    pass
+            result[category] = category_prices
+        return CraftingPrices.model_validate(result)
+
+    def get_details_url(self, details_id: str, *, game: str = "poe1") -> str:
+        return f"{NINJA_DETAILS_BASE}/{game}/economy/{details_id}"
+
+    def get_trade_url(self, trade_id: str, league: str, *, game: str = "poe1") -> str:
+        site = "www.pathofexile.com" if game == "poe1" else "www.pathofexile2.com"
+        return f"https://{site}/trade/search/{league}?q={trade_id}"
