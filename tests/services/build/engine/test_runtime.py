@@ -1,0 +1,604 @@
+from __future__ import annotations
+
+from unittest.mock import MagicMock, patch
+
+import pytest
+
+from poe.services.build.engine.runtime import (
+    PoBEngine,
+    _get_lua_module,
+    check_lua_version,
+    get_pob_info,
+    lua_table_to_dict,
+)
+
+# ── _get_lua_module ──────────────────────────────────────────────────────────
+
+
+class TestGetLuaModule:
+    def test_returns_luajit_module(self):
+        mod = _get_lua_module()
+        assert hasattr(mod, "LuaRuntime")
+
+    def test_raises_when_no_luajit(self):
+        with (
+            patch("poe.services.build.engine.runtime._lua_mod", None),
+            pytest.raises(ImportError, match="LuaJIT"),
+        ):
+            _get_lua_module()
+
+
+# ── check_lua_version ────────────────────────────────────────────────────────
+
+
+class TestCheckLuaVersion:
+    def test_returns_version_info(self):
+        info = check_lua_version()
+        assert "lua_version" in info
+        assert "has_luajit" in info
+        assert info["has_luajit"] is True
+        assert "luajit_version" in info
+        assert "module" in info
+
+    def test_returns_error_when_no_lupa(self):
+        with patch("poe.services.build.engine.runtime._get_lua_module", side_effect=ImportError):
+            result = check_lua_version()
+        assert result == {"error": "lupa not installed"}
+
+
+# ── lua_table_to_dict ───────────────────────────────────────────────────────
+
+
+class TestLuaTableToDict:
+    def test_none_returns_empty_dict(self):
+        assert lua_table_to_dict(None) == {}
+
+    def test_converts_simple_table(self):
+        mod = _get_lua_module()
+        lua = mod.LuaRuntime(unpack_returned_tuples=True)
+        tbl = lua.eval('{foo = "bar", num = 42}')
+        result = lua_table_to_dict(tbl)
+        assert result["foo"] == "bar"
+        assert result["num"] == 42
+
+    def test_converts_nested_table(self):
+        mod = _get_lua_module()
+        lua = mod.LuaRuntime(unpack_returned_tuples=True)
+        tbl = lua.eval('{outer = {inner = "value"}}')
+        result = lua_table_to_dict(tbl)
+        assert result["outer"]["inner"] == "value"
+
+    def test_converts_iterable_to_list(self):
+        """Non-dict iterable values become lists."""
+        mock_table = MagicMock()
+        mock_table.items.return_value = [("key", [1, 2, 3])]
+        result = lua_table_to_dict(mock_table)
+        assert result["key"] == [1, 2, 3]
+
+    def test_non_table_returns_raw(self):
+        result = lua_table_to_dict("just a string")
+        assert "_raw" in result
+
+
+# ── PoBEngine.__init__ ───────────────────────────────────────────────────────
+
+
+class TestPoBEngineInit:
+    def test_init_with_explicit_path(self):
+        engine = PoBEngine(pob_path="/tmp/fakepob")
+        assert engine.pob_path == "/tmp/fakepob"
+        assert engine.lua is None
+        assert engine._initialized is False
+        assert engine._build_loaded is False
+
+    def test_init_uses_get_pob_path_when_none(self):
+        with patch("poe.services.build.engine.runtime.get_pob_path", return_value="/detected/pob"):
+            engine = PoBEngine()
+        assert engine.pob_path == "/detected/pob"
+
+
+# ── PoBEngine._require_lua ──────────────────────────────────────────────────
+
+
+class TestRequireLua:
+    def test_raises_when_lua_is_none(self):
+        engine = PoBEngine.__new__(PoBEngine)
+        engine.lua = None
+        with pytest.raises(RuntimeError, match="not initialized"):
+            engine._require_lua()
+
+    def test_returns_lua_when_set(self):
+        engine = PoBEngine.__new__(PoBEngine)
+        mock_lua = MagicMock()
+        engine.lua = mock_lua
+        assert engine._require_lua() is mock_lua
+
+
+# ── PoBEngine.init (mocked) ─────────────────────────────────────────────────
+
+
+class TestPoBEngineInitMethod:
+    def test_init_loads_launch_lua(self, tmp_path):
+        """init() reads Launch.lua, strips #@ directive, calls lua.execute."""
+        launch = tmp_path / "Launch.lua"
+        launch.write_text("#@ SimpleGraphic 800 600\nprint('loaded')\n")
+
+        mock_lua_mod = MagicMock()
+        mock_lua = MagicMock()
+        mock_lua_mod.LuaRuntime.return_value = mock_lua
+        mock_globals = {}
+        mock_lua.globals.return_value = mock_globals
+
+        engine = PoBEngine(pob_path=str(tmp_path))
+        with (
+            patch("poe.services.build.engine.runtime._get_lua_module", return_value=mock_lua_mod),
+            patch("poe.services.build.engine.runtime.register_stubs"),
+        ):
+            engine.init()
+
+        assert engine._initialized is True
+        assert engine.lua is mock_lua
+        # Verify Launch.lua was executed (multiple execute calls)
+        assert mock_lua.execute.call_count >= 3  # package.path + launch + OnInit + OnFrame
+
+    def test_init_strips_hash_at_directive(self, tmp_path):
+        """First line starting with #@ gets commented out."""
+        launch = tmp_path / "Launch.lua"
+        launch.write_text("#@ SimpleGraphic 800 600\nlocal x = 1\n")
+
+        mock_lua_mod = MagicMock()
+        mock_lua = MagicMock()
+        mock_lua_mod.LuaRuntime.return_value = mock_lua
+        mock_lua.globals.return_value = {}
+
+        engine = PoBEngine(pob_path=str(tmp_path))
+        with (
+            patch("poe.services.build.engine.runtime._get_lua_module", return_value=mock_lua_mod),
+            patch("poe.services.build.engine.runtime.register_stubs"),
+        ):
+            engine.init()
+
+        # Find the execute call with the launch code
+        launch_calls = [
+            str(c) for c in mock_lua.execute.call_args_list if "SimpleGraphic" in str(c)
+        ]
+        assert len(launch_calls) == 1
+        assert "-- #@" in launch_calls[0]
+
+    def test_init_no_hash_at_line(self, tmp_path):
+        """Launch.lua without #@ directive is passed through unchanged."""
+        launch = tmp_path / "Launch.lua"
+        launch.write_text("local x = 1\n")
+
+        mock_lua_mod = MagicMock()
+        mock_lua = MagicMock()
+        mock_lua_mod.LuaRuntime.return_value = mock_lua
+        mock_lua.globals.return_value = {}
+
+        engine = PoBEngine(pob_path=str(tmp_path))
+        with (
+            patch("poe.services.build.engine.runtime._get_lua_module", return_value=mock_lua_mod),
+            patch("poe.services.build.engine.runtime.register_stubs"),
+        ):
+            engine.init()
+
+        assert engine._initialized is True
+
+    def test_init_restores_cwd_on_success(self, tmp_path):
+        """CWD is restored after init."""
+        from pathlib import Path
+
+        launch = tmp_path / "Launch.lua"
+        launch.write_text("-- launch\n")
+        orig_cwd = Path.cwd()
+
+        mock_lua_mod = MagicMock()
+        mock_lua = MagicMock()
+        mock_lua_mod.LuaRuntime.return_value = mock_lua
+        mock_lua.globals.return_value = {}
+
+        engine = PoBEngine(pob_path=str(tmp_path))
+        with (
+            patch("poe.services.build.engine.runtime._get_lua_module", return_value=mock_lua_mod),
+            patch("poe.services.build.engine.runtime.register_stubs"),
+        ):
+            engine.init()
+
+        assert Path.cwd() == orig_cwd
+
+    def test_init_restores_cwd_on_failure(self, tmp_path):
+        """CWD is restored even if init fails."""
+        from pathlib import Path
+
+        launch = tmp_path / "Launch.lua"
+        launch.write_text("-- launch\n")
+        orig_cwd = Path.cwd()
+
+        mock_lua_mod = MagicMock()
+        mock_lua = MagicMock()
+        mock_lua_mod.LuaRuntime.return_value = mock_lua
+        mock_lua.globals.return_value = {}
+        mock_lua.execute.side_effect = [None, RuntimeError("boom")]  # package.path ok, launch fails
+
+        engine = PoBEngine(pob_path=str(tmp_path))
+        with (
+            patch("poe.services.build.engine.runtime._get_lua_module", return_value=mock_lua_mod),
+            patch("poe.services.build.engine.runtime.register_stubs"),
+            pytest.raises(RuntimeError),
+        ):
+            engine.init()
+
+        assert Path.cwd() == orig_cwd
+
+
+# ── PoBEngine._check_init_error ─────────────────────────────────────────────
+
+
+class TestCheckInitError:
+    def test_returns_none_when_no_error(self):
+        engine = PoBEngine.__new__(PoBEngine)
+        engine.lua = MagicMock()
+        engine.lua.eval.return_value = None
+        assert engine._check_init_error() is None
+
+    def test_returns_message_when_error(self):
+        engine = PoBEngine.__new__(PoBEngine)
+        engine.lua = MagicMock()
+        engine.lua.eval.return_value = "Something went wrong"
+        assert engine._check_init_error() == "Something went wrong"
+
+    def test_returns_none_on_exception(self):
+        engine = PoBEngine.__new__(PoBEngine)
+        engine.lua = MagicMock()
+        engine.lua.eval.side_effect = RuntimeError("lua error")
+        assert engine._check_init_error() is None
+
+
+# ── PoBEngine.load_build (mocked) ───────────────────────────────────────────
+
+
+class TestLoadBuild:
+    def test_calls_init_if_not_initialized(self, tmp_path):
+        build_xml = tmp_path / "test.xml"
+        build_xml.write_text("<PathOfBuilding/>")
+
+        engine = PoBEngine.__new__(PoBEngine)
+        engine.pob_path = str(tmp_path)
+        engine._initialized = False
+        engine._build_loaded = False
+        engine.lua = None
+        engine.init = MagicMock()  # mock init
+
+        # After init, set up lua mock
+        def fake_init():
+            engine._initialized = True
+            engine.lua = MagicMock()
+            engine.lua.eval.return_value = None  # get_build_info returns None table
+            engine.lua.globals.return_value = {}
+
+        engine.init.side_effect = fake_init
+
+        with patch("poe.services.build.engine.runtime.resolve_build_file", return_value=build_xml):
+            engine.load_build("test")
+        engine.init.assert_called_once()
+
+    def test_returns_error_when_init_error(self):
+        engine = PoBEngine.__new__(PoBEngine)
+        engine.pob_path = "/tmp"
+        engine._initialized = True
+        engine._build_loaded = False
+        engine.lua = MagicMock()
+        engine._check_init_error = MagicMock(return_value="PoB broken")
+
+        result = engine.load_build("test")
+        assert result == {"error": "PoB init failed: PoB broken"}
+
+    def test_loads_build_successfully(self, tmp_path):
+        build_xml = tmp_path / "test.xml"
+        build_xml.write_text("<PathOfBuilding/>")
+
+        engine = PoBEngine.__new__(PoBEngine)
+        engine.pob_path = str(tmp_path)
+        engine._initialized = True
+        engine._build_loaded = False
+        engine.lua = MagicMock()
+        engine.lua.eval.return_value = None  # get_build_info
+        engine.lua.globals.return_value = {}
+        engine._check_init_error = MagicMock(return_value=None)
+
+        with patch("poe.services.build.engine.runtime.resolve_build_file", return_value=build_xml):
+            engine.load_build("test")
+        assert engine._build_loaded is True
+
+
+# ── PoBEngine.get_build_info (mocked) ────────────────────────────────────────
+
+
+class TestGetBuildInfo:
+    def test_returns_error_when_not_initialized(self):
+        engine = PoBEngine.__new__(PoBEngine)
+        engine._initialized = False
+        assert engine.get_build_info() == {"error": "Engine not initialized"}
+
+    def test_returns_lua_eval_result(self, tmp_path):
+        engine = PoBEngine.__new__(PoBEngine)
+        engine.pob_path = str(tmp_path)
+        engine._initialized = True
+        mock_table = MagicMock()
+        mock_table.items.return_value = [
+            ("className", "Witch"),
+            ("level", 95),
+        ]
+        engine.lua = MagicMock()
+        engine.lua.eval.return_value = mock_table
+
+        result = engine.get_build_info()
+        assert result["className"] == "Witch"
+        assert result["level"] == 95
+
+
+# ── PoBEngine.get_stats (mocked) ────────────────────────────────────────────
+
+
+class TestGetStats:
+    def test_returns_error_when_not_initialized(self):
+        engine = PoBEngine.__new__(PoBEngine)
+        engine._initialized = False
+        assert engine.get_stats() == {"error": "Engine not initialized"}
+
+    def test_returns_all_stats(self, tmp_path):
+        engine = PoBEngine.__new__(PoBEngine)
+        engine.pob_path = str(tmp_path)
+        engine._initialized = True
+        mock_table = MagicMock()
+        mock_table.items.return_value = [
+            ("Life", 5000),
+            ("Mana", 2000),
+            ("TotalDPS", 100000),
+        ]
+        engine.lua = MagicMock()
+        engine.lua.eval.return_value = mock_table
+
+        result = engine.get_stats()
+        assert result["Life"] == 5000
+        assert result["TotalDPS"] == 100000
+
+    def test_filters_by_fields(self, tmp_path):
+        engine = PoBEngine.__new__(PoBEngine)
+        engine.pob_path = str(tmp_path)
+        engine._initialized = True
+        mock_table = MagicMock()
+        mock_table.items.return_value = [
+            ("Life", 5000),
+            ("Mana", 2000),
+            ("TotalDPS", 100000),
+        ]
+        engine.lua = MagicMock()
+        engine.lua.eval.return_value = mock_table
+
+        result = engine.get_stats(fields=["Life"])
+        assert result == {"Life": 5000}
+
+
+# ── PoBEngine.recalculate (mocked) ──────────────────────────────────────────
+
+
+class TestRecalculate:
+    def test_noop_when_not_initialized(self):
+        engine = PoBEngine.__new__(PoBEngine)
+        engine._initialized = False
+        engine.recalculate()  # should not raise
+
+    def test_executes_lua_when_initialized(self, tmp_path):
+        engine = PoBEngine.__new__(PoBEngine)
+        engine.pob_path = str(tmp_path)
+        engine._initialized = True
+        engine.lua = MagicMock()
+
+        engine.recalculate()
+        engine.lua.execute.assert_called_once()
+
+
+# ── PoBEngine properties ────────────────────────────────────────────────────
+
+
+class TestProperties:
+    def test_initialized_property(self):
+        engine = PoBEngine.__new__(PoBEngine)
+        engine._initialized = True
+        assert engine.initialized is True
+
+    def test_build_loaded_property(self):
+        engine = PoBEngine.__new__(PoBEngine)
+        engine._build_loaded = True
+        assert engine.build_loaded is True
+
+
+# ── get_pob_info (mocked) ───────────────────────────────────────────────────
+
+
+class TestGetPobInfo:
+    def test_returns_error_when_pob_not_found(self):
+        with patch(
+            "poe.services.build.engine.runtime.get_pob_path",
+            side_effect=FileNotFoundError("not found"),
+        ):
+            result = get_pob_info()
+        assert "error" in result
+
+    def test_returns_info_with_manifest(self, tmp_path):
+        (tmp_path / "Launch.lua").write_text("-- launch")
+        (tmp_path / "manifest.xml").write_text(
+            '<?xml version="1.0"?><PoBVersion><Version number="2.62.0"/></PoBVersion>'
+        )
+
+        with (
+            patch("poe.services.build.engine.runtime.get_pob_path", return_value=str(tmp_path)),
+            patch(
+                "poe.services.build.engine.runtime.check_lua_version",
+                return_value={"lua": "ok"},
+            ),
+        ):
+            result = get_pob_info()
+        assert result["pob_path"] == str(tmp_path)
+        assert result["launch_exists"] is True
+        assert result["version"] == "2.62.0"
+
+    def test_returns_unknown_version_without_manifest(self, tmp_path):
+        (tmp_path / "Launch.lua").write_text("-- launch")
+
+        with (
+            patch("poe.services.build.engine.runtime.get_pob_path", return_value=str(tmp_path)),
+            patch(
+                "poe.services.build.engine.runtime.check_lua_version",
+                return_value={"lua": "ok"},
+            ),
+        ):
+            result = get_pob_info()
+        assert result["version"] == "unknown"
+
+    def test_handles_corrupt_manifest(self, tmp_path):
+        (tmp_path / "Launch.lua").write_text("-- launch")
+        (tmp_path / "manifest.xml").write_text("not xml at all")
+
+        with (
+            patch("poe.services.build.engine.runtime.get_pob_path", return_value=str(tmp_path)),
+            patch(
+                "poe.services.build.engine.runtime.check_lua_version",
+                return_value={"lua": "ok"},
+            ),
+        ):
+            result = get_pob_info()
+        assert result["version"] == "unknown"
+
+
+# ── get_engine ───────────────────────────────────────────────────────────────
+
+
+class TestGetEngine:
+    def test_returns_engine_instance(self):
+        from poe.services.build.engine.runtime import get_engine
+
+        with patch("poe.services.build.engine.runtime.PoBEngine") as mock_cls:
+            mock_cls.return_value = MagicMock()
+            result = get_engine()
+        assert result is mock_cls.return_value
+
+    def test_creates_new_instance_each_call(self):
+        from poe.services.build.engine.runtime import get_engine
+
+        with patch("poe.services.build.engine.runtime.PoBEngine") as mock_cls:
+            get_engine()
+            get_engine()
+        assert mock_cls.call_count == 2
+
+
+# ── register_stubs (real Lua runtime, lupa is a project dep) ─────────────────
+
+
+class TestRegisterStubs:
+    def test_stubs_register_without_error(self):
+        from poe.services.build.engine.stubs import register_stubs
+
+        mod = _get_lua_module()
+        lua = mod.LuaRuntime(unpack_returned_tuples=True)
+        register_stubs(lua, "/tmp/fakepob")
+
+    def test_stub_functions_exist(self):
+        from poe.services.build.engine.stubs import register_stubs
+
+        mod = _get_lua_module()
+        lua = mod.LuaRuntime(unpack_returned_tuples=True)
+        register_stubs(lua, "/tmp/fakepob")
+
+        for fn in (
+            "GetTime",
+            "ConPrintf",
+            "GetScreenSize",
+            "NewImageHandle",
+            "IsKeyDown",
+            "SetMainObject",
+            "GetScriptPath",
+            "LoadModule",
+            "PLoadModule",
+            "PCall",
+            "Inflate",
+            "Deflate",
+            "NewFileSearch",
+        ):
+            assert lua.eval(f"type({fn})") == "function", f"{fn} not registered"
+
+    def test_stub_path_functions_return_pob_path(self):
+        from poe.services.build.engine.stubs import register_stubs
+
+        mod = _get_lua_module()
+        lua = mod.LuaRuntime(unpack_returned_tuples=True)
+        register_stubs(lua, "C:\\Users\\Test\\PoB")
+
+        assert lua.eval("GetScriptPath()") == "C:/Users/Test/PoB"
+        assert lua.eval("GetRuntimePath()") == "C:/Users/Test/PoB"
+
+    def test_stub_inflate_deflate_roundtrip(self):
+        from poe.services.build.engine.stubs import register_stubs
+
+        mod = _get_lua_module()
+        lua = mod.LuaRuntime(unpack_returned_tuples=True)
+        register_stubs(lua, "/tmp/fakepob")
+
+        lua.execute('_testDeflated = Deflate("hello world")')
+        assert lua.eval("Inflate(_testDeflated)") == "hello world"
+
+    def test_stub_inflate_nil_returns_empty(self):
+        from poe.services.build.engine.stubs import register_stubs
+
+        mod = _get_lua_module()
+        lua = mod.LuaRuntime(unpack_returned_tuples=True)
+        register_stubs(lua, "/tmp/fakepob")
+        assert lua.eval("Inflate(nil)") == ""
+
+    def test_stub_screen_size(self):
+        from poe.services.build.engine.stubs import register_stubs
+
+        mod = _get_lua_module()
+        lua = mod.LuaRuntime(unpack_returned_tuples=True)
+        register_stubs(lua, "/tmp/fakepob")
+        w, h = lua.eval("GetScreenSize()")
+        assert w == 1920
+        assert h == 1080
+
+    def test_stub_image_handle(self):
+        from poe.services.build.engine.stubs import register_stubs
+
+        mod = _get_lua_module()
+        lua = mod.LuaRuntime(unpack_returned_tuples=True)
+        register_stubs(lua, "/tmp/fakepob")
+        assert lua.eval("NewImageHandle():IsValid()") is False
+
+    def test_stub_path_with_quotes_safe(self):
+        """Paths with special characters don't cause Lua injection."""
+        from poe.services.build.engine.stubs import register_stubs
+
+        mod = _get_lua_module()
+        lua = mod.LuaRuntime(unpack_returned_tuples=True)
+        evil_path = 'C:\\Users\\O\'Malley\\"evil"\\PoB'
+        register_stubs(lua, evil_path)
+        result = lua.eval("GetScriptPath()")
+        assert "O'Malley" in result
+
+    def test_stub_deflate_nil_returns_empty(self):
+        """Deflate(nil) returns empty string."""
+        from poe.services.build.engine.stubs import register_stubs
+
+        mod = _get_lua_module()
+        lua = mod.LuaRuntime(unpack_returned_tuples=True)
+        register_stubs(lua, "/tmp/fakepob")
+        assert lua.eval("Deflate(nil)") == ""
+
+    def test_stub_inflate_bad_data_returns_empty(self):
+        """Inflate with invalid compressed data returns empty string."""
+        from poe.services.build.engine.stubs import register_stubs
+
+        mod = _get_lua_module()
+        lua = mod.LuaRuntime(unpack_returned_tuples=True)
+        register_stubs(lua, "/tmp/fakepob")
+        assert lua.eval('Inflate("not compressed data at all")') == ""

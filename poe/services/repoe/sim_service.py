@@ -1,0 +1,375 @@
+from __future__ import annotations
+
+from poe.exceptions import SimDataError, SlotError
+from poe.models.build.items import EquippedItem
+from poe.models.sim import (
+    BaseItemSearchResult,
+    BenchCraftListResult,
+    EssenceListResult,
+    FossilListResult,
+    ItemAnalysisResult,
+    ModPoolResult,
+    ModTierResult,
+    SimulationResult,
+)
+from poe.paths import resolve_build_file
+from poe.services.build.xml.parser import parse_build_file
+from poe.services.repoe.constants import DEFAULT_ILVL, DEFAULT_ITERATIONS
+from poe.services.repoe.data import RepoEData
+from poe.services.repoe.sim import CraftingEngine
+from poe.types import CraftMethod
+
+
+class SimService:
+    """Owns crafting business logic."""
+
+    def __init__(self, repoe_data: RepoEData | None = None) -> None:
+        self._data = repoe_data or RepoEData()
+
+    def get_mods(
+        self,
+        base_name: str,
+        *,
+        ilvl: int = DEFAULT_ILVL,
+        influences: list[str] | None = None,
+        affix_type: str | None = None,
+        limit: int = 30,
+    ) -> ModPoolResult:
+        mods = self._data.get_mod_pool(
+            base_name,
+            ilvl=ilvl,
+            influences=influences or [],
+            affix_type=affix_type,
+        )
+        if not mods:
+            bitem = self._data.get_base_item(base_name)
+            if not bitem:
+                raise SimDataError(
+                    f"Base item '{base_name}' not found. Use 'poe sim search <query>'."
+                )
+            raise SimDataError("No mods found for given filters")
+        return ModPoolResult(
+            base=base_name,
+            ilvl=ilvl,
+            influences=influences or ["none"],
+            filter=affix_type or "all",
+            total_mods=len(mods),
+            mods=mods[:limit],
+        )
+
+    def get_tiers(self, mod_id: str, base_name: str, *, ilvl: int = 100) -> ModTierResult:
+        tiers = self._data.get_mod_tiers(mod_id, base_name, ilvl=ilvl)
+        if not tiers:
+            raise SimDataError(f"No tiers found for mod {mod_id} on {base_name}")
+        return ModTierResult(mod_id=mod_id, base=base_name, ilvl=ilvl, tiers=tiers)
+
+    def get_fossils(self, *, filter_tag: str | None = None) -> FossilListResult:
+        fossils = self._data.get_fossils(filter_tag=filter_tag)
+        return FossilListResult(filter=filter_tag, count=len(fossils), fossils=fossils)
+
+    def get_essences(self, base_name: str | None = None) -> EssenceListResult:
+        essences = self._data.get_essences(base_name=base_name)
+        return EssenceListResult(base=base_name or "all", count=len(essences), essences=essences)
+
+    def get_bench_crafts(self, base_name: str) -> BenchCraftListResult:
+        crafts = self._data.get_bench_crafts(base_name)
+        return BenchCraftListResult(base=base_name, count=len(crafts), crafts=crafts)
+
+    def search_bases(self, query: str) -> BaseItemSearchResult:
+        results = self._data.search_base_items(query)
+        items = [
+            {
+                "name": bitem["name"],
+                "drop_level": bitem["drop_level"],
+                "properties": bitem.get("properties", {}),
+            }
+            for bitem in results[:20]
+        ]
+        return BaseItemSearchResult(query=query, count=len(results), items=items)
+
+    def analyze_item(
+        self, build_name: str, *, slot: str, ilvl: int | None = None
+    ) -> ItemAnalysisResult:
+        """Analyze an equipped item's mods, tiers, and open affix slots."""
+        path = resolve_build_file(build_name)
+        build_obj = parse_build_file(path)
+
+        equipped = build_obj.get_equipped_items()
+        target_item = None
+        target_slot = None
+        for slot_name, item in equipped:
+            if slot.casefold() in slot_name.casefold():
+                target_item = item
+                target_slot = slot_name
+                break
+        if not target_item or not target_slot:
+            raise SlotError(f"No item found in slot matching '{slot}'")
+
+        item_ilvl = ilvl or DEFAULT_ILVL
+        bitem = self._data.get_base_item(target_item.base_type)
+        base_found = bitem is not None
+        analysis: dict = {"base_found": base_found, "ilvl_used": item_ilvl}
+
+        if base_found:
+            mods = self._data.get_mod_pool(
+                target_item.base_type,
+                ilvl=item_ilvl,
+                influences=target_item.influences,
+            )
+            avail_prefixes = [m for m in mods if m["affix"] == "prefix"]
+            avail_suffixes = [m for m in mods if m["affix"] == "suffix"]
+            analysis["total_rollable_prefixes"] = len(avail_prefixes)
+            analysis["total_rollable_suffixes"] = len(avail_suffixes)
+            analysis["open_prefix_slots"] = target_item.open_prefixes
+            analysis["open_suffix_slots"] = target_item.open_suffixes
+            if target_item.open_prefixes > 0:
+                analysis["top_available_prefixes"] = avail_prefixes[:10]
+            if target_item.open_suffixes > 0:
+                analysis["top_available_suffixes"] = avail_suffixes[:10]
+            bench = self._data.get_bench_crafts(target_item.base_type)
+            if bench:
+                analysis["bench_craft_count"] = len(bench)
+                analysis["bench_crafts_sample"] = bench[:5]
+        return ItemAnalysisResult(
+            slot=target_slot,
+            item=EquippedItem(slot=target_slot, **target_item.model_dump()).model_dump(
+                exclude_none=True
+            ),
+            analysis=analysis,
+        )
+
+    def simulate(
+        self,
+        base_name: str,
+        *,
+        ilvl: int = DEFAULT_ILVL,
+        method: str,
+        target: list[str],
+        fossils: list[str] | None = None,
+        essence: str | None = None,
+        influence: list[str] | None = None,
+        iterations: int = DEFAULT_ITERATIONS,
+        match: str = "all",
+    ) -> SimulationResult:
+        if method == CraftMethod.ESSENCE and not essence:
+            raise SimDataError("--essence is required when method is 'essence'")
+        eng = CraftingEngine(self._data)
+        sim_result = eng.simulate(
+            base=base_name,
+            ilvl=ilvl,
+            method=method,
+            target_mods=target,
+            iterations=iterations,
+            influences=influence or [],
+            fossils=fossils,
+            match_mode=match,
+            essence_name=essence,
+        )
+        return SimulationResult(
+            base=base_name,
+            ilvl=ilvl,
+            method=method,
+            targets=target,
+            fossils=fossils,
+            essence=essence,
+            match_mode=match,
+            iterations=sim_result.iterations,
+            hit_rate=f"{sim_result.hit_rate:.1%}",
+            avg_attempts=round(sim_result.avg_attempts, 1),
+            cost_per_attempt=round(sim_result.cost_per_attempt, 1),
+            avg_cost_chaos=round(sim_result.avg_cost_chaos, 1),
+            percentiles=sim_result.percentiles,
+        )
+
+    def simulate_multistep(
+        self,
+        base_name: str,
+        *,
+        ilvl: int = DEFAULT_ILVL,
+        steps: list[dict],
+        target: list[str],
+        iterations: int = DEFAULT_ITERATIONS,
+        influence: list[str] | None = None,
+        match: str = "all",
+    ) -> dict:
+        eng = CraftingEngine(self._data)
+        target_set = {t.casefold() for t in target}
+        hits = 0
+        attempts_on_hit: list[int] = []
+        for _ in range(iterations):
+            item = eng.create_item(base_name, ilvl, influence)
+            for step in steps:
+                method = step.get("method", "chaos")
+                if method == "chaos":
+                    eng.chaos_roll(item)
+                elif method == "alt":
+                    eng.alt_roll(item)
+                elif method == "regal":
+                    eng.regal(item)
+                elif method == "exalt":
+                    eng.exalt(item)
+                elif method == "annul":
+                    eng.annul(item)
+                elif method == "scour":
+                    eng.scour(item)
+            rolled_groups = {m.group.casefold() for m in item.all_mods}
+            hit = (
+                target_set.issubset(rolled_groups)
+                if match == "all"
+                else bool(target_set & rolled_groups)
+            )
+            if hit:
+                hits += 1
+                attempts_on_hit.append(1)
+        hit_rate = hits / iterations if iterations > 0 else 0
+        return {
+            "base": base_name,
+            "steps": [s.get("method") for s in steps],
+            "targets": target,
+            "iterations": iterations,
+            "hit_rate": f"{hit_rate:.1%}",
+            "hits": hits,
+        }
+
+    def fossil_optimizer(self, mod_name: str) -> list[dict]:
+        fossils = self._data.get_fossils()
+        results = []
+        mod_cf = mod_name.casefold()
+        for fossil in fossils:
+            for tag, multiplier in fossil.get("positive_weights", {}).items():
+                if mod_cf in tag.casefold():
+                    results.append({
+                        "fossil": fossil["name"],
+                        "tag": tag,
+                        "multiplier": multiplier,
+                        "effect": (
+                            "boost" if multiplier > 1
+                            else "reduce" if multiplier < 1
+                            else "neutral"
+                        ),
+                    })
+            for tag, multiplier in fossil.get("negative_weights", {}).items():
+                if mod_cf in tag.casefold():
+                    results.append({
+                        "fossil": fossil["name"],
+                        "tag": tag,
+                        "multiplier": multiplier,
+                        "effect": "block" if multiplier == 0 else "reduce",
+                    })
+            results.extend(
+                {
+                    "fossil": fossil["name"],
+                    "tag": tag,
+                    "multiplier": 0.0,
+                    "effect": "block",
+                }
+                for tag in fossil.get("blocked", [])
+                if mod_cf in tag.casefold()
+            )
+        results.sort(key=lambda x: x["multiplier"], reverse=True)
+        return results
+
+    def compare_methods(
+        self,
+        base_name: str,
+        *,
+        ilvl: int = DEFAULT_ILVL,
+        target: list[str],
+        fossils: list[str] | None = None,
+        essence: str | None = None,
+        influence: list[str] | None = None,
+        iterations: int = DEFAULT_ITERATIONS,
+    ) -> list[dict]:
+        methods_to_try = ["chaos"]
+        if fossils:
+            methods_to_try.append("fossil")
+        if essence:
+            methods_to_try.append("essence")
+        results = []
+        for method in methods_to_try:
+            sim = self.simulate(
+                base_name,
+                ilvl=ilvl,
+                method=method,
+                target=target,
+                fossils=fossils if method == "fossil" else None,
+                essence=essence if method == "essence" else None,
+                influence=influence,
+                iterations=iterations,
+            )
+            results.append(
+                {
+                    "method": method,
+                    "hit_rate": sim.hit_rate,
+                    "avg_attempts": sim.avg_attempts,
+                    "avg_cost_chaos": sim.avg_cost_chaos,
+                    "cost_per_attempt": sim.cost_per_attempt,
+                }
+            )
+        results.sort(key=lambda x: x["avg_cost_chaos"])
+        return results
+
+    def suggest_craft(self, mod_names: list[str]) -> list[dict]:
+        suggestions = []
+        for mod in mod_names:
+            fossil_matches = self.fossil_optimizer(mod)
+            if fossil_matches:
+                best = fossil_matches[0]
+                suggestions.append(
+                    {
+                        "mod": mod,
+                        "approach": "fossil",
+                        "fossil": best["fossil"],
+                        "multiplier": best["multiplier"],
+                    }
+                )
+            else:
+                suggestions.append(
+                    {
+                        "mod": mod,
+                        "approach": "chaos",
+                        "reason": "no fossil boosts this mod",
+                    }
+                )
+        return suggestions
+
+    def resolve_mod_name(self, display_name: str, base_name: str) -> str | None:
+        mods = self._data.get_mod_pool(base_name)
+        name_cf = display_name.casefold()
+        for mod in mods:
+            if name_cf in mod["name"].casefold():
+                return mod["group"]
+        return None
+
+    def mod_weights(
+        self,
+        base_name: str,
+        *,
+        ilvl: int = DEFAULT_ILVL,
+        influences: list[str] | None = None,
+        limit: int = 20,
+    ) -> list[dict]:
+        mods = self._data.get_mod_pool(
+            base_name,
+            ilvl=ilvl,
+            influences=influences or [],
+        )
+        total = sum(m["weight"] for m in mods)
+        results = []
+        for mod in mods[:limit]:
+            pct = (mod["weight"] / total * 100) if total > 0 else 0
+            results.append(
+                {
+                    "mod_id": mod["mod_id"],
+                    "name": mod["name"],
+                    "group": mod["group"],
+                    "affix": mod["affix"],
+                    "weight": mod["weight"],
+                    "probability": f"{pct:.2f}%",
+                }
+            )
+        return results
+
+    def get_prices(self, *, league: str = "current") -> dict:
+        return self._data.get_prices(league=league)
+

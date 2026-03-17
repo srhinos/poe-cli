@@ -19,16 +19,11 @@ class TestParseAll:
             assert build is not None
             assert build.level >= 1
 
-    def test_build_to_dict_roundtrip(self, all_builds):
-        """parse → to_dict should produce valid structure."""
+    def test_build_fields_populated(self, all_builds):
         for name, build in all_builds:
-            d = build.to_dict()
-            assert "character" in d
-            assert "stats" in d
-            assert "tree" in d
-            assert "skills" in d
-            assert "items" in d
-            assert d["character"]["level"] >= 1, f"{name} has invalid level"
+            assert build.class_name != "", f"{name} has no class"
+            assert build.level >= 1, f"{name} has invalid level"
+            assert len(build.specs) >= 1, f"{name} has no specs"
 
 
 # ── Item variety ─────────────────────────────────────────────────────────────

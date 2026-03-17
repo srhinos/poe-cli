@@ -1,27 +1,46 @@
-"""Shared fixtures for pob-mcp unit tests."""
-
 from __future__ import annotations
 
-from pathlib import Path
+import io
+from contextlib import redirect_stderr, redirect_stdout
+from typing import TYPE_CHECKING
 
 import pytest
+from rich.console import Console
 
-from pob.models import (
-    Build,
-    ConfigInput,
-    ConfigSet,
-    Gem,
-    Item,
-    ItemMod,
-    ItemSet,
-    ItemSlot,
-    MasteryEffect,
-    PlayerStat,
-    SkillGroup,
-    TreeSocket,
-    TreeSpec,
-)
-from pob.writer import write_build_file
+from poe.models.build.build import BuildDocument
+from poe.models.build.config import BuildConfig, ConfigEntry
+from poe.models.build.gems import Gem, GemGroup
+from poe.models.build.items import Item, ItemSet, ItemSlot
+from poe.models.build.stats import StatEntry
+from poe.models.build.tree import MasteryMapping, TreeSocket, TreeSpec
+from poe.services.build.xml.writer import write_build_file
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+
+class CliResult:
+    def __init__(self, output: str, exit_code: int, exception: BaseException | None = None) -> None:
+        self.output = output
+        self.exit_code = exit_code
+        self.exception = exception
+
+
+def invoke_cli(app, args: list[str]) -> CliResult:
+    buf = io.StringIO()
+    console = Console(file=buf, highlight=False, color_system=None)
+    exit_code = 0
+    exception = None
+    try:
+        with redirect_stdout(buf), redirect_stderr(buf):
+            app(args, exit_on_error=False, console=console)
+    except SystemExit as e:
+        exit_code = e.code if isinstance(e.code, int) else (1 if e.code else 0)
+    except Exception as e:
+        exception = e
+        exit_code = 1
+    return CliResult(output=buf.getvalue(), exit_code=exit_code, exception=exception)
+
 
 # ── Minimal PoB XML ──────────────────────────────────────────────────────────
 
@@ -100,7 +119,6 @@ Suffix: None
 
 @pytest.fixture
 def minimal_build_xml(tmp_path: Path) -> Path:
-    """Write minimal valid PoB XML to a temp file and return its path."""
     p = tmp_path / "test_build.xml"
     p.write_text(MINIMAL_BUILD_XML, encoding="utf-8")
     return p
@@ -108,234 +126,274 @@ def minimal_build_xml(tmp_path: Path) -> Path:
 
 @pytest.fixture
 def tmp_builds_dir(tmp_path: Path) -> Path:
-    """Create a temp directory with sample .xml files."""
     builds = tmp_path / "builds"
     builds.mkdir()
     for name in ["BuildA.xml", "BuildB.xml", "SomeOther.xml"]:
         (builds / name).write_text(MINIMAL_BUILD_XML, encoding="utf-8")
-    # Non-xml file should be ignored
     (builds / "notes.txt").write_text("not a build")
     return builds
 
 
-# ── CoE mock data ────────────────────────────────────────────────────────────
+@pytest.fixture
+def fixture_path():
+    """Return path to a named test fixture file."""
+    from pathlib import Path
 
-COE_MAIN_DATA = {
-    "bitems": {
-        "name": {"Hubris Circlet": "0", "Vaal Regalia": "1"},
-        "seq": [
-            {
-                "id_base": "100",
-                "name_bitem": "Hubris Circlet",
-                "drop_level": "69",
-                "properties": "{}",
-            },
-            {
-                "id_base": "200",
-                "name_bitem": "Vaal Regalia",
-                "drop_level": "68",
-                "properties": "{}",
-            },
-        ],
-    },
-    "bases": {
-        "seq": [
-            {"id_base": "100", "id_bgroup": "10"},
-            {"id_base": "200", "id_bgroup": "20"},
-        ],
-    },
-    "bgroups": {
-        "seq": [
-            {"id_bgroup": "10", "name_bgroup": "Helmets", "max_affix": "6"},
-            {"id_bgroup": "20", "name_bgroup": "Body Armours", "max_affix": "6"},
-        ],
-    },
-    "modifiers": {
-        "ind": {"mod_life": "0", "mod_cold": "1", "mod_fire": "2", "mod_shaper_life": "3"},
-        "seq": [
-            {
-                "id_modifier": "mod_life",
-                "name_modifier": "Increased Life",
-                "affix": "prefix",
-                "modgroup": "IncreasedLife",
-                "id_mgroup": "1",
-                "mtypes": "life|defence",
-            },
-            {
-                "id_modifier": "mod_cold",
-                "name_modifier": "Cold Resistance",
-                "affix": "suffix",
-                "modgroup": "ColdResistance",
-                "id_mgroup": "1",
-                "mtypes": "elemental|resistance",
-            },
-            {
-                "id_modifier": "mod_fire",
-                "name_modifier": "Fire Resistance",
-                "affix": "suffix",
-                "modgroup": "FireResistance",
-                "id_mgroup": "1",
-                "mtypes": "elemental|resistance",
-            },
-            {
-                "id_modifier": "mod_shaper_life",
-                "name_modifier": "Shaper Life",
-                "affix": "prefix",
-                "modgroup": "ShaperLife",
-                "id_mgroup": "2",
-                "mtypes": "life",
-            },
-        ],
-    },
-    "basemods": {
-        "100": ["mod_life", "mod_cold", "mod_fire", "mod_shaper_life"],
-        "200": ["mod_life", "mod_cold", "mod_fire"],
-    },
-    "tiers": {
-        "mod_life": {
-            "100": [
-                {"ilvl": "1", "weighting": "1000", "nvalues": "[[10,20]]"},
-                {"ilvl": "36", "weighting": "800", "nvalues": "[[30,40]]"},
-                {"ilvl": "68", "weighting": "500", "nvalues": "[[60,80]]"},
-                {"ilvl": "82", "weighting": "200", "nvalues": "[[90,100]]"},
-            ],
-            "200": [
-                {"ilvl": "1", "weighting": "1000", "nvalues": "[[10,20]]"},
-                {"ilvl": "68", "weighting": "500", "nvalues": "[[60,80]]"},
-            ],
+    base = Path(__file__).parent / "fixtures"
+
+    def _get(name: str) -> Path:
+        p = base / name
+        assert p.exists(), f"Fixture not found: {p}"
+        return p
+
+    return _get
+
+
+# ── Craft pipeline mock data ─────────────────────────────────────────────────
+
+REPOE_DATA = {
+    "base_items": {
+        "Hubris Circlet": {
+            "id": "Metadata/Items/Armours/Helmets/HelmetInt10",
+            "item_class": "Helmet",
+            "drop_level": 69,
+            "tags": ["int_armour", "helmet", "armour", "default"],
+            "properties": {"energy_shield": {"min": 100, "max": 120}},
+            "max_prefixes": 3,
+            "max_suffixes": 3,
         },
-        "mod_cold": {
-            "100": [
-                {"ilvl": "1", "weighting": "1000", "nvalues": "[[10,20]]"},
-                {"ilvl": "60", "weighting": "500", "nvalues": "[[30,40]]"},
-            ],
-        },
-        "mod_fire": {
-            "100": [
-                {"ilvl": "1", "weighting": "1000", "nvalues": "[[10,20]]"},
-            ],
-        },
-        "mod_shaper_life": {
-            "100": [
-                {"ilvl": "68", "weighting": "300", "nvalues": "[[5,10]]"},
-            ],
+        "Vaal Regalia": {
+            "id": "Metadata/Items/Armours/BodyArmours/BodyInt10",
+            "item_class": "Body Armour",
+            "drop_level": 68,
+            "tags": ["int_armour", "body_armour", "armour", "default"],
+            "properties": {},
+            "max_prefixes": 3,
+            "max_suffixes": 3,
         },
     },
-    "mgroups": {
-        "seq": [
-            {"id_mgroup": "1", "name_mgroup": "Base"},
-            {"id_mgroup": "2", "name_mgroup": "Shaper"},
-        ],
+    "mods": {
+        "IncreasedLife4": {
+            "name": "Increased Life",
+            "group": "IncreasedLife",
+            "affix": "prefix",
+            "required_level": 1,
+            "implicit_tags": ["resource", "life"],
+            "stats": [{"id": "base_maximum_life", "min": 10, "max": 20}],
+            "spawn_weights": [
+                {"tag": "helmet", "weight": 1000},
+                {"tag": "body_armour", "weight": 1000},
+                {"tag": "default", "weight": 0},
+            ],
+            "influence": None,
+            "is_essence_only": False,
+        },
+        "IncreasedLife3": {
+            "name": "Increased Life",
+            "group": "IncreasedLife",
+            "affix": "prefix",
+            "required_level": 36,
+            "implicit_tags": ["resource", "life"],
+            "stats": [{"id": "base_maximum_life", "min": 30, "max": 40}],
+            "spawn_weights": [
+                {"tag": "helmet", "weight": 800},
+                {"tag": "body_armour", "weight": 800},
+                {"tag": "default", "weight": 0},
+            ],
+            "influence": None,
+            "is_essence_only": False,
+        },
+        "IncreasedLife2": {
+            "name": "Increased Life",
+            "group": "IncreasedLife",
+            "affix": "prefix",
+            "required_level": 68,
+            "implicit_tags": ["resource", "life"],
+            "stats": [{"id": "base_maximum_life", "min": 60, "max": 80}],
+            "spawn_weights": [
+                {"tag": "helmet", "weight": 500},
+                {"tag": "body_armour", "weight": 500},
+                {"tag": "default", "weight": 0},
+            ],
+            "influence": None,
+            "is_essence_only": False,
+        },
+        "IncreasedLife1": {
+            "name": "Increased Life",
+            "group": "IncreasedLife",
+            "affix": "prefix",
+            "required_level": 82,
+            "implicit_tags": ["resource", "life"],
+            "stats": [{"id": "base_maximum_life", "min": 90, "max": 100}],
+            "spawn_weights": [
+                {"tag": "helmet", "weight": 200},
+                {"tag": "body_armour", "weight": 200},
+                {"tag": "default", "weight": 0},
+            ],
+            "influence": None,
+            "is_essence_only": False,
+        },
+        "ColdResistance2": {
+            "name": "Cold Resistance",
+            "group": "ColdResistance",
+            "affix": "suffix",
+            "required_level": 1,
+            "implicit_tags": ["elemental", "resistance", "cold"],
+            "stats": [{"id": "cold_damage_resistance_%", "min": 10, "max": 20}],
+            "spawn_weights": [
+                {"tag": "helmet", "weight": 1000},
+                {"tag": "default", "weight": 0},
+            ],
+            "influence": None,
+            "is_essence_only": False,
+        },
+        "ColdResistance1": {
+            "name": "Cold Resistance",
+            "group": "ColdResistance",
+            "affix": "suffix",
+            "required_level": 60,
+            "implicit_tags": ["elemental", "resistance", "cold"],
+            "stats": [{"id": "cold_damage_resistance_%", "min": 30, "max": 40}],
+            "spawn_weights": [
+                {"tag": "helmet", "weight": 500},
+                {"tag": "default", "weight": 0},
+            ],
+            "influence": None,
+            "is_essence_only": False,
+        },
+        "FireResistance1": {
+            "name": "Fire Resistance",
+            "group": "FireResistance",
+            "affix": "suffix",
+            "required_level": 1,
+            "implicit_tags": ["elemental", "resistance", "fire"],
+            "stats": [{"id": "fire_damage_resistance_%", "min": 10, "max": 20}],
+            "spawn_weights": [
+                {"tag": "helmet", "weight": 1000},
+                {"tag": "default", "weight": 0},
+            ],
+            "influence": None,
+            "is_essence_only": False,
+        },
+        "ShaperIncreasedLife1": {
+            "name": "Shaper Life",
+            "group": "ShaperLife",
+            "affix": "prefix",
+            "required_level": 68,
+            "implicit_tags": ["resource", "life"],
+            "stats": [{"id": "base_maximum_life", "min": 5, "max": 10}],
+            "spawn_weights": [
+                {"tag": "helmet_shaper", "weight": 300},
+                {"tag": "default", "weight": 0},
+            ],
+            "influence": "Shaper",
+            "is_essence_only": False,
+        },
     },
-    "mtypes": {
-        "seq": [
-            {"id_mtype": "1", "name_mtype": "life"},
-            {"id_mtype": "2", "name_mtype": "defence"},
-            {"id_mtype": "3", "name_mtype": "elemental"},
-            {"id_mtype": "4", "name_mtype": "resistance"},
+    "mod_pool": {
+        "Metadata/Items/Armours/Helmets/HelmetInt10": [
+            "IncreasedLife4",
+            "IncreasedLife3",
+            "IncreasedLife2",
+            "IncreasedLife1",
+            "ColdResistance2",
+            "ColdResistance1",
+            "FireResistance1",
+            "ShaperIncreasedLife1",
+        ],
+        "Metadata/Items/Armours/BodyArmours/BodyInt10": [
+            "IncreasedLife4",
+            "IncreasedLife3",
+            "IncreasedLife2",
+            "IncreasedLife1",
         ],
     },
     "fossils": {
-        "seq": [
-            {
-                "id_fossil": "1",
-                "name_fossil": "Pristine Fossil",
-                "more_list": "1",
-                "less_list": "",
-                "block_list": "",
-                "mod_data": '{"life": 1000}',
-            },
-            {
-                "id_fossil": "2",
-                "name_fossil": "Frigid Fossil",
-                "more_list": "3",
-                "less_list": "1",
-                "block_list": "",
-                "mod_data": '{"elemental": 500}',
-            },
-        ],
+        "Pristine Fossil": {
+            "positive_weights": {"life": 10.0},
+            "negative_weights": {"defences": 0.0},
+            "forced_mods": [],
+            "added_mods": [],
+            "blocked_tags": ["defences"],
+        },
+        "Frigid Fossil": {
+            "positive_weights": {"cold": 10.0},
+            "negative_weights": {"fire": 0.0},
+            "forced_mods": [],
+            "added_mods": [],
+            "blocked_tags": ["fire"],
+        },
+        "Metallic Fossil": {
+            "positive_weights": {"lightning": 10.0},
+            "negative_weights": {"physical": 0.0},
+            "forced_mods": [],
+            "added_mods": [],
+            "blocked_tags": ["physical"],
+        },
     },
     "essences": {
-        "seq": [
-            {
-                "id_essence": "1",
-                "name_essence": "Greed",
-                "tooltip": '[{"lbl": "Helmet", "val": "+60 to maximum Life", "bid": [100]}]',
-            },
-        ],
+        "Essence of Greed": {
+            "tier": 5,
+            "level_restriction": 45,
+            "mods": {"Helmet": "IncreasedLife2", "Body Armour": "IncreasedLife2"},
+            "is_corruption_only": False,
+        },
     },
-}
-
-COE_COMMON_DATA = {
-    "benchcosts": {
-        "mod_lifeb100": [{"3": 4}],
-        "mod_coldb100": [{"2": 6}],
-    },
-    "leagues": [
-        {"id": "league1", "name": "Settlers"},
+    "bench_crafts": [
+        {
+            "mod_id": "IncreasedLife4",
+            "item_classes": ["Helmet", "Body Armour", "Gloves", "Boots"],
+            "cost": {"Chaos Orb": 4},
+            "bench_tier": 1,
+        },
+        {
+            "mod_id": "ColdResistance2",
+            "item_classes": ["Helmet", "Body Armour", "Gloves", "Boots"],
+            "cost": {"Orb of Alteration": 6},
+            "bench_tier": 1,
+        },
     ],
 }
 
-COE_PRICES_DATA = {
-    "index": [{"id": "league1", "name": "Settlers"}],
-    "data": {
-        "Settlers": {
-            "currency": {
-                "Orb of Alteration": 0.08,
-                "Exalted Orb": 15,
-                "Divine Orb": 180,
-                "Orb of Annulment": 4,
-                "Orb of Scouring": 0.3,
-                "Regal Orb": 1,
-            },
-            "fossils": {
-                "Pristine Fossil": 3,
-                "Frigid Fossil": 2,
-            },
-            "essences": {},
-            "resonators": {
-                "Primitive Alchemical Resonator": 1,
-                "Potent Alchemical Resonator": 3,
-            },
-            "beasts": {},
-            "other": {},
-        },
+REPOE_PRICES_DATA = {
+    "league": "Settlers",
+    "currency": {
+        "Orb of Alteration": 0.08,
+        "Exalted Orb": 15,
+        "Divine Orb": 180,
+        "Orb of Annulment": 4,
+        "Orb of Scouring": 0.3,
+        "Regal Orb": 1,
     },
+    "fossils": {
+        "Pristine Fossil": 3,
+        "Frigid Fossil": 2,
+    },
+    "essences": {},
+    "resonators": {
+        "Primitive Alchemical Resonator": 1,
+        "Potent Alchemical Resonator": 3,
+    },
+    "beasts": {},
+    "other": {},
 }
 
 
-@pytest.fixture
-def coe_main_data() -> dict:
-    return COE_MAIN_DATA
+def make_repoe_data(data: dict | None = None):
+    from pathlib import Path
+    from unittest.mock import MagicMock
 
+    from poe.services.repoe.data import RepoEData
 
-@pytest.fixture
-def coe_common_data() -> dict:
-    return COE_COMMON_DATA
-
-
-@pytest.fixture
-def coe_prices_data() -> dict:
-    return COE_PRICES_DATA
-
-
-def make_craft_data(
-    main: dict | None = None, common: dict | None = None, prices: dict | None = None
-):
-    """Create a CraftData instance with pre-loaded dicts (no HTTP)."""
-    from pob.craftdata import CraftData
-
-    cd = CraftData()
-    cd._data["data"] = main or COE_MAIN_DATA
-    cd._data["common"] = common or COE_COMMON_DATA
-    cd._data["prices"] = prices or COE_PRICES_DATA
+    fixture = data or REPOE_DATA
+    cd = RepoEData(data_dir=Path("/fake"))
+    cd._load = MagicMock(side_effect=lambda name: fixture[name])
     return cd
 
 
 @pytest.fixture
-def craft_data():
-    """A CraftData with all mock data pre-loaded."""
-    return make_craft_data()
+def repoe_data():
+    return make_repoe_data()
 
 
 # ── PoBXmlBuilder ─────────────────────────────────────────────────────────────
@@ -346,11 +404,11 @@ class PoBXmlBuilder:
 
     def __init__(self, base_dir: Path):
         self._dir = base_dir
-        self._build = Build(
+        self._build = BuildDocument(
             specs=[TreeSpec(tree_version="3_25")],
             skill_set_ids=[1],
             item_sets=[ItemSet(id="1")],
-            config_sets=[ConfigSet(id="1", title="Default")],
+            config_sets=[BuildConfig(id="1", title="Default")],
         )
         self._next_item_id = 1
 
@@ -361,7 +419,7 @@ class PoBXmlBuilder:
         return self
 
     def with_stat(self, stat: str, value: float) -> PoBXmlBuilder:
-        self._build.player_stats.append(PlayerStat(stat=stat, value=value))
+        self._build.player_stats.append(StatEntry(stat=stat, value=value))
         return self
 
     def with_tree_spec(
@@ -381,61 +439,44 @@ class PoBXmlBuilder:
             class_id=class_id,
             ascend_class_id=ascend_class_id,
             nodes=nodes,
-            mastery_effects=[MasteryEffect(node_id=n, effect_id=e) for n, e in (masteries or [])],
+            mastery_effects=[MasteryMapping(node_id=n, effect_id=e) for n, e in (masteries or [])],
             sockets=[TreeSocket(node_id=n, item_id=i) for n, i in (sockets or [])],
             url=url,
         )
-        # Replace default empty spec or append
         if len(self._build.specs) == 1 and not self._build.specs[0].nodes:
             self._build.specs[0] = spec
         else:
             self._build.specs.append(spec)
         return self
 
-    def with_item(
-        self,
-        slot: str,
-        rarity: str = "RARE",
-        name: str = "New Item",
-        base_type: str = "",
-        influences: list[str] | None = None,
-        armour: int = 0,
-        evasion: int = 0,
-        energy_shield: int = 0,
-        quality: int = 0,
-        sockets: str = "",
-        level_req: int = 0,
-        implicits: list[ItemMod] | None = None,
-        explicits: list[ItemMod] | None = None,
-        is_crafted: bool = False,
-        prefix_slots: list[str] | None = None,
-        suffix_slots: list[str] | None = None,
-    ) -> PoBXmlBuilder:
+    def with_item(self, slot: str, **kwargs) -> PoBXmlBuilder:
         item_id = self._next_item_id
         self._next_item_id += 1
 
-        item = Item(
-            id=item_id,
-            text="",
-            rarity=rarity,
-            name=name,
-            base_type=base_type,
-            influences=influences or [],
-            armour=armour,
-            evasion=evasion,
-            energy_shield=energy_shield,
-            quality=quality,
-            sockets=sockets,
-            level_req=level_req,
-            implicits=implicits or [],
-            explicits=explicits or [],
-            is_crafted=is_crafted,
-            prefix_slots=prefix_slots or [],
-            suffix_slots=suffix_slots or [],
-        )
-        self._build.items.append(item)
+        defaults = {
+            "rarity": "RARE",
+            "name": "New Item",
+            "base_type": "",
+            "influences": [],
+            "armour": 0,
+            "evasion": 0,
+            "energy_shield": 0,
+            "quality": 0,
+            "sockets": "",
+            "level_req": 0,
+            "implicits": [],
+            "explicits": [],
+            "is_crafted": False,
+            "prefix_slots": [],
+            "suffix_slots": [],
+        }
+        defaults.update(kwargs)
+        for list_field in ("influences", "implicits", "explicits", "prefix_slots", "suffix_slots"):
+            if defaults[list_field] is None:
+                defaults[list_field] = []
 
-        # Add to first item set
+        item = Item(id=item_id, text="", **defaults)
+        self._build.items.append(item)
         self._build.item_sets[0].slots.append(ItemSlot(name=slot, item_id=item_id))
         return self
 
@@ -443,27 +484,26 @@ class PoBXmlBuilder:
         self,
         slot: str = "",
         gems: list[dict] | None = None,
+        *,
         include_in_full_dps: bool = False,
         enabled: bool = True,
         label: str = "",
+        main_active_skill_calcs: int = 0,
+        group_count: int = 0,
     ) -> PoBXmlBuilder:
         gem_objects = []
         for g in gems or []:
-            gem_objects.append(
-                Gem(
-                    name_spec=g.get("name", "Unknown"),
-                    level=g.get("level", 20),
-                    quality=g.get("quality", 0),
-                    enabled=g.get("enabled", True),
-                    skill_minion=g.get("skill_minion", ""),
-                )
-            )
-        group = SkillGroup(
+            kw = dict(g)
+            kw.setdefault("name_spec", "Unknown")
+            gem_objects.append(Gem(**kw))
+        group = GemGroup(
             slot=slot,
             label=label,
             enabled=enabled,
             include_in_full_dps=include_in_full_dps,
             gems=gem_objects,
+            main_active_skill_calcs=main_active_skill_calcs,
+            group_count=group_count,
         )
         self._build.skill_groups.append(group)
         return self
@@ -472,11 +512,11 @@ class PoBXmlBuilder:
         cfg = self._build.config_sets[0]
         for k, v in kwargs.items():
             if isinstance(v, bool):
-                cfg.inputs.append(ConfigInput(name=k, value=v, input_type="boolean"))
+                cfg.inputs.append(ConfigEntry(name=k, value=v, input_type="boolean"))
             elif isinstance(v, (int, float)):
-                cfg.inputs.append(ConfigInput(name=k, value=float(v), input_type="number"))
+                cfg.inputs.append(ConfigEntry(name=k, value=float(v), input_type="number"))
             else:
-                cfg.inputs.append(ConfigInput(name=k, value=str(v), input_type="string"))
+                cfg.inputs.append(ConfigEntry(name=k, value=str(v), input_type="string"))
         return self
 
     def with_notes(self, text: str) -> PoBXmlBuilder:
@@ -487,12 +527,10 @@ class PoBXmlBuilder:
         self._build.import_link = link
         return self
 
-    def build_object(self) -> Build:
-        """Return the Build object without writing."""
+    def build_object(self) -> BuildDocument:
         return self._build
 
     def write(self, filename: str = "build.xml") -> Path:
-        """Write to file and return path."""
         path = self._dir / filename
         write_build_file(self._build, path)
         return path

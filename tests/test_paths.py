@@ -4,7 +4,14 @@ from __future__ import annotations
 
 import pytest
 
-from pob.paths import get_builds_path, get_pob_path, list_build_files, resolve_build_file
+from poe.paths import (
+    get_builds_path,
+    get_pob_path,
+    list_build_files,
+    resolve_build_file,
+    resolve_or_file,
+    validate_build_name,
+)
 
 # ── get_pob_path ─────────────────────────────────────────────────────────────
 
@@ -99,3 +106,58 @@ class TestResolveBuildFile:
         monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_builds_dir))
         with pytest.raises(FileNotFoundError):
             resolve_build_file("DoesNotExist")
+
+
+# ── Path traversal guard ────────────────────────────────────────────────────
+
+
+class TestPathTraversal:
+    def test_reject_dotdot(self, tmp_builds_dir, monkeypatch):
+        monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_builds_dir))
+        with pytest.raises(ValueError, match="Invalid build name"):
+            resolve_build_file("../etc/passwd")
+
+    def testvalidate_build_name_rejects_dotdot(self):
+        with pytest.raises(ValueError, match="Invalid build name"):
+            validate_build_name("../foo")
+
+    def testvalidate_build_name_rejects_backslash(self):
+        with pytest.raises(ValueError, match="Invalid build name"):
+            validate_build_name("foo\\bar")
+
+    def testvalidate_build_name_accepts_normal(self):
+        # Should not raise
+        validate_build_name("MyBuild")
+        validate_build_name("My Build With Spaces")
+        validate_build_name("build-v2")
+
+    def test_validate_name_rejects_slash(self):
+        """Forward slash in build name should be rejected."""
+        with pytest.raises(ValueError, match="Invalid build name"):
+            validate_build_name("sub/dir")
+
+    def test_validate_name_rejects_empty(self):
+        """Empty string should be rejected."""
+        with pytest.raises(ValueError, match="Invalid build name"):
+            validate_build_name("")
+
+    def test_validate_name_rejects_whitespace(self):
+        """Whitespace-only string should be rejected."""
+        with pytest.raises(ValueError, match="Invalid build name"):
+            validate_build_name("   ")
+
+
+# ── resolve_or_file ──────────────────────────────────────────────────────────
+
+
+class TestResolveOrFile:
+    def test_with_file(self, tmp_path):
+        p = tmp_path / "test.xml"
+        p.write_text("<xml/>")
+        result = resolve_or_file("ignored", str(p))
+        assert result == p
+
+    def test_with_name(self, tmp_builds_dir, monkeypatch):
+        monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_builds_dir))
+        result = resolve_or_file("BuildA", None)
+        assert result.name == "BuildA.xml"

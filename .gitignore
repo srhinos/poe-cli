@@ -1,8 +1,81 @@
+# Python
+*.py[cod]
 __pycache__/
-*.pyc
-*.pyo
-.venv/
+*.so
+*.egg
 *.egg-info/
 dist/
-build/
-.eggs/
+/build/
+.Python
+env/
+venv/
+.venv/
+.ruff_cache/
+coverage.json
+ENV/
+
+# Terraform
+.terraform/
+.terraform.lock.hcl
+*.tfstate
+*.tfstate.*
+*.tfplan
+tfplan
+*.tfvars
+!terraform.tfvars.example
+lambda_packages/
+crash.log
+crash.*.log
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+.terraformrc
+terraform.rc
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.claude/
+CLAUDE.md
+
+# Logs
+*.log
+logs/
+/docs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Documentation
+site/
+.mkdocs_cache/
+
+# Secrets
+*.pem
+*.key
+*.crt
+secrets/
+.secrets/
+
+# AWS
+.aws/
+
+# Testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Temporary
+tmp/
+temp/
+*.tmp

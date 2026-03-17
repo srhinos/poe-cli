@@ -1,0 +1,81 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+      - name: Set up Python
+        run: uv python install 3.14
+      - name: Install dependencies
+        run: uv sync
+      - name: Ruff check
+        run: uv run ruff check poe/ tests/
+      - name: Ruff format check
+        run: uv run ruff format --check poe/ tests/
+
+  test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+        pob-version: ["v2.62.0", "latest"]
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+      - name: Set up Python ${{ matrix.python-version }}
+        run: uv python install ${{ matrix.python-version }}
+      - name: Install dependencies
+        run: uv sync
+      - name: Clone Path of Building for engine tests
+        run: |
+          if [ "${{ matrix.pob-version }}" = "latest" ]; then
+            git clone --depth 1 https://github.com/PathOfBuildingCommunity/PathOfBuilding.git /tmp/pob
+          else
+            git clone --depth 1 --branch ${{ matrix.pob-version }} https://github.com/PathOfBuildingCommunity/PathOfBuilding.git /tmp/pob
+          fi
+      - name: Run all tests with coverage
+        env:
+          POB_PATH: /tmp/pob
+        run: |
+          uv run pytest tests/ \
+            -v --cov=poe --cov-report=xml:coverage.xml --cov-report=term-missing \
+            --cov-fail-under=90
+      - name: Upload coverage artifact
+        if: matrix.python-version == '3.14' && matrix.pob-version == 'v2.62.0'
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-${{ github.sha }}
+          path: coverage.xml
+
+  coverage:
+    if: github.event_name == 'pull_request'
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v8
+        with:
+          name: coverage-${{ github.sha }}
+      - name: Coverage report
+        uses: orgoro/coverage@v3.2
+        with:
+          coverageFile: coverage.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          thresholdAll: 0.60
+          thresholdNew: 0.80
+          thresholdModified: 0.50

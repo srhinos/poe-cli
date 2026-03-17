@@ -1,0 +1,110 @@
+from __future__ import annotations
+
+import os
+from pathlib import Path
+
+from poe.constants import CLAUDE_SUBFOLDER, POB_XML_EXTENSION
+
+_WINDOWS_INVALID_CHARS = frozenset(':*?"<>|')
+_WINDOWS_RESERVED = frozenset(
+    {
+        "CON",
+        "PRN",
+        "AUX",
+        "NUL",
+        *(f"COM{i}" for i in range(10)),
+        *(f"LPT{i}" for i in range(10)),
+    }
+)
+
+
+def validate_build_name(name: str) -> None:
+    if not name or not name.strip():
+        raise ValueError(f"Invalid build name: {name!r}")
+    if ".." in name or "\\" in name or "/" in name:
+        raise ValueError(f"Invalid build name: {name!r}")
+    stem = name.removesuffix(".xml")
+    if any(c in stem for c in _WINDOWS_INVALID_CHARS):
+        raise ValueError(f"Build name contains invalid characters: {name!r}")
+    if stem.upper() in _WINDOWS_RESERVED:
+        raise ValueError(f"Build name uses a reserved word: {name!r}")
+
+
+def get_pob_path() -> Path:
+    env = os.environ.get("POB_PATH")
+    if env:
+        p = Path(env)
+        if p.exists():
+            return p
+
+    appdata = os.environ.get("APPDATA", "")
+    if appdata:
+        p = Path(appdata) / "Path of Building Community"
+        if p.exists():
+            return p
+
+    raise FileNotFoundError(
+        "Could not find Path of Building Community installation. "
+        "Set the POB_PATH environment variable to the installation directory."
+    )
+
+
+def get_builds_path() -> Path:
+    env = os.environ.get("POB_BUILDS_PATH")
+    if env:
+        p = Path(env)
+        if p.exists():
+            return p
+
+    docs = Path.home() / "Documents" / "Path of Building" / "Builds"
+    if docs.exists():
+        return docs
+
+    onedrive = Path.home() / "OneDrive" / "Documents" / "Path of Building" / "Builds"
+    if onedrive.exists():
+        return onedrive
+
+    raise FileNotFoundError(
+        "Could not find builds directory. Set the POB_BUILDS_PATH environment variable."
+    )
+
+
+def list_build_files() -> list[Path]:
+    builds_path = get_builds_path()
+    return sorted(builds_path.rglob(f"*{POB_XML_EXTENSION}"))
+
+
+def resolve_build_file(name: str) -> Path:
+    """Resolve a build name to a full path.
+
+    Searches recursively through subdirectories.
+    Prefers Claude/ copies over originals (read-after-write consistency).
+    """
+    validate_build_name(name)
+    builds_path = get_builds_path()
+
+    if not name.endswith(POB_XML_EXTENSION):
+        name = name + POB_XML_EXTENSION
+
+    claude_dir = builds_path / CLAUDE_SUBFOLDER
+    claude_path = claude_dir / name
+    if claude_path.exists():
+        return claude_path
+
+    path = builds_path / name
+    if not path.resolve().is_relative_to(builds_path.resolve()):
+        raise ValueError(f"Invalid build name: {name!r}")
+    if path.exists():
+        return path
+
+    for f in builds_path.rglob(f"*{POB_XML_EXTENSION}"):
+        if f.name.casefold() == name.casefold():
+            return f
+
+    raise FileNotFoundError(f"Build file not found: {name}")
+
+
+def resolve_or_file(name: str, file_path: str | None) -> Path:
+    if file_path:
+        return Path(file_path)
+    return resolve_build_file(name)

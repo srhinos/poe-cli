@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<PathOfBuilding>
+	<Build level="90" className="Witch" ascendClassName="Necromancer" bandit="None" viewMode="TREE" mainSocketGroup="1" targetVersion="3_0">
+		<PlayerStat stat="Life" value="4500" />
+		<PlayerStat stat="EnergyShield" value="1200" />
+		<PlayerStat stat="FireResist" value="75" />
+		<PlayerStat stat="ColdResist" value="75" />
+		<PlayerStat stat="LightningResist" value="75" />
+		<PlayerStat stat="ChaosResist" value="20" />
+		<PlayerStat stat="CombinedDPS" value="150000" />
+	</Build>
+	<Tree activeSpec="1">
+		<Spec treeVersion="3_28" classId="3" ascendClassId="1" title="Main">
+			<URL>https://www.pathofexile.com/passive-skill-tree/AAAABwMA</URL>
+			<Sockets>26725=0,36634=0</Sockets>
+			<EditedNodes />
+		</Spec>
+	</Tree>
+	<Skills activeSkillSet="1" sortGemsByDPSField="CombinedDPS">
+		<SkillSet id="1" />
+		<Skill mainActiveSkill="1" enabled="true" slot="Body Armour" label="">
+			<Gem nameSpec="Raise Zombie" level="20" quality="20" qualityId="Default" enabled="true" count="1" />
+			<Gem nameSpec="Minion Damage Support" level="20" quality="20" qualityId="Default" enabled="true" count="1" />
+		</Skill>
+	</Skills>
+	<Items activeItemSet="1">
+		<Item id="1">
+Rarity: RARE
+Doom Crown
+Hubris Circlet
+Quality: 20
+Sockets: B-B-B-B
+LevelReq: 69
+Implicits: 1
++50 to maximum Life
++90 to maximum Life
++40% to Fire Resistance
++35% to Cold Resistance
+		</Item>
+		<ItemSet id="1">
+			<Slot name="Helmet" itemId="1" />
+		</ItemSet>
+	</Items>
+	<Config>
+		<Input name="useFrenzyCharges" boolean="true" />
+	</Config>
+	<Notes>A minimal test build with one item and basic stats.</Notes>
+</PathOfBuilding>

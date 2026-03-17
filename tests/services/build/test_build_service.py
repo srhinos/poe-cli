@@ -1,0 +1,297 @@
+from __future__ import annotations
+
+import pytest
+
+from poe.exceptions import BuildNotFoundError, BuildValidationError
+from poe.services.build.build_service import BuildService
+from tests.conftest import MINIMAL_BUILD_XML
+
+
+class TestBuildService:
+    def test_load(self, build_file):
+        svc = BuildService()
+        _path, build = svc.load("ignored", file_path=str(build_file))
+        assert build.class_name == "Witch"
+        assert build.level == 90
+
+    def test_load_not_found(self, tmp_path):
+        svc = BuildService()
+        with pytest.raises(BuildNotFoundError):
+            svc.load("ignored", file_path=str(tmp_path / "nope.xml"))
+
+    def test_create(self, tmp_path):
+        svc = BuildService()
+        result = svc.create("new_build", file_path=str(tmp_path / "new.xml"))
+        assert result.status == "ok"
+        assert (tmp_path / "new.xml").exists()
+
+    def test_create_exists(self, build_file):
+        svc = BuildService()
+        with pytest.raises(FileExistsError):
+            svc.create("test", file_path=str(build_file))
+
+    def test_analyze(self, builds_dir):
+        svc = BuildService()
+        result = svc.analyze("TestBuild")
+        assert result.class_name
+        assert result.class_name == "Witch"
+
+    def test_stats_all(self, builds_dir):
+        svc = BuildService()
+        result = svc.stats("TestBuild")
+        assert "Life" in result.stats
+
+    def test_stats_filtered(self, builds_dir):
+        svc = BuildService()
+        off = svc.stats("TestBuild", category="off")
+        assert "TotalDPS" in off.stats
+        assert "Life" not in off.stats
+
+    def test_notes_get(self, build_file):
+        svc = BuildService()
+        result = svc.notes_get("ignored", file_path=str(build_file))
+        assert result.notes is not None
+
+    def test_notes_set(self, build_file):
+        svc = BuildService()
+        result = svc.notes_set("ignored", "new notes", file_path=str(build_file))
+        assert result.status == "ok"
+        assert result.notes == "new notes"
+
+    def test_validate(self, builds_dir):
+        svc = BuildService()
+        result = svc.validate("TestBuild")
+        assert result.issues is not None
+
+    def test_export(self, builds_dir, tmp_path):
+        svc = BuildService()
+        dest = tmp_path / "exported.xml"
+        result = svc.export("TestBuild", str(dest))
+        assert result.status == "ok"
+        assert dest.exists()
+
+    def test_compare(self, builds_dir):
+        (builds_dir / "Build2.xml").write_text(MINIMAL_BUILD_XML, encoding="utf-8")
+        svc = BuildService()
+        result = svc.compare("TestBuild", "Build2")
+        assert result.stat_comparison is not None
+
+    def test_list_builds(self, builds_dir):
+        svc = BuildService()
+        result = svc.list_builds()
+        assert len(result) >= 1
+
+    def test_set_main_skill_out_of_range(self, build_file):
+        svc = BuildService()
+        with pytest.raises(BuildValidationError):
+            svc.set_main_skill("ignored", 999, file_path=str(build_file))
+
+
+class TestBuildServiceCoverage:
+    def test_list_builds_with_corrupt(self, builds_env):
+        (builds_env / "Bad.xml").write_text("not xml")
+        svc = BuildService()
+        result = svc.list_builds()
+        assert any(e.name == "Bad" for e in result)
+
+    def test_load_for_write_with_file(self, rich_build):
+        svc = BuildService()
+        path, build, cloned = svc.load_for_write("ignored", file_path=str(rich_build))
+        assert build.class_name == "Witch"
+        assert cloned is None
+
+    def test_load_for_write_not_found(self, tmp_path):
+        svc = BuildService()
+        with pytest.raises(BuildNotFoundError):
+            svc.load_for_write("ignored", file_path=str(tmp_path / "nope.xml"))
+
+    def test_create_with_ascendancy(self, tmp_path):
+        svc = BuildService()
+        result = svc.create(
+            "test",
+            class_name="Witch",
+            ascendancy="Necromancer",
+            file_path=str(tmp_path / "new.xml"),
+        )
+        assert result.status == "ok"
+
+    def test_delete_with_confirm(self, builds_env):
+        claude = builds_env / "Claude"
+        claude.mkdir()
+        (claude / "ToDelete.xml").write_text(MINIMAL_BUILD_XML, encoding="utf-8")
+        svc = BuildService()
+        result = svc.delete("ToDelete", confirm=True)
+        assert result.status == "ok"
+
+    def test_delete_not_found(self, builds_env):
+        svc = BuildService()
+        with pytest.raises(BuildNotFoundError):
+            svc.delete("NonExistent", confirm=True)
+
+    def test_delete_outside_claude(self, builds_env):
+        svc = BuildService()
+        with pytest.raises(BuildValidationError, match="Claude"):
+            svc.delete("TestBuild", confirm=True)
+
+    def test_delete_no_confirm(self, builds_env):
+        claude = builds_env / "Claude"
+        claude.mkdir()
+        (claude / "TestBuild.xml").write_text(MINIMAL_BUILD_XML, encoding="utf-8")
+        svc = BuildService()
+        with pytest.raises(BuildValidationError, match="confirm"):
+            svc.delete("TestBuild")
+
+    def test_delete_file_not_exists(self, tmp_path):
+        svc = BuildService()
+        with pytest.raises(BuildNotFoundError):
+            svc.delete("x", file_path=str(tmp_path / "nope.xml"), confirm=True)
+
+    def test_delete_with_file_path(self, tmp_path):
+        f = tmp_path / "del.xml"
+        f.write_text(MINIMAL_BUILD_XML, encoding="utf-8")
+        svc = BuildService()
+        result = svc.delete("x", file_path=str(f), confirm=True)
+        assert result.status == "ok"
+
+    def test_set_main_skill(self, rich_build):
+        svc = BuildService()
+        result = svc.set_main_skill("ignored", 1, file_path=str(rich_build))
+        assert result.status == "ok"
+
+    def test_export_not_found(self, builds_env, tmp_path):
+        svc = BuildService()
+        with pytest.raises(BuildNotFoundError):
+            svc.export("NonExistent", str(tmp_path))
+
+    def test_export_to_dir(self, builds_env, tmp_path):
+        svc = BuildService()
+        result = svc.export("TestBuild", str(tmp_path))
+        assert result.status == "ok"
+
+    def test_notes_set_with_clone(self, builds_env):
+        svc = BuildService()
+        result = svc.notes_set("TestBuild", "hello")
+        assert result.status == "ok"
+        assert hasattr(result, "cloned_from") or "cloned_from" in getattr(result, "model_extra", {})
+
+
+class TestBuildRename:
+    def test_rename(self, rich_build, tmp_path, monkeypatch):
+        monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_path))
+        claude_dir = tmp_path / "Claude"
+        claude_dir.mkdir(exist_ok=True)
+        import shutil
+
+        shutil.copy2(rich_build, claude_dir / "ToRename.xml")
+        svc = BuildService()
+        result = svc.rename("ToRename", "Renamed")
+        assert result.status == "ok"
+        assert (claude_dir / "Renamed.xml").exists()
+        assert not (claude_dir / "ToRename.xml").exists()
+
+
+class TestBuildDuplicate:
+    def test_duplicate(self, rich_build, tmp_path, monkeypatch):
+        monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_path))
+        svc = BuildService()
+        result = svc.duplicate("ignored", "Cloned", file_path=str(rich_build))
+        assert result.status == "ok"
+
+
+class TestBuildSetLevel:
+    def test_set_level(self, rich_build):
+        svc = BuildService()
+        result = svc.set_level("ignored", 95, file_path=str(rich_build))
+        assert result.status == "ok"
+        assert result.level == 95
+
+    def test_set_level_invalid(self, rich_build):
+        svc = BuildService()
+        with pytest.raises(BuildValidationError, match="1-100"):
+            svc.set_level("ignored", 200, file_path=str(rich_build))
+
+
+class TestBuildSetClass:
+    def test_set_class(self, rich_build):
+        svc = BuildService()
+        result = svc.set_class("ignored", class_name="Ranger", file_path=str(rich_build))
+        assert result.status == "ok"
+        assert result.class_name == "Ranger"
+
+    def test_set_ascendancy(self, rich_build):
+        svc = BuildService()
+        result = svc.set_class("ignored", ascendancy="Deadeye", file_path=str(rich_build))
+        assert result.status == "ok"
+        assert result.ascendancy == "Deadeye"
+
+    def test_set_invalid_class(self, rich_build):
+        svc = BuildService()
+        with pytest.raises(BuildValidationError, match="Unknown class"):
+            svc.set_class("ignored", class_name="InvalidClass", file_path=str(rich_build))
+
+    def test_set_invalid_ascendancy(self, rich_build):
+        svc = BuildService()
+        with pytest.raises(BuildValidationError, match="Unknown ascendancy"):
+            svc.set_class("ignored", ascendancy="FakeAscendancy", file_path=str(rich_build))
+
+
+class TestBuildSetBandit:
+    def test_set_bandit(self, rich_build):
+        svc = BuildService()
+        result = svc.set_bandit("ignored", "Alira", file_path=str(rich_build))
+        assert result.status == "ok"
+        assert result.bandit == "Alira"
+
+
+class TestBuildSetPantheon:
+    def test_set_pantheon(self, rich_build):
+        svc = BuildService()
+        result = svc.set_pantheon(
+            "ignored",
+            major="Brine King",
+            minor="Garukhan",
+            file_path=str(rich_build),
+        )
+        assert result.status == "ok"
+
+
+class TestBuildSummary:
+    def test_summary(self, rich_build):
+        svc = BuildService()
+        result = svc.summary("ignored", file_path=str(rich_build))
+        assert result["class"] == "Witch"
+        assert result["level"] == 90
+        assert "life" in result
+        assert "total_dps" in result
+
+
+class TestBuildNameValidation:
+    def test_reject_windows_invalid_chars(self):
+        from poe.paths import validate_build_name
+
+        for char in ':*?"<>|':
+            with pytest.raises(ValueError, match="invalid characters"):
+                validate_build_name(f"test{char}build")
+
+    def test_reject_reserved_words(self):
+        from poe.paths import validate_build_name
+
+        for word in ("CON", "NUL", "PRN", "COM1", "LPT3"):
+            with pytest.raises(ValueError, match="reserved word"):
+                validate_build_name(word)
+
+    def test_accept_valid_names(self):
+        from poe.paths import validate_build_name
+
+        for name in ("MyBuild", "test-build", "Build_v2", "über-build"):
+            validate_build_name(name)
+
+
+class TestUnicodeBuildNames:
+    def test_unicode_name(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_path))
+        claude_dir = tmp_path / "Claude"
+        claude_dir.mkdir()
+        svc = BuildService()
+        result = svc.create("über-build", file_path=str(claude_dir / "über-build.xml"))
+        assert result.status == "ok"

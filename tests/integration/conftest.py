@@ -1,13 +1,14 @@
-"""Integration test fixtures — generated builds using PoBXmlBuilder."""
-
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 import pytest
 
-from pob.models import ItemMod
-from pob.parser import parse_build_file
+from poe.models.build.items import ItemMod
+from poe.services.build.xml.parser import parse_build_file
 from tests.conftest import PoBXmlBuilder
 
 # ── Generated builds ─────────────────────────────────────────────────────────
@@ -87,16 +88,21 @@ def _create_necromancer_build(d: Path) -> Path:
         .with_skill_group(
             "Body Armour",
             gems=[
-                {"name": "Raise Spectre", "level": 21, "quality": 20, "skill_minion": "SolarGuard"},
-                {"name": "Spell Echo Support", "level": 20, "quality": 20},
-                {"name": "Minion Damage Support", "level": 20, "quality": 20},
+                {
+                    "name_spec": "Raise Spectre",
+                    "level": 21,
+                    "quality": 20,
+                    "skill_minion": "SolarGuard",
+                },
+                {"name_spec": "Spell Echo Support", "level": 20, "quality": 20},
+                {"name_spec": "Minion Damage Support", "level": 20, "quality": 20},
             ],
             include_in_full_dps=True,
         )
         .with_skill_group(
             "Helmet",
             gems=[
-                {"name": "Vaal Haste", "level": 21, "quality": 0, "enabled": False},
+                {"name_spec": "Vaal Haste", "level": 21, "quality": 0, "enabled": False},
             ],
         )
         .with_config(
@@ -195,19 +201,19 @@ def _create_deadeye_build(d: Path) -> Path:
         .with_skill_group(
             "Weapon 1",
             gems=[
-                {"name": "Lightning Arrow", "level": 21, "quality": 20},
-                {"name": "Trinity Support", "level": 20, "quality": 20},
-                {"name": "Inspiration Support", "level": 20, "quality": 20},
-                {"name": "Empower Support", "level": 4, "quality": 0},
+                {"name_spec": "Lightning Arrow", "level": 21, "quality": 20},
+                {"name_spec": "Trinity Support", "level": 20, "quality": 20},
+                {"name_spec": "Inspiration Support", "level": 20, "quality": 20},
+                {"name_spec": "Empower Support", "level": 4, "quality": 0},
             ],
             include_in_full_dps=True,
         )
         .with_skill_group(
             "",
             gems=[
-                {"name": "Enlighten Support", "level": 4, "quality": 0},
-                {"name": "Grace", "level": 20, "quality": 0},
-                {"name": "Determination", "level": 20, "quality": 0},
+                {"name_spec": "Enlighten Support", "level": 4, "quality": 0},
+                {"name_spec": "Grace", "level": 20, "quality": 0},
+                {"name_spec": "Determination", "level": 20, "quality": 0},
             ],
         )
         .with_config(useFrenzyCharges=True, usePowerCharges=True, enemyPhysicalHitDamage=8000)
@@ -265,9 +271,9 @@ def _create_hierophant_build(d: Path) -> Path:
         .with_skill_group(
             "Body Armour",
             gems=[
-                {"name": "Freezing Pulse", "level": 20, "quality": 20},
-                {"name": "Spell Totem Support", "level": 20, "quality": 20},
-                {"name": "Faster Casting Support", "level": 20, "quality": 20},
+                {"name_spec": "Freezing Pulse", "level": 20, "quality": 20},
+                {"name_spec": "Spell Totem Support", "level": 20, "quality": 20},
+                {"name_spec": "Faster Casting Support", "level": 20, "quality": 20},
             ],
             include_in_full_dps=True,
         )
@@ -303,7 +309,7 @@ def _create_simple_build(d: Path) -> Path:
         .with_skill_group(
             "Body Armour",
             gems=[
-                {"name": "Ground Slam", "level": 15, "quality": 0},
+                {"name_spec": "Ground Slam", "level": 15, "quality": 0},
             ],
         )
         .write("simple.xml")
@@ -346,17 +352,15 @@ def build_by_name(builds: list[tuple[str, object]], name_fragment: str):
     return None
 
 
-# ── CoE data ─────────────────────────────────────────────────────────────────
+# ── Craft data ────────────────────────────────────────────────────────────────
 
 
 @pytest.fixture(scope="session")
-def coe_data():
-    """Live CraftData instance — fetches or uses cached CoE data."""
-    try:
-        from pob.craftdata import CraftData
+def repoe_data():
+    from poe.services.repoe.data import RepoEData
 
-        cd = CraftData()
-        cd.ensure_data()
-        return cd
-    except Exception as e:
-        pytest.skip(f"Could not load CoE data: {e}")
+    cd = RepoEData()
+    data_dir = cd._data_dir
+    if not (data_dir / "base_items.json").exists():
+        pytest.skip("Pre-built RePoE data not found. Run: poe dev build-data")
+    return cd

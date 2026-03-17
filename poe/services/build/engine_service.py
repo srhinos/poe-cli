@@ -1,0 +1,37 @@
+from __future__ import annotations
+
+from poe.exceptions import EngineNotAvailableError
+from poe.services.build.engine.runtime import get_engine, get_pob_info
+
+
+class EngineService:
+    """Owns PoB engine business logic."""
+
+    def info(self) -> dict:
+        return get_pob_info()
+
+    def load(self, name: str) -> dict:
+        try:
+            eng = get_engine()
+            build_info = eng.load_build(name)
+            if "error" in build_info:
+                raise EngineNotAvailableError(build_info["error"])
+            stats = eng.get_stats()
+        except (RuntimeError, ImportError, FileNotFoundError, OSError) as e:
+            raise EngineNotAvailableError(str(e)) from e
+        else:
+            return {"build_info": build_info, "stats": stats}
+
+    def stats(self, *, category: str = "all") -> dict:
+        try:
+            eng = get_engine()
+            if not eng.build_loaded:
+                raise EngineNotAvailableError(
+                    "No build loaded. Run 'poe build engine load <name>' first."
+                )
+            all_stats = eng.get_stats()
+            if category == "all" or not isinstance(all_stats, dict):
+                return all_stats
+            return {k: v for k, v in all_stats.items() if category.casefold() in k.casefold()}
+        except (RuntimeError, ImportError) as e:
+            raise EngineNotAvailableError(str(e)) from e

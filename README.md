@@ -1,54 +1,113 @@
-# pob-mcp
+# poe-cli
 
-A Python CLI for interacting with [Path of Building](https://github.com/PathOfBuildingCommunity/PathOfBuilding) builds. Parses build XML files and runs PoB's actual Lua calculation engine in-process via [lupa](https://github.com/scoder/lupa).
-
-Designed to work as a [Claude Code](https://docs.anthropic.com/en/docs/claude-code) skill — Claude learns the CLI commands and calls them to analyze your builds.
-
-**[Buy me a coffee](https://buymeacoffee.com/ianderse)** if you find this useful.
-
-## Requirements
-
-- Python 3.12+
-- [uv](https://docs.astral.sh/uv/)
-- Path of Building Community (installed normally)
+Interact with all your favorite PoE tools through the command line. Built on [Path of Building Community](https://github.com/PathOfBuildingCommunity/PathOfBuilding) — parses build XML files and runs PoB's actual Lua calculation engine in-process via [lupa](https://github.com/scoder/lupa).
 
 ## Install
 
+Requires [uv](https://docs.astral.sh/uv/).
+
 ```bash
-git clone https://github.com/ianderse/pob-mcp.git
-cd pob-mcp
-uv sync
+uv tool install git+https://github.com/srhinos/poe-cli
 ```
 
-## Usage
+This puts `poe` on your PATH. Verify with:
 
 ```bash
-uv run pob builds list
-uv run pob builds analyze "Main GC"
-uv run pob builds stats "Main GC" --category off
-uv run pob builds compare "Main GC" "Leaguestart GC"
-uv run pob builds validate "Main GC"
+poe --help
+```
 
-uv run pob engine load "Main GC"     # live stats via PoB's Lua engine
-uv run pob engine info
+### Claude Code skills (optional)
 
-uv run pob tree get "Main GC"
-uv run pob items list "Main GC"
-uv run pob gems list "Main GC"
-uv run pob config get "Main GC"
+If you use [Claude Code](https://docs.anthropic.com/en/docs/claude-code), install the skill so Claude knows how to use the CLI:
+
+```bash
+poe install-skill
+```
+
+This copies skill files into `~/.claude/skills/poe/`. After upgrading the CLI, re-run:
+
+```bash
+poe install-skill --force
+```
+
+Options: `--force` (overwrite existing), `--symlink` (symlink instead of copy, for development), `--uninstall` (remove).
+
+## Commands
+
+### Builds
+
+```bash
+# Read and analyze
+poe build list
+poe build analyze "Main GC"
+poe build stats "Main GC" --category off
+poe build validate "Main GC"
+poe build compare "Main GC" "Backup GC"
+
+# Drill into loadouts
+poe build tree get "Main GC"
+poe build items list "Main GC"
+poe build gems list "Main GC"
+poe build flasks list "Main GC"
+poe build jewels list "Main GC"
+poe build config get "Main GC"
+
+# Modify builds (writes go to Claude/ subfolder)
+poe build create "New Build" --class-name Witch --ascendancy Necromancer --level 90
+poe build items add "Main GC" --slot Helmet --base "Hubris Circlet" --rarity RARE
+poe build items edit "Main GC" --slot Helmet --add-explicit "+90 to maximum Life"
+poe build gems add "Main GC" --slot "Body Armour" --gem Fireball --gem "Spell Echo Support"
+poe build tree set "Main GC" --add-nodes 500,600
+
+# Import/export and sharing
+poe build decode <build_code>
+poe build encode "Main GC"
+poe build import <url_or_code> --name "Imported"
+```
+
+### Crafting
+
+```bash
+poe sim search "Crown"
+poe sim mods "Hubris Circlet" --ilvl 84
+poe sim simulate "Vaal Regalia" --method fossil --target IncreasedLife --fossils "Pristine Fossil,Dense Fossil"
+poe sim analyze "Main GC" --slot Helmet
+poe sim prices
 ```
 
 All commands output JSON. Add `--human` for readable output.
 
-## How it works
+### Live engine
 
-**XML parsing** (`builds analyze`, `stats`, `validate`, etc.) reads PoB's `.xml` build files directly — no engine needed, instant results.
+```bash
+poe build engine load "Main GC"
+poe build engine stats
+```
 
-**Live engine** (`engine load`, `engine stats`) embeds LuaJIT via lupa and runs PoB's actual calculation code in-process. Same math as the PoB GUI, just headless.
+Embeds LuaJIT via lupa and runs PoB's actual calculation code in-process.
 
-## Claude Code skill
+## Build safety
 
-The `skills/pob.md` file teaches Claude how to use the CLI. Drop this repo in your project and Claude will know how to analyze builds, check defenses, compare setups, etc.
+All write operations go to a `Claude/` subfolder inside the PoB builds directory. Your original builds are never modified. The `--file` flag bypasses this and writes directly to the specified path.
+
+## Requirements
+
+- [uv](https://docs.astral.sh/uv/)
+- Path of Building Community (installed normally — needed for `poe build` commands)
+
+## Development
+
+```bash
+git clone https://github.com/srhinos/poe-cli.git
+cd poe-cli
+uv sync
+
+uv run ruff check poe/ tests/                                # Lint
+uv run ruff format --check poe/ tests/                       # Format check
+uv run ty check poe/                                         # Type check
+uv run pytest tests/ --ignore=tests/integration -v           # Unit tests
+uv run pytest tests/ -v                                      # All tests (needs network + PoB)
+```
 
 ## License
 
