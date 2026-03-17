@@ -238,24 +238,30 @@ class SimService:
         for fossil in fossils:
             for tag, multiplier in fossil.get("positive_weights", {}).items():
                 if mod_cf in tag.casefold():
-                    results.append({
-                        "fossil": fossil["name"],
-                        "tag": tag,
-                        "multiplier": multiplier,
-                        "effect": (
-                            "boost" if multiplier > 1
-                            else "reduce" if multiplier < 1
-                            else "neutral"
-                        ),
-                    })
+                    results.append(
+                        {
+                            "fossil": fossil["name"],
+                            "tag": tag,
+                            "multiplier": multiplier,
+                            "effect": (
+                                "boost"
+                                if multiplier > 1
+                                else "reduce"
+                                if multiplier < 1
+                                else "neutral"
+                            ),
+                        }
+                    )
             for tag, multiplier in fossil.get("negative_weights", {}).items():
                 if mod_cf in tag.casefold():
-                    results.append({
-                        "fossil": fossil["name"],
-                        "tag": tag,
-                        "multiplier": multiplier,
-                        "effect": "block" if multiplier == 0 else "reduce",
-                    })
+                    results.append(
+                        {
+                            "fossil": fossil["name"],
+                            "tag": tag,
+                            "multiplier": multiplier,
+                            "effect": "block" if multiplier == 0 else "reduce",
+                        }
+                    )
             results.extend(
                 {
                     "fossil": fossil["name"],
@@ -372,4 +378,3 @@ class SimService:
 
     def get_prices(self, *, league: str = "current") -> dict:
         return self._data.get_prices(league=league)
-

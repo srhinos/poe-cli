@@ -39,9 +39,7 @@ class RepoEData:
         base_items = self._load("base_items")
         q = query.casefold()
         return [
-            {**bitem, "name": bname}
-            for bname, bitem in base_items.items()
-            if q in bname.casefold()
+            {**bitem, "name": bname} for bname, bitem in base_items.items() if q in bname.casefold()
         ]
 
     def get_mod_pool(
@@ -87,33 +85,31 @@ class RepoEData:
             if best_weight <= 0:
                 continue
 
-            group_mods = self._get_group_tiers_from(
-                mod["group"], base_id, ilvl, mod_pool, mods
-            )
+            group_mods = self._get_group_tiers_from(mod["group"], base_id, ilvl, mod_pool, mods)
 
-            results.append({
-                "mod_id": mid,
-                "name": mod["name"],
-                "affix": affix,
-                "group": mod["group"],
-                "weight": best_weight,
-                "tier_count": len(group_mods),
-                "best_tier": {
-                    "ilvl": mod["required_level"],
-                    "values": [[s["min"], s["max"]] for s in mod["stats"]],
+            results.append(
+                {
+                    "mod_id": mid,
+                    "name": mod["name"],
+                    "affix": affix,
+                    "group": mod["group"],
                     "weight": best_weight,
-                },
-                "implicit_tags": mod["implicit_tags"],
-                "influence": mod["influence"],
-            })
+                    "tier_count": len(group_mods),
+                    "best_tier": {
+                        "ilvl": mod["required_level"],
+                        "values": [[s["min"], s["max"]] for s in mod["stats"]],
+                        "weight": best_weight,
+                    },
+                    "implicit_tags": mod["implicit_tags"],
+                    "influence": mod["influence"],
+                }
+            )
 
         results.sort(key=lambda x: x["weight"], reverse=True)
         return results
 
     @staticmethod
-    def _best_weight_for_base(
-        mod: dict, bitem: dict, extra_tags: set[str] | None = None
-    ) -> int:
+    def _best_weight_for_base(mod: dict, bitem: dict, extra_tags: set[str] | None = None) -> int:
         base_tags = set(bitem["tags"])
         if extra_tags:
             base_tags |= extra_tags
@@ -130,8 +126,7 @@ class RepoEData:
         return [
             mid
             for mid in mod_ids
-            if mods.get(mid, {}).get("group") == group
-            and mods[mid]["required_level"] <= ilvl
+            if mods.get(mid, {}).get("group") == group and mods[mid]["required_level"] <= ilvl
         ]
 
     def get_mod_tiers(self, mod_id: str, base_name: str, ilvl: int = 100) -> list[dict]:
@@ -150,10 +145,7 @@ class RepoEData:
         group = mod["group"]
         pool_ids = mod_pool.get(base_id, [])
 
-        tier_mods = [
-            (mid, m) for mid in pool_ids
-            if (m := mods.get(mid)) and m["group"] == group
-        ]
+        tier_mods = [(mid, m) for mid in pool_ids if (m := mods.get(mid)) and m["group"] == group]
         tier_mods.sort(key=lambda x: x[1]["required_level"], reverse=True)
 
         return [
@@ -183,12 +175,14 @@ class RepoEData:
                 ]
                 if not any(ft in t for t in all_tags):
                     continue
-            results.append({
-                "name": name,
-                "positive_weights": fossil["positive_weights"],
-                "negative_weights": fossil["negative_weights"],
-                "blocked": fossil["blocked_tags"],
-            })
+            results.append(
+                {
+                    "name": name,
+                    "positive_weights": fossil["positive_weights"],
+                    "negative_weights": fossil["negative_weights"],
+                    "blocked": fossil["blocked_tags"],
+                }
+            )
         return results
 
     def get_essences(self, base_name: str | None = None) -> list[dict]:
@@ -212,24 +206,25 @@ class RepoEData:
                     continue
                 mod = mods_data.get(mod_id) if mods_data else None
                 mod_text = mod["name"] if mod else mod_id
-                results.append({
-                    "name": name,
-                    "mods": [{"slot": item_class, "mod": mod_text}],
-                    "tier": tier_name,
-                    "tier_num": tier_num,
-                })
+                results.append(
+                    {
+                        "name": name,
+                        "mods": [{"slot": item_class, "mod": mod_text}],
+                        "tier": tier_name,
+                        "tier_num": tier_num,
+                    }
+                )
             else:
-                mods_list = [
-                    {"slot": ic, "mod": mid}
-                    for ic, mid in list(ess["mods"].items())[:5]
-                ]
-                results.append({
-                    "name": name,
-                    "mods": mods_list,
-                    "total_slots": len(ess["mods"]),
-                    "tier": tier_name,
-                    "tier_num": tier_num,
-                })
+                mods_list = [{"slot": ic, "mod": mid} for ic, mid in list(ess["mods"].items())[:5]]
+                results.append(
+                    {
+                        "name": name,
+                        "mods": mods_list,
+                        "total_slots": len(ess["mods"]),
+                        "tier": tier_name,
+                        "tier_num": tier_num,
+                    }
+                )
         return results
 
     @staticmethod
@@ -262,15 +257,17 @@ class RepoEData:
                 continue
             cost_parts = [f"{count}x {cname}" for cname, count in craft["cost"].items()]
             values = [[s["min"], s["max"]] for s in mod["stats"]]
-            results.append({
-                "mod_id": craft["mod_id"],
-                "name": mod["name"],
-                "affix": affix,
-                "group": mod["group"],
-                "cost": ", ".join(cost_parts),
-                "cost_raw": craft["cost"],
-                "values": values,
-            })
+            results.append(
+                {
+                    "mod_id": craft["mod_id"],
+                    "name": mod["name"],
+                    "affix": affix,
+                    "group": mod["group"],
+                    "cost": ", ".join(cost_parts),
+                    "cost_raw": craft["cost"],
+                    "values": values,
+                }
+            )
         return results
 
     def get_prices(self, league: str = "current") -> dict:

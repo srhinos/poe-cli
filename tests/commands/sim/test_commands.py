@@ -176,9 +176,7 @@ class TestCraftTiers:
     def test_custom_ilvl(self):
         cd = _mock_repoe_data(get_mod_tiers=SAMPLE_TIERS[:2])
         with patch(_PATCH_CD, return_value=cd):
-            result = invoke_cli(
-                cli, ["sim", "tiers", "mod_life", "Hubris Circlet", "--ilvl", "75"]
-            )
+            result = invoke_cli(cli, ["sim", "tiers", "mod_life", "Hubris Circlet", "--ilvl", "75"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["ilvl"] == 75
@@ -375,9 +373,7 @@ class TestCraftSearch:
         assert data["items"][0]["properties"] == {}
 
     def test_truncates_to_20(self):
-        items = [
-            {"name": f"Item{i}", "drop_level": i, "properties": {}} for i in range(30)
-        ]
+        items = [{"name": f"Item{i}", "drop_level": i, "properties": {}} for i in range(30)]
         cd = _mock_repoe_data(search_base_items=items)
         with patch(_PATCH_CD, return_value=cd):
             result = invoke_cli(cli, ["sim", "search", "item"])
@@ -500,7 +496,7 @@ class TestCraftAnalyze:
         cd = _mock_repoe_data(
             get_base_item={"id": "Metadata/Items/Armours/Helmets/HelmetInt10"},
             get_mod_pool=[],
-            get_bench_crafts=[]
+            get_bench_crafts=[],
         )
 
         with (

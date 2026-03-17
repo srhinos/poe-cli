@@ -607,10 +607,7 @@ class CraftingEngine:
             raise ValueError("Harvest augment requires a Rare item")
         pool = self._build_mod_pool(item)
         tag_cf = tag.casefold()
-        tagged = [
-            m for m in pool
-            if tag_cf in [t.casefold() for t in m.get("implicit_tags", [])]
-        ]
+        tagged = [m for m in pool if tag_cf in [t.casefold() for t in m.get("implicit_tags", [])]]
         if not tagged:
             return None
         picked = self._weighted_pick(tagged)

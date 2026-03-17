@@ -383,5 +383,3 @@ def craft_prices(*, league: str = "current", human: bool = False) -> None:
         Human-readable output.
     """
     _output(_svc().get_prices(league=league), human=human)
-
-

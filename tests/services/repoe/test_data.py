@@ -201,5 +201,3 @@ class TestEssenceTiers:
         assert RepoEData._extract_essence_tier("Deafening") == ("Deafening", 7)
         assert RepoEData._extract_essence_tier("Whispering") == ("Whispering", 1)
         assert RepoEData._extract_essence_tier("Unknown") == ("", 0)
-
-

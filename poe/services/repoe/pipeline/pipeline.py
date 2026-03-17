@@ -81,9 +81,7 @@ def _process_mods(raw: dict) -> dict[str, dict]:
     return result
 
 
-def _build_mod_pool(
-    base_items: dict[str, dict], mods: dict[str, dict]
-) -> dict[str, list[str]]:
+def _build_mod_pool(base_items: dict[str, dict], mods: dict[str, dict]) -> dict[str, list[str]]:
     pool: dict[str, list[str]] = {}
     for base in base_items.values():
         base_tags = set(base["tags"])
@@ -155,12 +153,14 @@ def _process_bench_crafts(raw: list) -> list[dict]:
         for currency_path, amount in cost_raw.items():
             currency_name = CURRENCY_PATH_NAMES.get(currency_path, currency_path)
             cost[currency_name] = amount
-        result.append({
-            "mod_id": mod_id,
-            "item_classes": entry.get("item_classes", []),
-            "cost": cost,
-            "bench_tier": entry.get("bench_tier", 0),
-        })
+        result.append(
+            {
+                "mod_id": mod_id,
+                "item_classes": entry.get("item_classes", []),
+                "cost": cost,
+                "bench_tier": entry.get("bench_tier", 0),
+            }
+        )
     return result
 
 
