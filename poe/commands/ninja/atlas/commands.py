@@ -25,6 +25,9 @@ def atlas_search(
     mechanics: str | None = None,
     beacons: str | None = None,
     keystones: str | None = None,
+    travel: str | None = None,
+    blockers: str | None = None,
+    scarab_specializations: str | None = None,
     *,
     human: bool = False,
 ) -> None:
@@ -44,7 +47,14 @@ def atlas_search(
     with NinjaClient() as client:
         discovery = DiscoveryService(client)
         svc = AtlasService(client, discovery)
-        result = svc.search(mechanics=mechanics, beacons=beacons, keystones=keystones)
+        result = svc.search(
+            mechanics=mechanics,
+            beacons=beacons,
+            keystones=keystones,
+            travel=travel,
+            blockers=blockers,
+            scarab_specializations=scarab_specializations,
+        )
         if result is None:
             render({"error": "No atlas data"}, human=human)
             return
@@ -52,7 +62,7 @@ def atlas_search(
 
 
 @atlas_app.command(name="recommend")
-def atlas_recommend(*, human: bool = False) -> None:
+def atlas_recommend(*, top_n: int = 20, human: bool = False) -> None:
     """Get popular atlas nodes.
 
     Parameters
@@ -63,7 +73,7 @@ def atlas_recommend(*, human: bool = False) -> None:
     with NinjaClient() as client:
         discovery = DiscoveryService(client)
         svc = AtlasService(client, discovery)
-        nodes = svc.get_popular_nodes()
+        nodes = svc.get_popular_nodes(top_n=top_n)
         render(nodes, human=human)
 
 

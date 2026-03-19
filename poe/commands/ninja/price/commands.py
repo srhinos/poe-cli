@@ -212,6 +212,7 @@ def price_build(
     character: str,
     game: str = "poe1",
     league: str | None = None,
+    snapshot_type: str = "exp",
     *,
     human: bool = False,
 ) -> None:
@@ -234,7 +235,7 @@ def price_build(
         discovery = DiscoveryService(client)
         resolved_league = _resolve_league(discovery, league, game)
         builds = BuildsService(client, discovery)
-        char = builds.get_character(account, character, game=game)
+        char = builds.get_character(account, character, game=game, snapshot_type=snapshot_type)
         if char is None:
             render({"error": f"Character '{character}' not found"}, human=human)
             return
@@ -244,7 +245,9 @@ def price_build(
 
 
 @price_app.command(name="craft")
-def price_craft(game: str = "poe1", league: str | None = None, *, human: bool = False) -> None:
+def price_craft(
+    game: str = "poe1", league: str | None = None, language: str = "en", *, human: bool = False
+) -> None:
     """Get current crafting material prices.
 
     Parameters
@@ -260,7 +263,7 @@ def price_craft(game: str = "poe1", league: str | None = None, *, human: bool = 
         discovery = DiscoveryService(client)
         resolved_league = _resolve_league(discovery, league, game)
         economy = EconomyService(client)
-        result = economy.get_crafting_prices(resolved_league)
+        result = economy.get_crafting_prices(resolved_league, language=language)
         render(result, human=human)
 
 

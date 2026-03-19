@@ -250,7 +250,7 @@ def builds_heatmap(
     *,
     human: bool = False,
 ) -> None:
-    """Get atlas node usage heatmap from builds.
+    """Get passive tree node usage heatmap from builds.
 
     Parameters
     ----------

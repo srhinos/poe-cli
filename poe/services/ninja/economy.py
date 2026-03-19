@@ -280,13 +280,13 @@ class EconomyService:
             return 0.0
         return amount * from_chaos / to_chaos
 
-    def get_crafting_prices(self, league: str) -> CraftingPrices:
+    def get_crafting_prices(self, league: str, *, language: str = "en") -> CraftingPrices:
         result: dict[str, dict[str, float]] = {}
         for category, type_routes in CRAFTING_TYPE_MAP.items():
             category_prices: dict[str, float] = {}
             for item_type, _route in type_routes:
                 try:
-                    prices = self.get_prices(league, item_type, game="poe1")
+                    prices = self.get_prices(league, item_type, game="poe1", language=language)
                     for p in prices:
                         if p.chaos_value > 0:
                             category_prices[p.name] = p.chaos_value

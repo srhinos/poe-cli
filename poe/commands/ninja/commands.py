@@ -24,7 +24,7 @@ ninja_app.command(meta_app)
 
 
 @ninja_app.command(name="league-info")
-def league_info(game: str = "poe1", *, human: bool = False) -> None:
+def league_info(game: str = "poe1", *, force: bool = False, human: bool = False) -> None:
     """Show league index state from poe.ninja.
 
     Parameters
@@ -36,7 +36,11 @@ def league_info(game: str = "poe1", *, human: bool = False) -> None:
     """
     with NinjaClient() as client:
         svc = DiscoveryService(client)
-        state = svc.get_poe2_index_state() if game == "poe2" else svc.get_poe1_index_state()
+        state = (
+            svc.get_poe2_index_state(force=force)
+            if game == "poe2"
+            else svc.get_poe1_index_state(force=force)
+        )
         render(state, human=human)
 
 
