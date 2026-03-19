@@ -38,6 +38,7 @@ def jewels_add(
     slot: str,
     jewel_name: str = "New Jewel",
     rarity: str = "RARE",
+    explicit: list[str] | None = None,
     file: str | None = None,
 ) -> None:
     """Add a jewel to a build.
@@ -64,6 +65,7 @@ def jewels_add(
             slot=slot,
             jewel_name=jewel_name,
             rarity=rarity,
+            explicits=explicit,
             file_path=file,
         )
     )

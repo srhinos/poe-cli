@@ -66,6 +66,8 @@ def tree_set(
     add_nodes: str | None = None,
     remove_nodes: str | None = None,
     mastery: list[str] | None = None,
+    add_mastery: list[str] | None = None,
+    remove_mastery: list[str] | None = None,
     class_id: int | None = None,
     ascend_class_id: int | None = None,
     tree_version: str | None = None,
@@ -103,6 +105,8 @@ def tree_set(
         add_nodes=add_nodes,
         remove_nodes=remove_nodes,
         mastery=mastery or [],
+        add_mastery=add_mastery,
+        remove_mastery=remove_mastery,
         class_id=class_id,
         ascend_class_id=ascend_class_id,
         tree_version=tree_version,
@@ -110,6 +114,33 @@ def tree_set(
         file_path=file,
     )
     _output(result)
+
+
+@tree_app.command(name="search")
+def tree_search(
+    name: str,
+    query: str,
+    *,
+    spec: int | None = None,
+    file: str | None = None,
+    human: bool = False,
+) -> None:
+    """Search allocated tree nodes by ID substring.
+
+    Parameters
+    ----------
+    name
+        Build name or unique prefix.
+    query
+        Search query (node ID substring).
+    spec
+        Tree spec index (1-based).
+    file
+        Explicit file path.
+    human
+        Human-readable output.
+    """
+    _output(_svc().search_nodes(name, query, spec_index=spec, file_path=file), human=human)
 
 
 @tree_app.command(name="set-active")

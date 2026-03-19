@@ -112,6 +112,7 @@ def gems_edit(
     swap: list[str] | None = None,
     set_level: list[str] | None = None,
     set_quality: list[str] | None = None,
+    set_quality_id: list[str] | None = None,
     toggle: list[str] | None = None,
     set_slot: str | None = None,
     file: str | None = None,
@@ -143,11 +144,79 @@ def gems_edit(
         swap=swap,
         set_level=set_level,
         set_quality=set_quality,
+        set_quality_id=set_quality_id,
         toggle=toggle,
         set_slot=set_slot,
         file_path=file,
     )
     _output(result)
+
+
+@gems_app.command(name="add-to-group")
+def gems_add_to_group(
+    name: str,
+    *,
+    group: int,
+    gem: str,
+    level: int = 20,
+    quality: int = 0,
+    quality_id: str = "Default",
+    file: str | None = None,
+) -> None:
+    """Add a gem to an existing skill group.
+
+    Parameters
+    ----------
+    name
+        Build name or unique prefix.
+    group
+        Skill group index (0-based).
+    gem
+        Gem name to add.
+    level
+        Gem level.
+    quality
+        Gem quality.
+    quality_id
+        Alternate quality type (Default, Anomalous, Divergent, Phantasmal).
+    file
+        Explicit file path.
+    """
+    _output(
+        _svc().add_gem_to_group(
+            name,
+            group,
+            gem_name=gem,
+            level=level,
+            quality=quality,
+            quality_id=quality_id,
+            file_path=file,
+        )
+    )
+
+
+@gems_app.command(name="remove-from-group")
+def gems_remove_from_group(
+    name: str,
+    *,
+    group: int,
+    gem: str,
+    file: str | None = None,
+) -> None:
+    """Remove a gem from a skill group.
+
+    Parameters
+    ----------
+    name
+        Build name or unique prefix.
+    group
+        Skill group index (0-based).
+    gem
+        Gem name to remove.
+    file
+        Explicit file path.
+    """
+    _output(_svc().remove_gem_from_group(name, group, gem_name=gem, file_path=file))
 
 
 @gems_app.command(name="add-set")

@@ -37,6 +37,7 @@ def flasks_add(
     flask_name: str = "New Flask",
     rarity: str = "MAGIC",
     quality: int = 0,
+    explicit: list[str] | None = None,
     file: str | None = None,
 ) -> None:
     """Add a flask to a build.
@@ -66,6 +67,7 @@ def flasks_add(
             flask_name=flask_name,
             rarity=rarity,
             quality=quality,
+            explicits=explicit,
             file_path=file,
         )
     )
@@ -95,6 +97,8 @@ def flasks_edit(
     set_name: str | None = None,
     set_base: str | None = None,
     set_quality: int | None = None,
+    add_explicit: list[str] | None = None,
+    remove_explicit: list[int] | None = None,
     file: str | None = None,
 ) -> None:
     """Edit a flask.
@@ -121,6 +125,29 @@ def flasks_edit(
             set_name=set_name,
             set_base=set_base,
             set_quality=set_quality,
+            add_explicit=add_explicit,
+            remove_explicit=remove_explicit,
             file_path=file,
         )
     )
+
+
+@flasks_app.command(name="reorder")
+def flasks_reorder(
+    name: str,
+    *,
+    order: list[str],
+    file: str | None = None,
+) -> None:
+    """Reorder flasks across slots.
+
+    Parameters
+    ----------
+    name
+        Build name or unique prefix.
+    order
+        Flask slot order (e.g. Flask 1, Flask 3, Flask 2).
+    file
+        Explicit file path.
+    """
+    _output(_svc().reorder_flasks(name, order=order, file_path=file))

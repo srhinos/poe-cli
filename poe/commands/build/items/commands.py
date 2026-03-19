@@ -167,6 +167,11 @@ def items_edit(
     set_base: str | None = None,
     set_rarity: str | None = None,
     set_quality: int | None = None,
+    set_sockets: str | None = None,
+    set_influences: list[str] | None = None,
+    set_armour: int | None = None,
+    set_evasion: int | None = None,
+    set_energy_shield: int | None = None,
     file: str | None = None,
 ) -> None:
     """Edit an existing item in a build.
@@ -207,6 +212,11 @@ def items_edit(
         set_base=set_base,
         set_rarity=set_rarity,
         set_quality=set_quality,
+        set_sockets=set_sockets,
+        set_influences=set_influences,
+        set_armour=set_armour,
+        set_evasion=set_evasion,
+        set_energy_shield=set_energy_shield,
         file_path=file,
     )
     _output(result)
@@ -325,6 +335,7 @@ def items_compare(
     slot: str,
     name2: Annotated[str | None, cyclopts.Parameter(name="--build2")] = None,
     file: str | None = None,
+    file2: str | None = None,
     human: bool = False,
 ) -> None:
     """Compare items in a slot between builds or item sets.
@@ -339,10 +350,15 @@ def items_compare(
         Second build name.
     file
         Explicit file path.
+    file2
+        Explicit file path for second build.
     human
         Human-readable output.
     """
-    _output(_svc().compare_items(name, slot, name2=name2, file_path=file), human=human)
+    _output(
+        _svc().compare_items(name, slot, name2=name2, file_path=file, file_path2=file2),
+        human=human,
+    )
 
 
 @items_app.command(name="search")
