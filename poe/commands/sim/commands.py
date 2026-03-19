@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Any
 
 import cyclopts
 
@@ -166,6 +166,8 @@ def craft_simulate(
     influence: list[str] | None = None,
     iterations: int = DEFAULT_ITERATIONS,
     match: str = "all",
+    existing_mod: list[str] | None = None,
+    max_attempts: int = DEFAULT_ITERATIONS,
     human: bool = False,
 ) -> None:
     """Simulate crafting to estimate costs and probabilities.
@@ -209,6 +211,8 @@ def craft_simulate(
         influence=influence,
         iterations=iterations,
         match=match,
+        existing_mods=existing_mod,
+        max_attempts=max_attempts,
     )
     _output(result, human=human)
 
@@ -246,7 +250,17 @@ def craft_simulate_multistep(
     human
         Human-readable output.
     """
-    steps = [{"method": s} for s in step]
+    steps: list[dict[str, Any]] = []
+    for s in step:
+        parts = s.split(":", 1)
+        d: dict[str, Any] = {"method": parts[0]}
+        if len(parts) > 1:
+            for kv in parts[1].split(","):
+                k, _, v = kv.partition("=")
+                d[k.strip()] = v.strip()
+            if "fossils" in d:
+                d["fossils"] = [f.strip() for f in d["fossils"].split("+")]
+        steps.append(d)
     _output(
         _svc().simulate_multistep(
             base_name,

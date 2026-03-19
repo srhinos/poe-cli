@@ -57,7 +57,7 @@ class SimService:
             mods=mods[:limit],
         )
 
-    def get_tiers(self, mod_id: str, base_name: str, *, ilvl: int = 100) -> ModTierResult:
+    def get_tiers(self, mod_id: str, base_name: str, *, ilvl: int = DEFAULT_ILVL) -> ModTierResult:
         tiers = self._data.get_mod_tiers(mod_id, base_name, ilvl=ilvl)
         if not tiers:
             raise SimDataError(f"No tiers found for mod {mod_id} on {base_name}")
@@ -150,6 +150,8 @@ class SimService:
         influence: list[str] | None = None,
         iterations: int = DEFAULT_ITERATIONS,
         match: str = "all",
+        existing_mods: list[str] | None = None,
+        max_attempts: int = DEFAULT_ITERATIONS,
     ) -> SimulationResult:
         if method == CraftMethod.ESSENCE and not essence:
             raise SimDataError("--essence is required when method is 'essence'")
@@ -164,6 +166,8 @@ class SimService:
             fossils=fossils,
             match_mode=match,
             essence_name=essence,
+            existing_mods=existing_mods,
+            max_attempts=max_attempts,
         )
         return SimulationResult(
             base=base_name,
@@ -200,18 +204,7 @@ class SimService:
             item = eng.create_item(base_name, ilvl, influence)
             for step in steps:
                 method = step.get("method", "chaos")
-                if method == "chaos":
-                    eng.chaos_roll(item)
-                elif method == "alt":
-                    eng.alt_roll(item)
-                elif method == "regal":
-                    eng.regal(item)
-                elif method == "exalt":
-                    eng.exalt(item)
-                elif method == "annul":
-                    eng.annul(item)
-                elif method == "scour":
-                    eng.scour(item)
+                self._apply_multistep_method(eng, item, method, step)
             rolled_groups = {m.group.casefold() for m in item.all_mods}
             hit = (
                 target_set.issubset(rolled_groups)
@@ -230,6 +223,45 @@ class SimService:
             "hit_rate": f"{hit_rate:.1%}",
             "hits": hits,
         }
+
+    @staticmethod
+    def _apply_multistep_method(
+        eng: CraftingEngine,
+        item: object,
+        method: str,
+        step: dict,
+    ) -> None:
+        simple_dispatch: dict[str, callable] = {
+            CraftMethod.CHAOS: eng.chaos_roll,
+            CraftMethod.ALT: eng.alt_roll,
+            CraftMethod.REGAL: eng.regal,
+            CraftMethod.EXALT: eng.exalt,
+            CraftMethod.ANNUL: eng.annul,
+            CraftMethod.SCOUR: eng.scour,
+            CraftMethod.ALCHEMY: eng.alchemy,
+            CraftMethod.TRANSMUTATION: eng.transmutation,
+            CraftMethod.AUGMENTATION: eng.augmentation,
+            CraftMethod.DIVINE: eng.divine,
+            CraftMethod.BLESSED: eng.blessed,
+            CraftMethod.VEILED_CHAOS: eng.veiled_chaos,
+            CraftMethod.VAAL: eng.vaal_orb,
+            CraftMethod.FRACTURE: eng.fracture,
+            CraftMethod.TAINTED_DIVINE: eng.tainted_divine,
+        }
+        if method in simple_dispatch:
+            simple_dispatch[method](item)
+        elif method == CraftMethod.FOSSIL:
+            eng.fossil_roll(item, step.get("fossils", []))
+        elif method == CraftMethod.ESSENCE:
+            eng.essence_roll(item, step.get("essence", ""))
+        elif method == CraftMethod.HARVEST:
+            eng.harvest_reforge(item, tag=step.get("tag"))
+        elif method == CraftMethod.CONQUEROR_EXALT:
+            eng.conqueror_exalt(item, step.get("influence", ""))
+        else:
+            valid = ", ".join(m.value for m in CraftMethod)
+            msg = f"Unknown step method: {method!r} (valid: {valid})"
+            raise ValueError(msg)
 
     def fossil_optimizer(self, mod_name: str) -> list[dict]:
         fossils = self._data.get_fossils()

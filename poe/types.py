@@ -45,6 +45,10 @@ class CraftMethod(StrEnum):
     VAAL = "vaal"
     FRACTURE = "fracture"
     TAINTED_DIVINE = "tainted_divine"
+    REGAL = "regal"
+    EXALT = "exalt"
+    ANNUL = "annul"
+    SCOUR = "scour"
 
 
 class MatchMode(StrEnum):
