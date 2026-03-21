@@ -47,8 +47,8 @@ Advanced queries across the full build/economy dataset.
 | `poe ninja price history "<item>" <type>` | 366-day trend with spike/crash detection |
 | `poe ninja price craft` | All crafting material prices |
 | `poe ninja price fossil-recommend <mod>` | Fossils matching a mod tag, sorted by cost |
-| `poe ninja atlas search --mechanic X` | Atlas tree search with filters |
-| `poe ninja atlas recommend` | Most popular atlas nodes |
+| `poe ninja atlas search --mechanic X` | Atlas tree search (also: `--travel`, `--blockers`, `--scarab-specializations`, `--keystones`) |
+| `poe ninja atlas recommend --top-n 10` | Most popular atlas nodes (configurable count) |
 | `poe ninja atlas profit` | Scarab spawn chance x price = expected value |
 | `poe ninja meta trend` | Build evolution across leagues |
 

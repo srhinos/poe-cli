@@ -73,12 +73,14 @@ poe build items remove "<name>" --slot Helmet
 poe build items remove "<name>" --id 3
 poe build items edit "<name>" --slot Helmet \
     --add-explicit "+40 to maximum Life" --remove-explicit 0 \
-    --set-name "New Name" --set-rarity RARE --set-quality 20
+    --set-name "New Name" --set-rarity RARE --set-quality 20 \
+    --set-sockets "B-B-B-B" --set-armour 100 --set-energy-shield 500 \
+    --set-influences Shaper
 poe build items search "<name>" --mod "Life" --slot Helmet --influence Shaper --rarity RARE
 poe build items import "<name>" --slot Helmet --text "Rarity: Rare\nDoom Crown\nHubris Circlet\n..."
 poe build items move "<name>" --from Helmet --to "Weapon 1"
 poe build items swap "<name>" --slot1 "Weapon 1" --slot2 "Weapon 1 Swap"
-poe build items compare "<name>" --slot Helmet --build2 "Other Build"
+poe build items compare "<name>" --slot Helmet --build2 "Other Build" --file2 /path/to/other.xml
 poe build items set-active "<name>" --item-set 2
 poe build items add-set "<name>"
 poe build items remove-set "<name>" --item-set 3
@@ -89,7 +91,10 @@ poe build gems add "<name>" --slot "Body Armour" --gem Fireball --gem "Spell Ech
 poe build gems remove "<name>" --index 0
 poe build gems edit "<name>" --group 0 --swap "Fireball,Ball Lightning" \
     --set-level "Ball Lightning,21" --set-quality "Ball Lightning,23" \
+    --set-quality-id "Ball Lightning,Anomalous" \
     --toggle "Spell Echo Support" --set-slot "Body Armour"
+poe build gems add-to-group "<name>" --group 0 --gem "Added Fire Damage Support"
+poe build gems remove-from-group "<name>" --group 0 --gem "Spell Echo Support"
 poe build gems add-set "<name>"
 poe build gems remove-set "<name>" --skill-set 3
 poe build gems set-active "<name>" --skill-set 2
@@ -99,6 +104,9 @@ poe build tree set "<name>" --nodes 100,200,300
 poe build tree set "<name>" --add-nodes 500,600
 poe build tree set "<name>" --remove-nodes 100,200
 poe build tree set "<name>" --mastery 53188:64875 --mastery 53738:29161
+poe build tree set "<name>" --add-mastery 99999:88888
+poe build tree set "<name>" --remove-mastery 53188:64875
+poe build tree search "<name>" "100"
 poe build tree set "<name>" --class-id 5 --ascend-class-id 2 --version 3_25
 poe build tree set "<name>" --spec 2 --nodes 100,200
 poe build tree set-active "<name>" --spec 2
@@ -124,13 +132,17 @@ poe build set-main-skill "<name>" --index 1
 
 # Flasks
 poe build flasks list "<name>"
-poe build flasks add "<name>" --base "Granite Flask" --slot "Flask 1" --rarity MAGIC --quality 20
-poe build flasks edit "<name>" --slot "Flask 1" --set-name "Iron Skin" --set-quality 20
+poe build flasks add "<name>" --base "Granite Flask" --slot "Flask 1" --rarity MAGIC --quality 20 \
+    --explicit "+3000 to Armour during Flask Effect"
+poe build flasks edit "<name>" --slot "Flask 1" --set-name "Iron Skin" --set-quality 20 \
+    --add-explicit "+3000 to Armour during Flask Effect" --remove-explicit 0
+poe build flasks reorder "<name>" --order "Flask 2" --order "Flask 1" --order "Flask 3"
 poe build flasks remove "<name>" --slot "Flask 1"
 
 # Jewels
 poe build jewels list "<name>"
-poe build jewels add "<name>" --base "Cobalt Jewel" --slot "Jewel 1" --rarity RARE
+poe build jewels add "<name>" --base "Cobalt Jewel" --slot "Jewel 1" --rarity RARE \
+    --explicit "+10% to Fire Resistance"
 poe build jewels remove "<name>" --slot "Jewel 1"
 poe build jewels remove "<name>" --id 3
 poe build jewels socket "<name>" --id 3 --node 26725

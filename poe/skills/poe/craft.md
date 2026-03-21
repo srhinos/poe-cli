@@ -28,8 +28,19 @@ poe sim simulate "Hubris Circlet" --ilvl 86 --method chaos \
 poe sim simulate "Hubris Circlet" --ilvl 86 --method fossil \
     --fossils "Pristine Fossil,Frigid Fossil" --target IncreasedLife --iterations 5000
 
+poe sim simulate "Hubris Circlet" --method chaos --target IncreasedLife \
+    --existing-mod ColdResistance --max-attempts 500
+
 poe sim simulate-multistep "Hubris Circlet" --ilvl 86 \
-    --step alteration --step regal --target IncreasedLife --target ColdResistance
+    --step alt --step regal --step exalt --target IncreasedLife
+
+poe sim simulate-multistep "Hubris Circlet" --ilvl 86 \
+    --step "fossil:fossils=Pristine Fossil+Dense Fossil" --step exalt \
+    --target IncreasedLife
+
+poe sim simulate-multistep "Hubris Circlet" --ilvl 86 \
+    --step transmutation --step augmentation --step regal \
+    --target IncreasedLife --target ColdResistance
 
 poe sim compare "Hubris Circlet" --ilvl 86 --target IncreasedLife \
     --fossils "Pristine Fossil" --essence "Deafening Essence of Greed"
