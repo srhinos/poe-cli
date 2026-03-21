@@ -861,3 +861,169 @@ class TestCraftPrices:
             result = invoke_cli(cli, ["sim", "prices", "--human"])
         assert result.exit_code == 0
         assert "Settlers" in result.output
+
+
+# ── craft simulate existing_mods / max_attempts ─────────────────────────────
+
+
+class TestCraftSimulateNewParams:
+    def test_existing_mod_param(self):
+        cd = _mock_repoe_data()
+        eng = MagicMock()
+        eng.simulate.return_value = _make_sim_result()
+
+        with (
+            patch(_PATCH_CD, return_value=cd),
+            patch(_PATCH_ENGINE, return_value=eng),
+        ):
+            result = invoke_cli(
+                cli,
+                [
+                    "sim",
+                    "simulate",
+                    "Hubris Circlet",
+                    "--method",
+                    "chaos",
+                    "--target",
+                    "IncreasedLife",
+                    "--existing-mod",
+                    "ColdResistance",
+                ],
+            )
+        assert result.exit_code == 0
+        call_kwargs = eng.simulate.call_args
+        assert call_kwargs.kwargs.get("existing_mods") == ["ColdResistance"]
+
+    def test_max_attempts_param(self):
+        cd = _mock_repoe_data()
+        eng = MagicMock()
+        eng.simulate.return_value = _make_sim_result()
+
+        with (
+            patch(_PATCH_CD, return_value=cd),
+            patch(_PATCH_ENGINE, return_value=eng),
+        ):
+            result = invoke_cli(
+                cli,
+                [
+                    "sim",
+                    "simulate",
+                    "Hubris Circlet",
+                    "--method",
+                    "chaos",
+                    "--target",
+                    "IncreasedLife",
+                    "--max-attempts",
+                    "500",
+                ],
+            )
+        assert result.exit_code == 0
+        call_kwargs = eng.simulate.call_args
+        assert call_kwargs.kwargs.get("max_attempts") == 500
+
+
+# ── craft simulate-multistep expanded methods ────────────────────────────────
+
+
+class TestCraftSimulateMultistep:
+    def test_basic_multistep(self):
+        cd = _mock_repoe_data()
+        eng = MagicMock()
+        eng.create_item.return_value = MagicMock(all_mods=[])
+        with (
+            patch(_PATCH_CD, return_value=cd),
+            patch(_PATCH_ENGINE, return_value=eng),
+        ):
+            result = invoke_cli(
+                cli,
+                [
+                    "sim",
+                    "simulate-multistep",
+                    "Hubris Circlet",
+                    "--step",
+                    "chaos",
+                    "--step",
+                    "exalt",
+                    "--target",
+                    "IncreasedLife",
+                    "--iterations",
+                    "10",
+                ],
+            )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["steps"] == ["chaos", "exalt"]
+        assert data["iterations"] == 10
+
+    def test_step_with_fossil_syntax(self):
+        cd = _mock_repoe_data()
+        eng = MagicMock()
+        eng.create_item.return_value = MagicMock(all_mods=[])
+        with (
+            patch(_PATCH_CD, return_value=cd),
+            patch(_PATCH_ENGINE, return_value=eng),
+        ):
+            result = invoke_cli(
+                cli,
+                [
+                    "sim",
+                    "simulate-multistep",
+                    "Hubris Circlet",
+                    "--step",
+                    "fossil:fossils=Pristine Fossil+Dense Fossil",
+                    "--target",
+                    "IncreasedLife",
+                    "--iterations",
+                    "10",
+                ],
+            )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["steps"] == ["fossil"]
+
+    def test_new_craft_methods(self):
+        cd = _mock_repoe_data()
+        eng = MagicMock()
+        eng.create_item.return_value = MagicMock(all_mods=[])
+        with (
+            patch(_PATCH_CD, return_value=cd),
+            patch(_PATCH_ENGINE, return_value=eng),
+        ):
+            result = invoke_cli(
+                cli,
+                [
+                    "sim",
+                    "simulate-multistep",
+                    "Hubris Circlet",
+                    "--step",
+                    "transmutation",
+                    "--step",
+                    "augmentation",
+                    "--step",
+                    "regal",
+                    "--target",
+                    "IncreasedLife",
+                    "--iterations",
+                    "10",
+                ],
+            )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["steps"] == ["transmutation", "augmentation", "regal"]
+
+
+# ── get_tiers ilvl default ──────────────────────────────────────────────────
+
+
+class TestGetTiersDefault:
+    def test_default_ilvl_is_84(self):
+        cd = _mock_repoe_data(get_mod_tiers=[{"tier": 1, "ilvl": 82, "weight": 200}])
+        with patch(_PATCH_CD, return_value=cd):
+            result = invoke_cli(
+                cli,
+                ["sim", "tiers", "IncreasedLife1", "Hubris Circlet"],
+            )
+        assert result.exit_code == 0
+        cd.get_mod_tiers.assert_called_once()
+        call_kwargs = cd.get_mod_tiers.call_args
+        assert call_kwargs.kwargs.get("ilvl") == 84

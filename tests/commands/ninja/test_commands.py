@@ -81,6 +81,18 @@ class TestCacheStatus:
         assert poe1_entry["is_fresh"] is True
 
 
+class TestLeagueInfoForce:
+    @patch("poe.commands.ninja.commands.NinjaClient")
+    def test_force_flag_passes_through(self, mock_client_cls):
+        mock_client = MagicMock()
+        mock_client.get_json.return_value = POE1_INDEX_STATE
+        mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
+        mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = invoke_cli(app, ["ninja", "league-info", "--force"])
+        assert result.exit_code == 0
+
+
 class TestNinjaHelp:
     def test_ninja_help(self):
         result = invoke_cli(app, ["ninja", "--help"])

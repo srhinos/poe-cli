@@ -250,3 +250,32 @@ class TestAtlasCli:
 
         result = invoke_cli(app, ["ninja", "atlas", "recommend"])
         assert result.exit_code == 0
+
+
+class TestAtlasSearchNewFilters:
+    def test_travel_filter(self, tmp_path):
+        svc = _make_atlas_service(tmp_path, {"atlas-tree-index-state": ATLAS_TREE_INDEX_STATE})
+        svc.search(travel="long")
+        call = svc._client.get_protobuf.call_args_list[0]
+        assert call.kwargs["params"]["travel"] == "long"
+
+    def test_blockers_filter(self, tmp_path):
+        svc = _make_atlas_service(tmp_path, {"atlas-tree-index-state": ATLAS_TREE_INDEX_STATE})
+        svc.search(blockers="test")
+        call = svc._client.get_protobuf.call_args_list[0]
+        assert call.kwargs["params"]["blockers"] == "test"
+
+    def test_scarab_specializations_filter(self, tmp_path):
+        svc = _make_atlas_service(tmp_path, {"atlas-tree-index-state": ATLAS_TREE_INDEX_STATE})
+        svc.search(scarab_specializations="Ambush")
+        call = svc._client.get_protobuf.call_args_list[0]
+        assert call.kwargs["params"]["scarabspecializations"] == "Ambush"
+
+
+class TestPopularNodesTopN:
+    def test_top_n_parameter(self, tmp_path):
+        svc = _make_atlas_service(tmp_path, {"atlas-tree-index-state": ATLAS_TREE_INDEX_STATE})
+        nodes_3 = svc.get_popular_nodes(top_n=3)
+        nodes_10 = svc.get_popular_nodes(top_n=10)
+        assert len(nodes_3) <= 3
+        assert len(nodes_10) <= 10

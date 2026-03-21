@@ -53,7 +53,9 @@ def craft_mods(
 
 
 @sim_app.command(name="tiers")
-def craft_tiers(mod_id: str, base_name: str, *, ilvl: int = 100, human: bool = False) -> None:
+def craft_tiers(
+    mod_id: str, base_name: str, *, ilvl: int = DEFAULT_ILVL, human: bool = False
+) -> None:
     """Show all tiers for a specific mod on a base item.
 
     Parameters

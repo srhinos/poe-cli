@@ -704,3 +704,378 @@ class TestBuildsNotes:
 
 class TestClaudeSafetyLayer:
     """Test that write operations go through the Claude/ subfolder safety layer."""
+
+
+# ── items edit new params ────────────────────────────────────────────────────
+
+
+class TestItemsEditNewParams:
+    def test_set_sockets(self, build_file):
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "items",
+                "edit",
+                "test",
+                "--slot",
+                "Helmet",
+                "--set-sockets",
+                "B-B-B-B-B-B",
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+        build = parse_build_file(build_file)
+        item = next(i for _, i in build.get_equipped_items() if i.name == "Doom Crown")
+        assert item.sockets == "B-B-B-B-B-B"
+
+    def test_set_armour(self, build_file):
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "items",
+                "edit",
+                "test",
+                "--slot",
+                "Helmet",
+                "--set-armour",
+                "100",
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+        build = parse_build_file(build_file)
+        item = next(i for _, i in build.get_equipped_items() if i.name == "Doom Crown")
+        assert item.armour == 100
+
+    def test_set_energy_shield(self, build_file):
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "items",
+                "edit",
+                "test",
+                "--slot",
+                "Helmet",
+                "--set-energy-shield",
+                "500",
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+        build = parse_build_file(build_file)
+        item = next(i for _, i in build.get_equipped_items() if i.name == "Doom Crown")
+        assert item.energy_shield == 500
+
+
+# ── items compare file2 ─────────────────────────────────────────────────────
+
+
+class TestItemsCompareFile2:
+    def test_compare_with_file2(self, tmp_path):
+        from tests.conftest import MINIMAL_BUILD_XML
+
+        f1 = tmp_path / "build1.xml"
+        f2 = tmp_path / "build2.xml"
+        f1.write_text(MINIMAL_BUILD_XML, encoding="utf-8")
+        f2.write_text(MINIMAL_BUILD_XML, encoding="utf-8")
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "items",
+                "compare",
+                "build1",
+                "--slot",
+                "Helmet",
+                "--build2",
+                "build2",
+                "--file",
+                str(f1),
+                "--file2",
+                str(f2),
+            ],
+        )
+        assert result.exit_code == 0
+
+
+# ── flasks add explicit ──────────────────────────────────────────────────────
+
+
+class TestFlasksAddExplicit:
+    def test_add_flask_with_explicit(self, build_file):
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "flasks",
+                "add",
+                "test",
+                "--base",
+                "Granite Flask",
+                "--slot",
+                "Flask 1",
+                "--explicit",
+                "+3000 to Armour during Flask Effect",
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["status"] == "ok"
+
+
+# ── flasks edit explicit ─────────────────────────────────────────────────────
+
+
+class TestFlasksEditExplicit:
+    def test_add_explicit_to_flask(self, build_file):
+        invoke_cli(
+            cli,
+            [
+                "build",
+                "flasks",
+                "add",
+                "test",
+                "--base",
+                "Granite Flask",
+                "--slot",
+                "Flask 1",
+                "--file",
+                str(build_file),
+            ],
+        )
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "flasks",
+                "edit",
+                "test",
+                "--slot",
+                "Flask 1",
+                "--add-explicit",
+                "+3000 to Armour during Flask Effect",
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+
+
+# ── flasks reorder ───────────────────────────────────────────────────────────
+
+
+class TestFlasksReorder:
+    def test_reorder_flasks(self, build_file):
+        for slot in ["Flask 1", "Flask 2"]:
+            invoke_cli(
+                cli,
+                [
+                    "build",
+                    "flasks",
+                    "add",
+                    "test",
+                    "--base",
+                    "Granite Flask",
+                    "--slot",
+                    slot,
+                    "--file",
+                    str(build_file),
+                ],
+            )
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "flasks",
+                "reorder",
+                "test",
+                "--order",
+                "Flask 2",
+                "--order",
+                "Flask 1",
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+
+
+# ── jewels add explicit ──────────────────────────────────────────────────────
+
+
+class TestJewelsAddExplicit:
+    def test_add_jewel_with_explicit(self, build_file):
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "jewels",
+                "add",
+                "test",
+                "--base",
+                "Cobalt Jewel",
+                "--slot",
+                "Jewel 1",
+                "--explicit",
+                "+10% to Fire Resistance",
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["status"] == "ok"
+
+
+# ── gems edit quality_id ─────────────────────────────────────────────────────
+
+
+class TestGemsEditQualityId:
+    def test_set_quality_id(self, build_file):
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "gems",
+                "edit",
+                "test",
+                "--group",
+                "0",
+                "--set-quality-id",
+                "Fireball,Anomalous",
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+        build = parse_build_file(build_file)
+        group = build.skill_groups[0]
+        fireball = next(g for g in group.gems if g.name_spec == "Fireball")
+        assert fireball.quality_id == "Anomalous"
+
+
+# ── gems add-to-group / remove-from-group ────────────────────────────────────
+
+
+class TestGemsAddToGroup:
+    def test_add_gem_to_existing_group(self, build_file):
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "gems",
+                "add-to-group",
+                "test",
+                "--group",
+                "0",
+                "--gem",
+                "Greater Multiple Projectiles Support",
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+        build = parse_build_file(build_file)
+        group = build.skill_groups[0]
+        names = [g.name_spec for g in group.gems]
+        assert "Greater Multiple Projectiles Support" in names
+
+
+class TestGemsRemoveFromGroup:
+    def test_remove_gem_from_group(self, build_file):
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "gems",
+                "remove-from-group",
+                "test",
+                "--group",
+                "0",
+                "--gem",
+                "Spell Echo Support",
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+        build = parse_build_file(build_file)
+        group = build.skill_groups[0]
+        names = [g.name_spec for g in group.gems]
+        assert "Spell Echo Support" not in names
+
+
+# ── tree set add/remove mastery ──────────────────────────────────────────────
+
+
+class TestTreeSetMastery:
+    def test_add_mastery(self, build_file):
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "tree",
+                "set",
+                "test",
+                "--add-mastery",
+                "99999:88888",
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+        build = parse_build_file(build_file)
+        spec = build.get_active_spec()
+        mastery_map = {m.node_id: m.effect_id for m in spec.mastery_effects}
+        assert mastery_map.get(99999) == 88888
+
+    def test_remove_mastery(self, build_file):
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "tree",
+                "set",
+                "test",
+                "--remove-mastery",
+                "53188:64875",
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+        build = parse_build_file(build_file)
+        spec = build.get_active_spec()
+        mastery_map = {m.node_id: m.effect_id for m in spec.mastery_effects}
+        assert 53188 not in mastery_map
+
+
+# ── tree search ──────────────────────────────────────────────────────────────
+
+
+class TestTreeSearch:
+    def test_search_nodes(self, build_file):
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "tree",
+                "search",
+                "test",
+                "100",
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert any(str(n["node_id"]).startswith("100") for n in data)
