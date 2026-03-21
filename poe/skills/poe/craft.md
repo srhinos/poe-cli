@@ -12,8 +12,11 @@ poe sim mods "Hubris Circlet" --influence shaper  # Include influence mods
 poe sim tiers <mod_id> "Hubris Circlet"           # All tiers of a specific mod
 
 poe sim fossils --filter life                     # Fossils that boost life mods
+poe sim fossil-optimizer life                     # Fossils that boost a specific mod tag
 poe sim essences "Hubris Circlet"                 # Essences for this base
 poe sim bench "Hubris Circlet"                    # Bench craft options
+poe sim weights "Hubris Circlet" --ilvl 86        # Mod weight breakdown with probabilities
+poe sim suggest --mod "IncreasedLife" --mod "ColdResistance"  # Suggest best crafting approach
 ```
 
 ## Simulating Crafting Costs
@@ -24,6 +27,12 @@ poe sim simulate "Hubris Circlet" --ilvl 86 --method chaos \
 
 poe sim simulate "Hubris Circlet" --ilvl 86 --method fossil \
     --fossils "Pristine Fossil,Frigid Fossil" --target IncreasedLife --iterations 5000
+
+poe sim simulate-multistep "Hubris Circlet" --ilvl 86 \
+    --step alteration --step regal --target IncreasedLife --target ColdResistance
+
+poe sim compare "Hubris Circlet" --ilvl 86 --target IncreasedLife \
+    --fossils "Pristine Fossil" --essence "Deafening Essence of Greed"
 
 poe sim prices                                    # Current currency prices
 ```
@@ -51,16 +60,14 @@ For live economy prices (material costs, buy-vs-craft comparisons), see **`ninja
 ## Simulation Limitations
 
 Be upfront about scope:
-- **Single-step rolling only**: Chaos, alt, fossil, and essence rolls. No metamods, harvest, recombinators, or awakener orbs.
+- **Rolling methods only**: Chaos, alt, fossil, essence, and multi-step sequences (alt → regal, etc.). No metamods, harvest, recombinators, or awakener orbs.
 - **Approximate results**: Based on RePoE data, which may lag patches by a few days.
-- **No multi-step strategies**: Can't simulate "alt → regal → craft" chains.
 - **Cross-check expensive crafts**: For items worth multiple divines, recommend verifying independently.
 
 ## Data Management
 
 ```bash
-poe sim update-data    # Force refresh crafting data (auto-cached with TTL)
 poe sim prices         # Live currency prices
 ```
 
-Data is cached in `~/.cache/poe-agent/craft/` with automatic TTL-based refresh (7 days for mod data).
+Crafting data is automatically cached with TTL-based refresh.

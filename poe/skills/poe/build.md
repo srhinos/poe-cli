@@ -35,6 +35,7 @@ poe build gems list "<name>"                   # Active set (default)
 ## Stats, Comparison, Validation
 
 ```bash
+poe build summary "<name>"                     # Quick dashboard (class/level/DPS/life/resists)
 poe build stats "<name>" --category off        # Offensive stats
 poe build stats "<name>" --category def        # Defensive stats
 poe build compare "<build1>" "<build2>"        # Side-by-side stat diff
@@ -46,10 +47,19 @@ poe build config get "<name>"                  # Build config (charges, conditio
 ## Creating and Modifying Builds
 
 ```bash
-# Create / delete
+# Create / delete / clone / rename
 poe build create "<name>" --class-name Witch --ascendancy Necromancer --level 90
 poe build create "<name>" --file /path/to/output.xml
 poe build delete "<name>" --confirm
+poe build duplicate "<name>" "Clone Name"
+poe build rename "<name>" "New Name"
+
+# Character properties
+poe build set-level "<name>" --level 95
+poe build set-class "<name>" --class Witch --ascendancy Necromancer
+poe build set-bandit "<name>" --bandit Alira
+poe build set-pantheon "<name>" --major "Soul of the Brine King" --minor "Soul of Garukhan"
+poe build batch-set-level --level 100 --build "Build 1" --build "Build 2"
 
 # Items
 poe build items add "<name>" --slot Helmet --rarity RARE --item-name "Doom Crown" \
@@ -65,6 +75,10 @@ poe build items edit "<name>" --slot Helmet \
     --add-explicit "+40 to maximum Life" --remove-explicit 0 \
     --set-name "New Name" --set-rarity RARE --set-quality 20
 poe build items search "<name>" --mod "Life" --slot Helmet --influence Shaper --rarity RARE
+poe build items import "<name>" --slot Helmet --text "Rarity: Rare\nDoom Crown\nHubris Circlet\n..."
+poe build items move "<name>" --from Helmet --to "Weapon 1"
+poe build items swap "<name>" --slot1 "Weapon 1" --slot2 "Weapon 1 Swap"
+poe build items compare "<name>" --slot Helmet --build2 "Other Build"
 poe build items set-active "<name>" --item-set 2
 poe build items add-set "<name>"
 poe build items remove-set "<name>" --item-set 3
@@ -76,6 +90,8 @@ poe build gems remove "<name>" --index 0
 poe build gems edit "<name>" --group 0 --swap "Fireball,Ball Lightning" \
     --set-level "Ball Lightning,21" --set-quality "Ball Lightning,23" \
     --toggle "Spell Echo Support" --set-slot "Body Armour"
+poe build gems add-set "<name>"
+poe build gems remove-set "<name>" --skill-set 3
 poe build gems set-active "<name>" --skill-set 2
 
 # Passive tree
@@ -93,6 +109,12 @@ poe build tree remove-spec "<name>" --spec 3
 poe build config set "<name>" --boolean useFrenzyCharges=true --number enemyPhysicalHitDamage=5000
 poe build config set "<name>" --string customMod="some value"
 poe build config set "<name>" --remove useFrenzyCharges
+poe build config preset "<name>" --preset boss
+poe build config options --query "charge"
+poe build config sets "<name>"
+poe build config add-set "<name>" --title "Bossing"
+poe build config remove-set "<name>" --config-set 2
+poe build config switch-set "<name>" --config-set 2
 
 # Notes
 poe build notes "<name>" --set "Updated notes text"
@@ -100,12 +122,22 @@ poe build notes "<name>" --set "Updated notes text"
 # Main skill
 poe build set-main-skill "<name>" --index 1
 
-# Flasks and jewels (read-only)
+# Flasks
 poe build flasks list "<name>"
+poe build flasks add "<name>" --base "Granite Flask" --slot "Flask 1" --rarity MAGIC --quality 20
+poe build flasks edit "<name>" --slot "Flask 1" --set-name "Iron Skin" --set-quality 20
+poe build flasks remove "<name>" --slot "Flask 1"
+
+# Jewels
 poe build jewels list "<name>"
+poe build jewels add "<name>" --base "Cobalt Jewel" --slot "Jewel 1" --rarity RARE
+poe build jewels remove "<name>" --slot "Jewel 1"
+poe build jewels remove "<name>" --id 3
+poe build jewels socket "<name>" --id 3 --node 26725
+poe build jewels unsocket "<name>" --id 3
 ```
 
-All write commands accept `--file <path>` to specify an explicit file path instead of resolving by name. Note: `items remove --slot` searches only the active item set. `items add` replaces existing slot assignments.
+All write commands accept `--file <path>` to specify an explicit file path instead of resolving by name. Note: `items remove --slot` searches only the active item set. `items add` replaces existing slot assignments. Config presets available: `mapping`, `boss`, `sirus`, `shaper`.
 
 **Indexing**: Tree specs are 1-indexed (`--spec 1`). Gem groups are 0-indexed (`--index 0`). Main skill index is 1-based (`--index 1`).
 
@@ -114,7 +146,7 @@ All write commands accept `--file <path>` to specify an explicit file path inste
 **User builds are treated as read-only.** All create and modify operations write to `Claude/` inside the PoB builds directory. When modifying a build that lives outside `Claude/`, it is automatically cloned there first — the original is never touched.
 
 - **Create**: `poe build create` places new builds in `Claude/` by default
-- **Modify**: Any write command (`notes --set`, `items add/remove/edit/set-active/add-set/remove-set`, `gems add/remove/edit/set-active`, `tree set/set-active/add-spec/remove-spec`, `config set`, `set-main-skill`) clones the build into `Claude/` if it isn't already there
+- **Modify**: Any write command (`notes --set`, `items add/remove/edit/import/move/swap/set-active/add-set/remove-set`, `gems add/remove/edit/add-set/remove-set/set-active`, `tree set/set-active/add-spec/remove-spec`, `config set/preset/add-set/remove-set/switch-set`, `flasks add/edit/remove`, `jewels add/remove/socket/unsocket`, `set-level`, `set-class`, `set-bandit`, `set-pantheon`, `set-main-skill`, `rename`) clones the build into `Claude/` if it isn't already there
 - **Delete**: Refuses to delete builds outside `Claude/` (use `--file` to override)
 - **JSON output**: When a clone occurs, the response includes `cloned_from` (original path) and `working_copy` (path to the Claude/ copy)
 - **`--file` flag**: Bypasses the safety layer entirely — writes directly to the specified path
@@ -125,6 +157,7 @@ All write commands accept `--file <path>` to specify an explicit file path inste
 poe build decode <build_code>                    # Decode a PoB sharing code to XML
 poe build decode <build_code> --save "Imported"  # Decode and save to Claude/Imported.xml
 poe build encode "<name>"                        # Encode build to PoB sharing code
+poe build share "<name>"                         # Encode + generate sharing URL
 poe build open "<name>"                          # Open build in PoB via pob:// protocol (Windows only)
 poe build import <url_or_code> --name "Imported" # Import from pobb.in URL or raw code
 poe build export "<name>" <destination>          # Copy build file

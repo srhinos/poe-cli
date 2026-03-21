@@ -39,6 +39,7 @@ Options: `--force` (overwrite existing), `--symlink` (symlink instead of copy, f
 ```bash
 # Read and analyze
 poe build list
+poe build summary "Main GC"
 poe build analyze "Main GC"
 poe build stats "Main GC" --category off
 poe build validate "Main GC"
@@ -54,14 +55,22 @@ poe build config get "Main GC"
 
 # Modify builds (writes go to Claude/ subfolder)
 poe build create "New Build" --class-name Witch --ascendancy Necromancer --level 90
+poe build duplicate "Main GC" "Clone GC"
+poe build rename "Old Name" "New Name"
+poe build set-level "Main GC" --level 95
+poe build set-class "Main GC" --class Witch --ascendancy Necromancer
 poe build items add "Main GC" --slot Helmet --base "Hubris Circlet" --rarity RARE
 poe build items edit "Main GC" --slot Helmet --add-explicit "+90 to maximum Life"
 poe build gems add "Main GC" --slot "Body Armour" --gem Fireball --gem "Spell Echo Support"
 poe build tree set "Main GC" --add-nodes 500,600
+poe build flasks add "Main GC" --base "Granite Flask" --slot "Flask 1"
+poe build jewels add "Main GC" --base "Cobalt Jewel" --slot "Jewel 1"
+poe build config preset "Main GC" --preset boss
 
 # Import/export and sharing
 poe build decode <build_code>
 poe build encode "Main GC"
+poe build share "Main GC"
 poe build import <url_or_code> --name "Imported"
 ```
 
@@ -70,9 +79,26 @@ poe build import <url_or_code> --name "Imported"
 ```bash
 poe sim search "Crown"
 poe sim mods "Hubris Circlet" --ilvl 84
+poe sim weights "Hubris Circlet" --ilvl 84
 poe sim simulate "Vaal Regalia" --method fossil --target IncreasedLife --fossils "Pristine Fossil,Dense Fossil"
+poe sim simulate-multistep "Vaal Regalia" --step alteration --step regal --target IncreasedLife
+poe sim compare "Vaal Regalia" --target IncreasedLife --fossils "Pristine Fossil"
+poe sim suggest --mod "IncreasedLife"
 poe sim analyze "Main GC" --slot Helmet
 poe sim prices
+```
+
+### Economy (poe.ninja)
+
+```bash
+poe ninja price check "Exalted Orb" Currency
+poe ninja price list Currency
+poe ninja price convert 10 "Exalted Orb" "Chaos Orb"
+poe ninja price history "Exalted Orb" Currency
+poe ninja meta summary
+poe ninja builds search --class Necromancer --skill "Summon Raging Spirits"
+poe ninja builds inspect <account> <character>
+poe ninja atlas recommend
 ```
 
 All commands output JSON. Add `--human` for readable output.

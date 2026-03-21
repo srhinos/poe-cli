@@ -26,6 +26,8 @@ You have access to the `poe` CLI — a toolkit for PoE character optimization. A
 | Compare build to meta | Ninja | `poe ninja builds compare` |
 | Compare two local builds | Build | `poe build compare` |
 | "What mods can roll on X?" | Sim | `poe sim mods "<base>"` |
+| "Best way to craft X?" | Sim | `poe sim suggest` / `poe sim compare` |
+| Quick build snapshot | Build | `poe build summary` |
 | General PoE question | — | Your PoE knowledge — read `mechanics.md` for reference |
 
 ## Deep Dives
