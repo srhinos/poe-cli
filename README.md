@@ -39,38 +39,38 @@ Options: `--force` (overwrite existing), `--symlink` (symlink instead of copy, f
 ```bash
 # Read and analyze
 poe build list
-poe build summary "Main GC"
-poe build analyze "Main GC"
-poe build stats "Main GC" --category off
-poe build validate "Main GC"
-poe build compare "Main GC" "Backup GC"
+poe build summary "My RF Jugg"
+poe build analyze "My RF Jugg"
+poe build stats "My RF Jugg" --category off
+poe build validate "My RF Jugg"
+poe build compare "My RF Jugg" "League Starter"
 
 # Drill into loadouts
-poe build tree get "Main GC"
-poe build items list "Main GC"
-poe build gems list "Main GC"
-poe build flasks list "Main GC"
-poe build jewels list "Main GC"
-poe build config get "Main GC"
+poe build tree get "My RF Jugg"
+poe build items list "My RF Jugg"
+poe build gems list "My RF Jugg"
+poe build flasks list "My RF Jugg"
+poe build jewels list "My RF Jugg"
+poe build config get "My RF Jugg"
 
 # Modify builds (writes go to Claude/ subfolder)
 poe build create "New Build" --class-name Witch --ascendancy Necromancer --level 90
-poe build duplicate "Main GC" "Clone GC"
+poe build duplicate "My RF Jugg" "RF Jugg Copy"
 poe build rename "Old Name" "New Name"
-poe build set-level "Main GC" --level 95
-poe build set-class "Main GC" --class Witch --ascendancy Necromancer
-poe build items add "Main GC" --slot Helmet --base "Hubris Circlet" --rarity RARE
-poe build items edit "Main GC" --slot Helmet --add-explicit "+90 to maximum Life"
-poe build gems add "Main GC" --slot "Body Armour" --gem Fireball --gem "Spell Echo Support"
-poe build tree set "Main GC" --add-nodes 500,600
-poe build flasks add "Main GC" --base "Granite Flask" --slot "Flask 1"
-poe build jewels add "Main GC" --base "Cobalt Jewel" --slot "Jewel 1"
-poe build config preset "Main GC" --preset boss
+poe build set-level "My RF Jugg" --level 95
+poe build set-class "My RF Jugg" --class Witch --ascendancy Necromancer
+poe build items add "My RF Jugg" --slot Helmet --base "Hubris Circlet" --rarity RARE
+poe build items edit "My RF Jugg" --slot Helmet --add-explicit "+90 to maximum Life"
+poe build gems add "My RF Jugg" --slot "Body Armour" --gem Fireball --gem "Spell Echo Support"
+poe build tree set "My RF Jugg" --add-nodes 500,600
+poe build flasks add "My RF Jugg" --base "Granite Flask" --slot "Flask 1"
+poe build jewels add "My RF Jugg" --base "Cobalt Jewel" --slot "Jewel 1"
+poe build config preset "My RF Jugg" --preset boss
 
 # Import/export and sharing
 poe build decode <build_code>
-poe build encode "Main GC"
-poe build share "Main GC"
+poe build encode "My RF Jugg"
+poe build share "My RF Jugg"
 poe build import <url_or_code> --name "Imported"
 ```
 
@@ -84,7 +84,7 @@ poe sim simulate "Vaal Regalia" --method fossil --target IncreasedLife --fossils
 poe sim simulate-multistep "Vaal Regalia" --step alteration --step regal --target IncreasedLife
 poe sim compare "Vaal Regalia" --target IncreasedLife --fossils "Pristine Fossil"
 poe sim suggest --mod "IncreasedLife"
-poe sim analyze "Main GC" --slot Helmet
+poe sim analyze "My RF Jugg" --slot Helmet
 poe sim prices
 ```
 
@@ -106,7 +106,7 @@ All commands output JSON. Add `--human` for readable output.
 ### Live engine
 
 ```bash
-poe build engine load "Main GC"
+poe build engine load "My RF Jugg"
 poe build engine stats
 ```
 
