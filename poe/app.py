@@ -14,6 +14,7 @@ from poe.commands.ninja.commands import ninja_app
 from poe.commands.root import install_skill
 from poe.commands.sim.commands import sim_app
 from poe.exceptions import PoeError
+from poe.formatters import register_formatters
 
 try:
     _version = _pkg_version("poe-tools")
@@ -27,6 +28,7 @@ app.command(dev_app)
 app.command(sim_app)
 app.command(ninja_app)
 app.command(install_skill, name="install-skill")
+register_formatters()
 
 
 def _check_skill_version() -> None:
