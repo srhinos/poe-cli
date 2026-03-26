@@ -1,0 +1,321 @@
+"""PoB engine integration via lupa + LuaJIT.
+
+Loads the stock Path of Building Community Lua code in-process,
+providing full access to PoB's calculation engine without a GUI.
+
+Requires LuaJIT (bundled with lupa on Windows/macOS/Linux x86_64).
+Plain Lua 5.x will NOT work — PoB's codebase depends on LuaJIT internals.
+"""
+
+from __future__ import annotations
+
+import os
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+from .paths import get_pob_path, resolve_build_file
+from .stubs import register_stubs
+
+if TYPE_CHECKING:
+    from lupa import LuaRuntime
+
+
+def _get_lua_module():
+    """Import lupa with LuaJIT. Errors if not available."""
+    try:
+        import lupa.luajit21 as lua_mod
+
+        return lua_mod
+    except ImportError:
+        pass
+    try:
+        import lupa.luajit20 as lua_mod
+
+        return lua_mod
+    except ImportError:
+        pass
+    raise ImportError(
+        "pob requires LuaJIT, which is bundled with lupa on most platforms. "
+        "Install lupa >= 2.0 (`uv add lupa`). "
+        "If LuaJIT is still missing, your platform may not support it."
+    )
+
+
+class PoBEngine:
+    """Manages an embedded PoB Lua runtime via lupa + LuaJIT."""
+
+    def __init__(self, pob_path: str | Path | None = None):
+        self.pob_path = str(pob_path or get_pob_path())
+        self.lua: LuaRuntime | None = None
+        self._initialized = False
+        self._build_loaded = False
+
+    def _require_lua(self) -> LuaRuntime:
+        """Return the Lua runtime, raising if not initialized."""
+        if self.lua is None:
+            raise RuntimeError("Engine not initialized — call init() first")
+        return self.lua
+
+    def init(self) -> None:
+        """Initialize the Lua runtime and load PoB."""
+        lua_mod = _get_lua_module()
+        self.lua = lua_mod.LuaRuntime(unpack_returned_tuples=True)
+
+        pob_path_lua = self.pob_path.replace("\\", "/")
+
+        # 1. Register all GUI stubs
+        register_stubs(self.lua, self.pob_path)
+
+        # 2. Set up Lua package paths
+        self.lua.execute(f"""
+            local pobPath = "{pob_path_lua}"
+            package.path = pobPath .. "/?.lua;" ..
+                           pobPath .. "/?/init.lua;" ..
+                           pobPath .. "/lua/?.lua;" ..
+                           pobPath .. "/lua/?/init.lua;" ..
+                           pobPath .. "/Modules/?.lua;" ..
+                           pobPath .. "/Classes/?.lua;" ..
+                           package.path
+        """)
+
+        # 3. Change to PoB directory for relative file access
+        orig_cwd = os.getcwd()
+        try:
+            os.chdir(self.pob_path)
+
+            # 4. Load Launch.lua (strip #@ SimpleGraphic directive)
+            launch_path = Path(self.pob_path) / "Launch.lua"
+            launch_code = launch_path.read_text(encoding="utf-8")
+
+            lines = launch_code.split("\n")
+            if lines and lines[0].startswith("#@"):
+                lines[0] = "-- " + lines[0]
+            launch_code = "\n".join(lines)
+
+            self.lua.execute(launch_code)
+
+            # 5. Initialize PoB
+            self.lua.execute("runCallback('OnInit')")
+            self.lua.execute("runCallback('OnFrame')")
+
+            self._initialized = True
+        finally:
+            os.chdir(orig_cwd)
+
+    def _check_init_error(self) -> str | None:
+        """Check if PoB init produced an error message."""
+        try:
+            msg = self._require_lua().eval("mainObject and mainObject.promptMsg or nil")
+            return str(msg) if msg else None
+        except Exception:
+            return None
+
+    def load_build(self, build_name: str) -> dict:
+        """Load a build into the engine. Returns build info."""
+        if not self._initialized:
+            self.init()
+
+        err = self._check_init_error()
+        if err:
+            return {"error": f"PoB init failed: {err}"}
+
+        build_path = resolve_build_file(build_name)
+        xml_content = build_path.read_text(encoding="utf-8")
+
+        orig_cwd = os.getcwd()
+        try:
+            os.chdir(self.pob_path)
+
+            lua = self._require_lua()
+            lua.globals()["_loadBuildName"] = build_path.stem
+            lua.globals()["_loadBuildXml"] = xml_content
+
+            lua.execute("""
+                local main = mainObject.main
+                if main then
+                    main:SetMode("BUILD", false, _loadBuildName, _loadBuildXml)
+                    for i = 1, 10 do
+                        runCallback('OnFrame')
+                    end
+                end
+            """)
+
+            self._build_loaded = True
+            return self.get_build_info()
+        finally:
+            os.chdir(orig_cwd)
+
+    def get_build_info(self) -> dict:
+        """Get basic info about the currently loaded build."""
+        if not self._initialized:
+            return {"error": "Engine not initialized"}
+
+        orig_cwd = os.getcwd()
+        try:
+            os.chdir(self.pob_path)
+            info = self._require_lua().eval("""
+                (function()
+                    local main = mainObject and mainObject.main
+                    local build = main and main.modes and main.modes["BUILD"]
+                    if not build then
+                        return {error = "No build loaded"}
+                    end
+                    return {
+                        className = build.spec and build.spec.curClassName or "Unknown",
+                        ascendClassName = build.spec and build.spec.curAscendClassName or "None",
+                        level = build.characterLevel or 1,
+                        buildName = build.buildName or "",
+                    }
+                end)()
+            """)
+            return _lua_table_to_dict(info)
+        finally:
+            os.chdir(orig_cwd)
+
+    def get_stats(self, fields: list[str] | None = None) -> dict:
+        """Get calculated stats from the loaded build."""
+        if not self._initialized:
+            return {"error": "Engine not initialized"}
+
+        orig_cwd = os.getcwd()
+        try:
+            os.chdir(self.pob_path)
+            result = self._require_lua().eval("""
+                (function()
+                    local main = mainObject and mainObject.main
+                    local build = main and main.modes and main.modes["BUILD"]
+                    if not build or not build.calcsTab then
+                        return {error = "No build loaded or calculated"}
+                    end
+                    local output = build.calcsTab.mainOutput
+                    if not output then
+                        return {error = "No calculation output available"}
+                    end
+                    local stats = {}
+                    for k, v in pairs(output) do
+                        if type(v) == "number" or type(v) == "string" or type(v) == "boolean" then
+                            stats[k] = v
+                        end
+                    end
+                    return stats
+                end)()
+            """)
+            stats = _lua_table_to_dict(result)
+
+            if fields:
+                stats = {k: v for k, v in stats.items() if k in fields}
+
+            return stats
+        finally:
+            os.chdir(orig_cwd)
+
+    def recalculate(self) -> None:
+        """Trigger a full recalculation of the build."""
+        if not self._initialized:
+            return
+
+        orig_cwd = os.getcwd()
+        try:
+            os.chdir(self.pob_path)
+            self._require_lua().execute("""
+                local main = mainObject and mainObject.main
+                local build = main and main.modes and main.modes["BUILD"]
+                if build then
+                    build.buildFlag = true
+                    runCallback('OnFrame')
+                end
+            """)
+        finally:
+            os.chdir(orig_cwd)
+
+    @property
+    def initialized(self) -> bool:
+        return self._initialized
+
+    @property
+    def build_loaded(self) -> bool:
+        return self._build_loaded
+
+
+def _lua_table_to_dict(lua_table) -> dict:
+    """Convert a lupa Lua table to a Python dict."""
+    if lua_table is None:
+        return {}
+    try:
+        result = {}
+        for k, v in lua_table.items():
+            key = str(k)
+            if hasattr(v, "items"):
+                result[key] = _lua_table_to_dict(v)
+            elif hasattr(v, "__iter__") and not isinstance(v, (str, bytes)):
+                result[key] = list(v)
+            else:
+                result[key] = v
+        return result
+    except (AttributeError, TypeError):
+        return {"_raw": str(lua_table)}
+
+
+def check_lua_version() -> dict:
+    """Check the Lua version available via lupa."""
+    try:
+        lua_mod = _get_lua_module()
+        lua = lua_mod.LuaRuntime()
+        lua_ver = lua.eval("_VERSION")
+        has_jit = lua.eval("jit ~= nil")
+        jit_ver = None
+        if has_jit:
+            jit_ver = lua.eval("jit.version")
+        return {
+            "lua_version": lua_ver,
+            "has_luajit": has_jit,
+            "luajit_version": jit_ver,
+            "module": lua_mod.__name__,
+        }
+    except ImportError:
+        return {"error": "lupa not installed"}
+
+
+def get_pob_info() -> dict:
+    """Get info about the PoB installation."""
+    try:
+        pob_path = get_pob_path()
+    except FileNotFoundError as e:
+        return {"error": str(e)}
+
+    launch = Path(pob_path) / "Launch.lua"
+    manifest = Path(pob_path) / "manifest.xml"
+
+    version = "unknown"
+    if manifest.exists():
+        import defusedxml.ElementTree as ET
+
+        try:
+            tree = ET.parse(str(manifest))
+            root = tree.getroot()
+            if root is None:
+                raise ValueError("empty manifest")
+            for child in root:
+                if child.tag == "Version":
+                    version = child.get("number", "unknown")
+        except Exception:
+            pass
+
+    return {
+        "pob_path": str(pob_path),
+        "launch_exists": launch.exists(),
+        "version": version,
+        "lua": check_lua_version(),
+    }
+
+
+# Global engine instance
+_engine: PoBEngine | None = None
+
+
+def get_engine() -> PoBEngine:
+    """Get or create the global engine instance."""
+    global _engine
+    if _engine is None:
+        _engine = PoBEngine()
+    return _engine

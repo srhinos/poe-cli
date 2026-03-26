@@ -1,0 +1,43 @@
+[project]
+name = "pob-mcp"
+version = "0.1.0"
+description = "Path of Building CLI toolkit for Claude Code"
+requires-python = ">=3.12"
+dependencies = [
+    "lupa>=2.0",
+    "click>=8.0",
+    "defusedxml>=0.7",
+    "httpx>=0.27",
+]
+
+[project.optional-dependencies]
+test = ["pytest>=8.0", "respx>=0.22"]
+
+[dependency-groups]
+dev = ["ruff>=0.11", "ty>=0.0.1a7", "types-lupa>=2.0", "types-defusedxml>=0.7", "pytest>=8.0", "respx>=0.22"]
+
+[project.scripts]
+pob = "pob.cli:cli"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/pob"]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 100
+src = ["src", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "UP", "B", "SIM", "RUF"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["pob"]
+
+[tool.pytest.ini_options]
+markers = [
+    "integration: tests that require real PoB builds or network access",
+]
