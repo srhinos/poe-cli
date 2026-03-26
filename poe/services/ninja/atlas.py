@@ -125,13 +125,19 @@ class AtlasService:
 
         profits: list[dict[str, Any]] = []
         for entry in scarab_dim.entries:
-            price = price_map.get(entry.name.lower(), 0.0)
-            ev = entry.percentage / 100 * price
+            exact = price_map.get(entry.name.lower())
+            if exact is not None:
+                avg_price = exact
+            else:
+                prefix = entry.name.lower().rstrip("s")
+                matching = [v for k, v in price_map.items() if k.startswith(prefix)]
+                avg_price = sum(matching) / len(matching) if matching else 0.0
+            ev = entry.percentage / 100 * avg_price
             profits.append(
                 {
                     "name": entry.name,
                     "spawn_chance_pct": entry.percentage,
-                    "price_chaos": price,
+                    "price_chaos": round(avg_price, 1),
                     "expected_value": round(ev, 2),
                 }
             )
