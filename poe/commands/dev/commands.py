@@ -23,6 +23,11 @@ def build_data(*, human: bool = False) -> None:
     human
         Human-readable output.
     """
+    if not VENDOR_DIR.is_dir():
+        raise FileNotFoundError(
+            f"Vendor data not found at {VENDOR_DIR}. "
+            "This command must be run from a source checkout of poe-cli."
+        )
     pipeline = RepoEPipeline(VENDOR_DIR)
     results = pipeline.build(OUTPUT_DIR)
     files = {k: f"{v:,} bytes" for k, v in results.items()}
