@@ -10,6 +10,7 @@ from poe.services.ninja.discovery import DiscoveryService
 from poe.services.ninja.economy import EconomyService
 from poe.services.ninja.errors import NinjaError
 from poe.services.ninja.history import HistoryService
+from poe.services.repoe.sim_service import SimService
 
 price_app = cyclopts.App(name="price", help="Price checking and currency conversion.")
 
@@ -284,18 +285,29 @@ def price_fossil_recommend(
     human
         Human-readable output.
     """
+    sim = SimService()
+    optimizer_results = sim.fossil_optimizer(mod)
+
     with NinjaClient() as client:
         discovery = DiscoveryService(client)
         resolved_league = _resolve_league(discovery, league, game)
         economy = EconomyService(client)
-        prices = economy.get_prices(resolved_league, "Fossil", game=game)
-        matching = [
-            {
-                "name": p.name,
-                "chaos_value": p.chaos_value,
-            }
-            for p in prices
-            if mod.lower() in p.name.lower()
-        ]
-        matching.sort(key=lambda f: f["chaos_value"])
-        render(matching, human=human)
+        try:
+            prices = economy.get_prices(resolved_league, "Fossil", game=game)
+            price_map = {p.name.lower(): p.chaos_value for p in prices}
+        except NinjaError:
+            price_map = {}
+
+    results = []
+    for entry in optimizer_results:
+        if entry["effect"] == "boost":
+            chaos_value = price_map.get(entry["fossil"].lower(), 0.0)
+            results.append({
+                "name": entry["fossil"],
+                "tag": entry["tag"],
+                "multiplier": entry["multiplier"],
+                "chaos_value": chaos_value,
+            })
+
+    results.sort(key=lambda f: f["multiplier"], reverse=True)
+    render(results, human=human)

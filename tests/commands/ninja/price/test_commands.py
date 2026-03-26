@@ -132,6 +132,39 @@ class TestPriceConvert:
         assert data["to"] == "Chaos Orb"
 
 
+class TestFossilRecommend:
+    @patch("poe.commands.ninja.price.commands.NinjaClient")
+    @patch("poe.commands.ninja.price.commands.EconomyService")
+    @patch("poe.commands.ninja.price.commands.SimService")
+    def test_returns_results_for_physical(self, mock_sim_cls, mock_econ_cls, mock_ninja_cls):
+        from poe.models.ninja.economy import PriceResult
+
+        mock_sim = MagicMock()
+        mock_sim.fossil_optimizer.return_value = [
+            {"fossil": "Jagged Fossil", "tag": "physical", "multiplier": 10.0, "effect": "boost"},
+            {"fossil": "Metallic Fossil", "tag": "physical", "multiplier": 0.0, "effect": "block"},
+        ]
+        mock_sim_cls.return_value = mock_sim
+
+        mock_econ = MagicMock()
+        mock_econ.get_prices.return_value = [
+            PriceResult(name="Jagged Fossil", chaos_value=3.0),
+        ]
+        mock_econ_cls.return_value = mock_econ
+
+        client = _mock_client()
+        mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
+        mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = invoke_cli(
+            app, ["ninja", "price", "fossil-recommend", "physical"]
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert len(data) > 0
+        assert any("Jagged" in f["name"] for f in data)
+
+
 class TestPriceHelp:
     def test_price_help(self):
         result = invoke_cli(app, ["ninja", "price", "--help"])
