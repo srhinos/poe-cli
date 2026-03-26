@@ -299,6 +299,14 @@ class TestBuildNameValidation:
             validate_build_name(name)
 
 
+class TestSummaryDps:
+    def test_summary_includes_combined_dps(self, rich_build):
+        svc = BuildService()
+        result = svc.summary("ignored", file_path=str(rich_build))
+        assert "combined_dps" in result
+        assert result["combined_dps"] >= result["total_dps"]
+
+
 class TestSetClassMismatch:
     def test_rejects_mismatched_ascendancy(self, build_file):
         svc = BuildService()

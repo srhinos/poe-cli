@@ -408,6 +408,12 @@ class BuildService:
     def summary(self, name: str, *, file_path: str | None = None) -> dict:
         _, build_obj = self.load(name, file_path)
         get = build_obj.get_stat
+        total = get("TotalDPS") or 0
+        dot = get("TotalDot") or 0
+        bleed = get("BleedDPS") or 0
+        ignite = get("IgniteDPS") or 0
+        poison = get("PoisonDPS") or 0
+        combined = max(total, total + dot + bleed + ignite + poison)
         return {
             "name": name,
             "class": build_obj.class_name,
@@ -416,7 +422,8 @@ class BuildService:
             "life": get("Life") or 0,
             "energy_shield": get("EnergyShield") or 0,
             "mana": get("Mana") or 0,
-            "total_dps": get("TotalDPS") or 0,
+            "total_dps": total,
+            "combined_dps": combined,
             "fire_resist": get("FireResist"),
             "cold_resist": get("ColdResist"),
             "lightning_resist": get("LightningResist"),
