@@ -15,7 +15,12 @@ from poe.commands.root import install_skill
 from poe.commands.sim.commands import sim_app
 from poe.exceptions import PoeError
 
-app = cyclopts.App(name="poe", help="Path of Exile CLI toolkit.")
+try:
+    _version = _pkg_version("poe-tools")
+except PackageNotFoundError:
+    _version = "0.0.0"
+
+app = cyclopts.App(name="poe", help="Path of Exile CLI toolkit.", version=_version)
 
 app.command(build_app)
 app.command(dev_app)
