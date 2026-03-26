@@ -75,7 +75,7 @@ class BuildStat(BaseModel):
     model_config = ConfigDict(extra="ignore", populate_by_name=True)
 
     class_name: str = Field(alias="class")
-    skill: str
+    skill: str = ""
     percentage: float
     trend: int = 0
 
