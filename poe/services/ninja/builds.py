@@ -15,6 +15,7 @@ from poe.models.ninja.builds import (
 )
 from poe.models.ninja.protobuf import Dictionary, NinjaSearchResult
 from poe.services.ninja import cache as ninja_cache
+from poe.services.ninja.errors import NinjaError
 
 if TYPE_CHECKING:
     from poe.services.ninja.client import NinjaClient
@@ -103,7 +104,10 @@ class BuildsService:
         params = {"type": tooltip_type, "name": name, "treeName": tree_name}
 
         cache_key = f"tooltip_any_{tooltip_type}_{name}"
-        raw = self._fetch_cached(cache_key, path, params)
+        try:
+            raw = self._fetch_cached(cache_key, path, params)
+        except NinjaError:
+            return None
         return TooltipResponse.model_validate(raw)
 
     def get_popular_skills(self, *, game: str = "poe2") -> list[PopularSkill]:
