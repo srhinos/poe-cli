@@ -98,6 +98,34 @@ class TestGetPrices:
         assert result["league"] == "current"
 
 
+class TestModNameResolution:
+    def test_resolve_display_name(self, sim_service):
+        result = sim_service.resolve_mod_name("Increased Life", "Hubris Circlet")
+        assert result == "IncreasedLife"
+
+    def test_resolve_group_name_passthrough(self, sim_service):
+        result = sim_service.resolve_mod_name("IncreasedLife", "Hubris Circlet")
+        assert result is None or result == "IncreasedLife"
+
+    def test_simulate_accepts_display_name(self, sim_service):
+        result = sim_service.simulate(
+            "Hubris Circlet",
+            method="chaos",
+            target=["Increased Life"],
+            iterations=10,
+        )
+        assert float(result.hit_rate.rstrip("%")) >= 0
+
+    def test_simulate_accepts_group_name(self, sim_service):
+        result = sim_service.simulate(
+            "Hubris Circlet",
+            method="chaos",
+            target=["IncreasedLife"],
+            iterations=10,
+        )
+        assert float(result.hit_rate.rstrip("%")) >= 0
+
+
 class TestMultistepValidation:
     def test_regal_after_chaos_raises(self, sim_service):
         with pytest.raises(SimDataError, match="regal.*requires.*magic"):

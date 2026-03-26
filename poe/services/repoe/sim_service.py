@@ -185,6 +185,10 @@ class SimService:
     ) -> SimulationResult:
         if method == CraftMethod.ESSENCE and not essence:
             raise SimDataError("--essence is required when method is 'essence'")
+        resolved_targets = []
+        for t in target:
+            resolved = self.resolve_mod_name(t, base_name)
+            resolved_targets.append(resolved if resolved else t)
         data_copy = copy.copy(self._data)
         data_copy._cache = copy.deepcopy(self._data._cache)
         eng = CraftingEngine(data_copy)
@@ -192,7 +196,7 @@ class SimService:
             base=base_name,
             ilvl=ilvl,
             method=method,
-            target_mods=target,
+            target_mods=resolved_targets,
             iterations=iterations,
             influences=influence or [],
             fossils=fossils,
@@ -238,10 +242,14 @@ class SimService:
                     f"but previous step produces {produced_rarity} items"
                 )
             produced_rarity = _RARITY_PRODUCED.get(method, produced_rarity)
+        resolved_targets = []
+        for t in target:
+            resolved = self.resolve_mod_name(t, base_name)
+            resolved_targets.append(resolved if resolved else t)
         data_copy = copy.copy(self._data)
         data_copy._cache = copy.deepcopy(self._data._cache)
         eng = CraftingEngine(data_copy)
-        target_set = {t.casefold() for t in target}
+        target_set = {t.casefold() for t in resolved_targets}
         hits = 0
         attempts_on_hit: list[int] = []
         for _ in range(iterations):
