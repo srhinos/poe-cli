@@ -81,6 +81,9 @@ def _process_mods(raw: dict) -> dict[str, dict]:
     return result
 
 
+_INFLUENCE_SUFFIXES: frozenset[str] = frozenset(INFLUENCE_TAG_MAP)
+
+
 def _build_mod_pool(base_items: dict[str, dict], mods: dict[str, dict]) -> dict[str, list[str]]:
     pool: dict[str, list[str]] = {}
     for base in base_items.values():
@@ -91,7 +94,13 @@ def _build_mod_pool(base_items: dict[str, dict], mods: dict[str, dict]) -> dict[
             if mod["is_essence_only"]:
                 continue
             for sw in mod["spawn_weights"]:
-                if sw["tag"] in base_tags:
+                tag = sw["tag"]
+                if tag in base_tags:
+                    if sw["weight"] > 0:
+                        matching.append(mod_id)
+                    break
+                parts = tag.rsplit("_", 1)
+                if len(parts) == 2 and parts[1] in _INFLUENCE_SUFFIXES and parts[0] in base_tags:
                     if sw["weight"] > 0:
                         matching.append(mod_id)
                     break

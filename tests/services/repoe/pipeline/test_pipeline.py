@@ -182,6 +182,48 @@ class TestBuildModPool:
         pool = _build_mod_pool(base_items, mods)
         assert pool["Meta/H"] == []
 
+    def test_includes_influence_mods(self):
+        base_items = {
+            "BodyArmour1": {
+                "id": "BodyArmour1",
+                "tags": ["body_armour", "armour", "default"],
+            },
+        }
+        mods = {
+            "ShaperMod1": {
+                "is_essence_only": False,
+                "spawn_weights": [{"tag": "body_armour_shaper", "weight": 500}],
+            },
+            "ElderMod1": {
+                "is_essence_only": False,
+                "spawn_weights": [{"tag": "body_armour_elder", "weight": 500}],
+            },
+            "HunterMod1": {
+                "is_essence_only": False,
+                "spawn_weights": [{"tag": "body_armour_basilisk", "weight": 500}],
+            },
+        }
+        pool = _build_mod_pool(base_items, mods)
+        assert "ShaperMod1" in pool["BodyArmour1"]
+        assert "ElderMod1" in pool["BodyArmour1"]
+        assert "HunterMod1" in pool["BodyArmour1"]
+
+    def test_excludes_zero_weight_influence(self):
+        base_items = {
+            "BodyArmour1": {
+                "id": "BodyArmour1",
+                "tags": ["body_armour", "armour", "default"],
+            },
+        }
+        mods = {
+            "ZeroWeightMod": {
+                "is_essence_only": False,
+                "spawn_weights": [{"tag": "body_armour_shaper", "weight": 0}],
+            },
+        }
+        pool = _build_mod_pool(base_items, mods)
+        assert "ZeroWeightMod" not in pool["BodyArmour1"]
+
 
 class TestProcessFossils:
     def test_basic_fossil(self):
