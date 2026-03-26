@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import copy
+
 from poe.exceptions import SimDataError, SlotError
 from poe.models.build.items import EquippedItem
 from poe.models.sim import (
@@ -166,7 +168,9 @@ class SimService:
     ) -> SimulationResult:
         if method == CraftMethod.ESSENCE and not essence:
             raise SimDataError("--essence is required when method is 'essence'")
-        eng = CraftingEngine(self._data)
+        data_copy = copy.copy(self._data)
+        data_copy._cache = copy.deepcopy(self._data._cache)
+        eng = CraftingEngine(data_copy)
         sim_result = eng.simulate(
             base=base_name,
             ilvl=ilvl,
@@ -207,7 +211,9 @@ class SimService:
         influence: list[str] | None = None,
         match: str = "all",
     ) -> dict:
-        eng = CraftingEngine(self._data)
+        data_copy = copy.copy(self._data)
+        data_copy._cache = copy.deepcopy(self._data._cache)
+        eng = CraftingEngine(data_copy)
         target_set = {t.casefold() for t in target}
         hits = 0
         attempts_on_hit: list[int] = []
