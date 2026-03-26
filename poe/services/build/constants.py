@@ -47,6 +47,40 @@ ASCENDANCY_IDS: dict[str, tuple[int, int]] = {
 ASCENDANCY_ID_TO_NAME: dict[tuple[int, int], str] = {v: k for k, v in ASCENDANCY_IDS.items()}
 ASCENDANCY_ID_TO_NAME[(0, 0)] = ""
 
+VALID_BANDITS: frozenset[str] = frozenset({"None", "Alira", "Kraityn", "Oak"})
+
+VALID_PANTHEON_MAJOR: frozenset[str] = frozenset({
+    "",
+    "Brine King",
+    "Lunaris",
+    "Solaris",
+    "Arakaali",
+    "Soul of the Brine King",
+    "Soul of Lunaris",
+    "Soul of Solaris",
+    "Soul of Arakaali",
+})
+
+VALID_PANTHEON_MINOR: frozenset[str] = frozenset({
+    "",
+    "Abberath",
+    "Garukhan",
+    "Gruthkul",
+    "Yugul",
+    "Shakari",
+    "Tukohama",
+    "Ralakesh",
+    "Ryslatha",
+    "Soul of Abberath",
+    "Soul of Garukhan",
+    "Soul of Gruthkul",
+    "Soul of Yugul",
+    "Soul of Shakari",
+    "Soul of Tukohama",
+    "Soul of Ralakesh",
+    "Soul of Ryslatha",
+})
+
 DEFAULT_TREE_VERSION = "3_28"
 
 RES_CAP = 75

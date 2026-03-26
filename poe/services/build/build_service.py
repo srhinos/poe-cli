@@ -29,6 +29,9 @@ from poe.services.build.constants import (
     DEFAULT_TREE_VERSION,
     MAX_CHARACTER_LEVEL,
     STALE_STATS_WARNING,
+    VALID_BANDITS,
+    VALID_PANTHEON_MAJOR,
+    VALID_PANTHEON_MINOR,
 )
 from poe.services.build.validation import validate_build
 from poe.services.build.xml.parser import parse_build_file
@@ -341,6 +344,10 @@ class BuildService:
         )
 
     def set_bandit(self, name: str, bandit: str, *, file_path: str | None = None) -> MutationResult:
+        if bandit not in VALID_BANDITS:
+            raise BuildValidationError(
+                f"Unknown bandit: {bandit!r}. Valid: {sorted(VALID_BANDITS)}"
+            )
         path, build_obj, cloned_from = self.load_for_write(name, file_path)
         build_obj.bandit = bandit
         self.save(build_obj, path)
@@ -359,6 +366,14 @@ class BuildService:
         minor: str | None = None,
         file_path: str | None = None,
     ) -> MutationResult:
+        if major is not None and major not in VALID_PANTHEON_MAJOR:
+            raise BuildValidationError(
+                f"Unknown major pantheon: {major!r}. Valid: {sorted(VALID_PANTHEON_MAJOR - {''})}"
+            )
+        if minor is not None and minor not in VALID_PANTHEON_MINOR:
+            raise BuildValidationError(
+                f"Unknown minor pantheon: {minor!r}. Valid: {sorted(VALID_PANTHEON_MINOR - {''})}"
+            )
         path, build_obj, cloned_from = self.load_for_write(name, file_path)
         if major is not None:
             build_obj.pantheon_major = major

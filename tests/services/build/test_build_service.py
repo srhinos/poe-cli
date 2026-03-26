@@ -287,6 +287,36 @@ class TestBuildNameValidation:
             validate_build_name(name)
 
 
+class TestSetBanditValidation:
+    def test_rejects_invalid(self, build_file):
+        svc = BuildService()
+        with pytest.raises(BuildValidationError, match="Unknown bandit"):
+            svc.set_bandit("ignored", "InvalidBandit", file_path=str(build_file))
+
+    def test_accepts_valid(self, build_file):
+        svc = BuildService()
+        for bandit in ("None", "Alira", "Kraityn", "Oak"):
+            result = svc.set_bandit("ignored", bandit, file_path=str(build_file))
+            assert result.bandit == bandit
+
+
+class TestSetPantheonValidation:
+    def test_rejects_invalid_major(self, build_file):
+        svc = BuildService()
+        with pytest.raises(BuildValidationError, match="Unknown major pantheon"):
+            svc.set_pantheon("ignored", major="InvalidGod", file_path=str(build_file))
+
+    def test_rejects_invalid_minor(self, build_file):
+        svc = BuildService()
+        with pytest.raises(BuildValidationError, match="Unknown minor pantheon"):
+            svc.set_pantheon("ignored", minor="InvalidMinor", file_path=str(build_file))
+
+    def test_accepts_valid_major(self, build_file):
+        svc = BuildService()
+        result = svc.set_pantheon("ignored", major="Soul of Lunaris", file_path=str(build_file))
+        assert result.pantheon_major == "Soul of Lunaris"
+
+
 class TestUnicodeBuildNames:
     def test_unicode_name(self, tmp_path, monkeypatch):
         monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_path))
