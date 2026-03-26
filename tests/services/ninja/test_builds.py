@@ -14,6 +14,19 @@ def _make_builds_service(tmp_path, *, get_json_side_effect=None):
     return BuildsService(client, discovery, base_dir=tmp_path)
 
 
+class TestGetCharacter:
+    def test_returns_none_on_404(self, tmp_path):
+        svc = _make_builds_service(
+            tmp_path,
+            get_json_side_effect=NetworkError("404 Not Found"),
+        )
+        svc._discovery.get_current_snapshot.return_value = MagicMock(
+            version="v1", snapshot_name="snap"
+        )
+        result = svc.get_character("unknown_account", "unknown_char")
+        assert result is None
+
+
 class TestGetGenericTooltip:
     def test_returns_none_on_404(self, tmp_path):
         svc = _make_builds_service(

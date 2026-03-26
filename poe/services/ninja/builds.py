@@ -67,7 +67,10 @@ class BuildsService:
             params["type"] = snapshot_type
 
         cache_key = f"char_{game}_{account}_{character}"
-        raw = self._fetch_cached(cache_key, path, params)
+        try:
+            raw = self._fetch_cached(cache_key, path, params)
+        except NinjaError:
+            return None
         return CharacterResponse.model_validate(raw)
 
     def get_tooltip(
