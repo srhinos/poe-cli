@@ -128,7 +128,7 @@ class TestModNameResolution:
 
 class TestMultistepValidation:
     def test_regal_after_chaos_raises(self, sim_service):
-        with pytest.raises(SimDataError, match="regal.*requires.*magic"):
+        with pytest.raises(SimDataError, match=r"regal.*requires.*magic"):
             sim_service.simulate_multistep(
                 "Hubris Circlet",
                 steps=[{"method": "chaos"}, {"method": "regal"}],
@@ -137,7 +137,7 @@ class TestMultistepValidation:
             )
 
     def test_augmentation_after_chaos_raises(self, sim_service):
-        with pytest.raises(SimDataError, match="augmentation.*requires"):
+        with pytest.raises(SimDataError, match=r"augmentation.*requires"):
             sim_service.simulate_multistep(
                 "Hubris Circlet",
                 steps=[{"method": "chaos"}, {"method": "augmentation"}],

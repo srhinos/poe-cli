@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import copy
-
 from poe.exceptions import SimDataError, SlotError
 from poe.models.build.items import EquippedItem
 from poe.models.sim import (
@@ -23,7 +21,6 @@ from poe.services.repoe.constants import DEFAULT_ILVL, DEFAULT_ITERATIONS
 from poe.services.repoe.data import RepoEData
 from poe.services.repoe.sim import CraftingEngine
 from poe.types import CraftMethod
-
 
 _RARITY_PRODUCED: dict[str, str] = {
     CraftMethod.CHAOS: "rare",
@@ -188,10 +185,8 @@ class SimService:
         resolved_targets = []
         for t in target:
             resolved = self.resolve_mod_name(t, base_name)
-            resolved_targets.append(resolved if resolved else t)
-        data_copy = copy.copy(self._data)
-        data_copy._cache = copy.deepcopy(self._data._cache)
-        eng = CraftingEngine(data_copy)
+            resolved_targets.append(resolved or t)
+        eng = CraftingEngine(self._data.snapshot())
         sim_result = eng.simulate(
             base=base_name,
             ilvl=ilvl,
@@ -245,10 +240,8 @@ class SimService:
         resolved_targets = []
         for t in target:
             resolved = self.resolve_mod_name(t, base_name)
-            resolved_targets.append(resolved if resolved else t)
-        data_copy = copy.copy(self._data)
-        data_copy._cache = copy.deepcopy(self._data._cache)
-        eng = CraftingEngine(data_copy)
+            resolved_targets.append(resolved or t)
+        eng = CraftingEngine(self._data.snapshot())
         target_set = {t.casefold() for t in resolved_targets}
         hits = 0
         attempts_on_hit: list[int] = []

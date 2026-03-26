@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 import typing
 from pathlib import Path
@@ -20,6 +21,11 @@ class RepoEData:
             Path(__file__).resolve().parent.parent.parent / "data" / "repoe"
         )
         self._cache: dict[str, dict | list] = {}
+
+    def snapshot(self) -> RepoEData:
+        clone = copy.copy(self)
+        object.__setattr__(clone, "_cache", copy.deepcopy(self._cache))
+        return clone
 
     def _load(self, name: str) -> dict | list:
         if name not in self._cache:

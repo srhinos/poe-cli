@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from poe.exceptions import BuildValidationError
 from poe.paths import resolve_build_file
 from poe.safety import (
     get_claude_builds_path,
@@ -19,12 +20,12 @@ from tests.conftest import MINIMAL_BUILD_XML
 class TestPathTraversalWrite:
     def test_reject_backslash(self, tmp_builds_dir, monkeypatch):
         monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_builds_dir))
-        with pytest.raises(ValueError, match="Invalid build name"):
+        with pytest.raises(BuildValidationError, match="Invalid build name"):
             resolve_for_write("..\\windows\\system32")
 
     def test_reject_dotdot(self, tmp_builds_dir, monkeypatch):
         monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_builds_dir))
-        with pytest.raises(ValueError, match="Invalid build name"):
+        with pytest.raises(BuildValidationError, match="Invalid build name"):
             resolve_for_write("../../escape")
 
     def test_relative_check(self, tmp_builds_dir, monkeypatch):
@@ -32,7 +33,7 @@ class TestPathTraversalWrite:
         monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_builds_dir))
         # A name with slash is caught by validate_build_name before
         # reaching the is_relative_to check, so we verify slash is rejected
-        with pytest.raises(ValueError, match="Invalid build name"):
+        with pytest.raises(BuildValidationError, match="Invalid build name"):
             resolve_for_write("foo/bar")
 
     def test_is_relative_to_guard(self, tmp_builds_dir, monkeypatch):
@@ -40,7 +41,7 @@ class TestPathTraversalWrite:
         monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_builds_dir))
         # Bypass validate_build_name to directly test the is_relative_to check
         monkeypatch.setattr("poe.paths.validate_build_name", lambda _name: None)
-        with pytest.raises(ValueError, match="Invalid build name"):
+        with pytest.raises(BuildValidationError, match="Invalid build name"):
             resolve_for_write("../../escape")
 
 

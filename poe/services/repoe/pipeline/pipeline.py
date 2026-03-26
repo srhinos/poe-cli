@@ -99,8 +99,8 @@ def _build_mod_pool(base_items: dict[str, dict], mods: dict[str, dict]) -> dict[
                     if sw["weight"] > 0:
                         matching.append(mod_id)
                     break
-                parts = tag.rsplit("_", 1)
-                if len(parts) == 2 and parts[1] in _INFLUENCE_SUFFIXES and parts[0] in base_tags:
+                base_tag, _, suffix = tag.rpartition("_")
+                if base_tag and suffix in _INFLUENCE_SUFFIXES and base_tag in base_tags:
                     if sw["weight"] > 0:
                         matching.append(mod_id)
                     break

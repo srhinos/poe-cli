@@ -401,10 +401,13 @@ class TestPriceCheck:
 
     def test_chaos_orb_poe2_not_hardcoded(self, tmp_path):
         empty_exchange = {"items": [], "lines": []}
-        svc = _make_service(tmp_path, {
-            "currency/overview": CURRENCY_RESPONSE,
-            "poe2": empty_exchange,
-        })
+        svc = _make_service(
+            tmp_path,
+            {
+                "currency/overview": CURRENCY_RESPONSE,
+                "poe2": empty_exchange,
+            },
+        )
         result = svc.price_check("Mirage", "Chaos Orb", "Currency", game="poe2")
         assert result is None or result.chaos_value != 1.0
 
