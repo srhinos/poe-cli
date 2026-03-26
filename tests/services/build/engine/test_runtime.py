@@ -602,3 +602,15 @@ class TestRegisterStubs:
         lua = mod.LuaRuntime(unpack_returned_tuples=True)
         register_stubs(lua, "/tmp/fakepob")
         assert lua.eval('Inflate("not compressed data at all")') == ""
+
+
+class TestPoBEngineLastBuildName:
+    def test_last_build_name_initialized_empty(self):
+        """PoBEngine should start with empty _last_build_name."""
+        from unittest.mock import patch
+
+        with patch("poe.services.build.engine.runtime.get_pob_path", return_value="/tmp/fake"):
+            from poe.services.build.engine.runtime import PoBEngine
+
+            eng = PoBEngine(pob_path="/tmp/fake")
+            assert eng._last_build_name == ""

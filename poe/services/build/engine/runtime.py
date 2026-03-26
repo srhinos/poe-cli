@@ -41,6 +41,7 @@ class PoBEngine:
         self.lua: LuaRuntime | None = None
         self._initialized = False
         self._build_loaded = False
+        self._last_build_name: str = ""
 
     def _require_lua(self) -> LuaRuntime:
         if self.lua is None:
@@ -104,6 +105,7 @@ class PoBEngine:
             return {"error": f"PoB init failed: {err}"}
 
         build_path = resolve_build_file(build_name)
+        self._last_build_name = build_name
         xml_content = build_path.read_text(encoding="utf-8")
 
         orig_cwd = Path.cwd()
@@ -151,7 +153,21 @@ class PoBEngine:
                     }
                 end)()
             """)
-            return lua_table_to_dict(info)
+            result = lua_table_to_dict(info)
+            if result.get("className") in ("Scion", "Unknown", ""):
+                try:
+                    from poe.services.build.build_service import BuildService
+
+                    build_name = result.get("buildName", "")
+                    if build_name and self._last_build_name:
+                        _, build_obj = BuildService().load(
+                            self._last_build_name, file_path=None
+                        )
+                        result["className"] = build_obj.class_name
+                        result["ascendClassName"] = build_obj.ascend_class_name
+                except Exception:
+                    pass
+            return result
         finally:
             os.chdir(orig_cwd)
 
