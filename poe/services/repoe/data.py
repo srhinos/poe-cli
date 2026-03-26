@@ -17,10 +17,13 @@ class RepoEData:
         self._data_dir = data_dir or (
             Path(__file__).resolve().parent.parent.parent / "data" / "repoe"
         )
+        self._cache: dict[str, dict | list] = {}
 
     def _load(self, name: str) -> dict | list:
-        path = self._data_dir / f"{name}.json"
-        return json.loads(path.read_text(encoding="utf-8"))
+        if name not in self._cache:
+            path = self._data_dir / f"{name}.json"
+            self._cache[name] = json.loads(path.read_text(encoding="utf-8"))
+        return self._cache[name]
 
     def _find_base_item(self, name: str, base_items: dict) -> dict | None:
         item = base_items.get(name)

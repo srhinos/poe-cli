@@ -201,3 +201,10 @@ class TestEssenceTiers:
         assert RepoEData._extract_essence_tier("Deafening") == ("Deafening", 7)
         assert RepoEData._extract_essence_tier("Whispering") == ("Whispering", 1)
         assert RepoEData._extract_essence_tier("Unknown") == ("", 0)
+
+
+class TestDataCaching:
+    def test_load_caches_results(self, repoe_data):
+        result1 = repoe_data._load("mods")
+        result2 = repoe_data._load("mods")
+        assert result1 is result2
