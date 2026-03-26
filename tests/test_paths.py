@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from poe.exceptions import BuildNotFoundError
 from poe.paths import (
     get_builds_path,
     get_pob_path,
@@ -161,3 +162,25 @@ class TestResolveOrFile:
         monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_builds_dir))
         result = resolve_or_file("BuildA", None)
         assert result.name == "BuildA.xml"
+
+
+class TestPrefixMatching:
+    def test_prefix_match(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_path))
+        (tmp_path / "Ele Hit Ranger.xml").write_text("<PathOfBuilding/>")
+        result = resolve_build_file("Ele")
+        assert result.name == "Ele Hit Ranger.xml"
+
+    def test_ambiguous_prefix_errors(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_path))
+        (tmp_path / "Ele Hit Ranger.xml").write_text("<PathOfBuilding/>")
+        (tmp_path / "Ele Bow Deadeye.xml").write_text("<PathOfBuilding/>")
+        with pytest.raises(BuildNotFoundError, match="Ambiguous"):
+            resolve_build_file("Ele")
+
+    def test_exact_match_preferred(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_path))
+        (tmp_path / "Build.xml").write_text("<PathOfBuilding/>")
+        (tmp_path / "BuildExtra.xml").write_text("<PathOfBuilding/>")
+        result = resolve_build_file("Build")
+        assert result.name == "Build.xml"

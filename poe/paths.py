@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 from poe.constants import CLAUDE_SUBFOLDER, POB_XML_EXTENSION
+from poe.exceptions import BuildNotFoundError
 
 _WINDOWS_INVALID_CHARS = frozenset(':*?"<>|')
 _WINDOWS_RESERVED = frozenset(
@@ -100,6 +101,18 @@ def resolve_build_file(name: str) -> Path:
     for f in builds_path.rglob(f"*{POB_XML_EXTENSION}"):
         if f.name.casefold() == name.casefold():
             return f
+
+    stem = name.removesuffix(POB_XML_EXTENSION).casefold()
+    prefix_matches = [
+        f
+        for f in builds_path.rglob(f"*{POB_XML_EXTENSION}")
+        if f.stem.casefold().startswith(stem)
+    ]
+    if len(prefix_matches) == 1:
+        return prefix_matches[0]
+    if len(prefix_matches) > 1:
+        names = [f.stem for f in prefix_matches]
+        raise BuildNotFoundError(f"Ambiguous prefix {name!r}: matches {names}")
 
     raise FileNotFoundError(f"Build file not found: {name}")
 
