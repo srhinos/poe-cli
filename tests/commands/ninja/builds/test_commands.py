@@ -471,3 +471,38 @@ class TestMetaCli:
         data = json.loads(result.output)
         assert isinstance(data, list)
         assert data[0]["league"] == "Mirage"
+
+
+class TestBuildsSearchClassValidation:
+    @patch("poe.commands.ninja.builds.commands.NinjaClient")
+    def test_invalid_class_errors(self, mock_cls):
+        from poe.models.ninja.builds import DimensionEntry, ResolvedDimension, SearchResults
+
+        client = MagicMock()
+
+        def get_json(path, *, params=None):
+            if "index-state" in path:
+                return INDEX_STATE
+            msg = f"Unmocked: {path}"
+            raise ValueError(msg)
+
+        client.get_json.side_effect = get_json
+        client.get_protobuf.return_value = SearchResults(
+            total=100,
+            dimensions=[
+                ResolvedDimension(
+                    id="class",
+                    entries=[
+                        DimensionEntry(name="Necromancer", count=50, percentage=50.0),
+                        DimensionEntry(name="Deadeye", count=50, percentage=50.0),
+                    ],
+                ),
+            ],
+        )
+        mock_cls.return_value.__enter__ = MagicMock(return_value=client)
+        mock_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = invoke_cli(
+            app, ["ninja", "builds", "search", "--class", "NonExistentClass123"]
+        )
+        assert result.exit_code == 1

@@ -13,6 +13,7 @@ from poe.services.ninja.comparison import compare_to_meta
 from poe.services.ninja.costing import cost_build, find_budget_alternatives
 from poe.services.ninja.discovery import DiscoveryService
 from poe.services.ninja.economy import EconomyService
+from poe.services.ninja.errors import NinjaError
 
 builds_app = cyclopts.App(name="builds", help="Build inspection, search, and import.")
 
@@ -157,6 +158,17 @@ def builds_search(
         if result is None:
             render({"error": "No search results"}, human=human)
             return
+        if class_filter and result.dimensions:
+            valid_classes = {
+                e.name
+                for d in result.dimensions
+                if d.id == "class"
+                for e in d.entries
+            }
+            if valid_classes and class_filter not in valid_classes:
+                raise NinjaError(
+                    f"Unknown class: {class_filter!r}. Valid: {sorted(valid_classes)}"
+                )
         render(result, human=human)
 
 
