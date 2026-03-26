@@ -318,6 +318,15 @@ class BuildService:
         ascendancy: str | None = None,
         file_path: str | None = None,
     ) -> MutationResult:
+        if class_name and ascendancy:
+            asc = ASCENDANCY_IDS.get(ascendancy)
+            class_id = CLASS_IDS.get(class_name)
+            if asc and class_id is not None and asc[0] != class_id:
+                expected_class = CLASS_ID_TO_NAME.get(asc[0], "?")
+                raise BuildValidationError(
+                    f"Ascendancy {ascendancy!r} does not belong to class {class_name!r} "
+                    f"(belongs to {expected_class})"
+                )
         path, build_obj, cloned_from = self.load_for_write(name, file_path)
         spec = build_obj.get_active_spec()
         if class_name:

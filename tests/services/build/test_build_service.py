@@ -292,6 +292,29 @@ class TestBuildNameValidation:
             validate_build_name(name)
 
 
+class TestSetClassMismatch:
+    def test_rejects_mismatched_ascendancy(self, build_file):
+        svc = BuildService()
+        with pytest.raises(BuildValidationError, match="does not belong to"):
+            svc.set_class(
+                "ignored",
+                class_name="Marauder",
+                ascendancy="Necromancer",
+                file_path=str(build_file),
+            )
+
+    def test_accepts_matching_ascendancy(self, build_file):
+        svc = BuildService()
+        result = svc.set_class(
+            "ignored",
+            class_name="Witch",
+            ascendancy="Necromancer",
+            file_path=str(build_file),
+        )
+        assert result.class_name == "Witch"
+        assert result.ascendancy == "Necromancer"
+
+
 class TestSetBanditValidation:
     def test_rejects_invalid(self, build_file):
         svc = BuildService()
