@@ -17,7 +17,7 @@ from poe.commands.build.gems import gems_app
 from poe.commands.build.items import items_app
 from poe.commands.build.jewels import jewels_app
 from poe.commands.build.tree import tree_app
-from poe.exceptions import CodecError, PoeError
+from poe.exceptions import BuildNotFoundError, CodecError, PoeError
 from poe.output import render as _output
 from poe.paths import resolve_build_file, validate_build_name
 from poe.safety import get_claude_builds_path
@@ -265,8 +265,11 @@ def builds_encode(name: str, *, file: str | None = None) -> None:
     file
         Explicit file path.
     """
-    path = Path(file) if file else resolve_build_file(name)
-    xml_str = path.read_text(encoding="utf-8")
+    try:
+        path = Path(file) if file else resolve_build_file(name)
+        xml_str = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        raise BuildNotFoundError(f"Build file not found: {file or name}") from None
     _output({"status": "ok", "code": encode_build(xml_str)})
 
 
@@ -283,8 +286,11 @@ def builds_open(name: str, *, file: str | None = None) -> None:
     """
     if sys.platform != "win32":
         raise PoeError("pob:// protocol requires Windows with PoB installed")
-    path = Path(file) if file else resolve_build_file(name)
-    xml_str = path.read_text(encoding="utf-8")
+    try:
+        path = Path(file) if file else resolve_build_file(name)
+        xml_str = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        raise BuildNotFoundError(f"Build file not found: {file or name}") from None
     code = encode_build(xml_str)
     os.startfile(f"pob://{code}")
     _output({"status": "ok", "code": code})
