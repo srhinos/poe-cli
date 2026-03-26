@@ -111,3 +111,9 @@ class TestRender:
         render(SampleModel(name="hi", value=7), human=True)
         captured = capsys.readouterr()
         assert "hi" in captured.out
+
+    def test_render_unicode_characters(self, capsys):
+        render({"name": "Black Mórrigan", "league": "Cola küsst Orange"})
+        captured = capsys.readouterr()
+        assert "Mórrigan" in captured.out
+        assert "küsst" in captured.out

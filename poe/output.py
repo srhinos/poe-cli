@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import sys
 from typing import Any
 
 from pydantic import BaseModel
@@ -38,10 +39,11 @@ def render(data: Any, *, human: bool = False) -> None:
     """
     if human:
         text = _format_human(data)
-        print(text)
     else:
         text = _format_json(data)
-        print(text)
+    sys.stdout.buffer.write(text.encode("utf-8"))
+    sys.stdout.buffer.write(b"\n")
+    sys.stdout.buffer.flush()
 
 
 def _format_json(data: Any) -> str:
@@ -51,8 +53,9 @@ def _format_json(data: Any) -> str:
         return json.dumps(
             [item.model_dump(exclude_none=True) for item in data],
             indent=2,
+            ensure_ascii=False,
         )
-    return json.dumps(data, indent=2)
+    return json.dumps(data, indent=2, ensure_ascii=False)
 
 
 def _format_human(data: Any) -> str:
