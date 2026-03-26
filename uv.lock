@@ -336,7 +336,7 @@ wheels = [
 ]
 
 [[package]]
-name = "poe-cli"
+name = "poe-tools"
 version = "0.1.0"
 source = { editable = "." }
 dependencies = [

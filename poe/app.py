@@ -30,7 +30,7 @@ def _check_skill_version() -> None:
         return
     try:
         installed_skill = version_file.read_text().strip()
-        current = _pkg_version("poe-cli")
+        current = _pkg_version("poe-tools")
         if installed_skill != current:
             print(
                 f"Skill outdated ({installed_skill} → {current}). Run: poe install-skill --force",

@@ -1,5 +1,5 @@
 [project]
-name = "poe-cli"
+name = "poe-tools"
 version = "0.1.0"
 description = "Interact with all your favorite PoE tools through the command line"
 requires-python = ">=3.12"

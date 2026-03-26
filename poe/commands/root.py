@@ -18,7 +18,7 @@ def _find_skill_source() -> Path | None:
 
 def _get_package_version() -> str | None:
     try:
-        return _pkg_version("poe-cli")
+        return _pkg_version("poe-tools")
     except PackageNotFoundError:
         return None
 

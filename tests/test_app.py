@@ -59,7 +59,7 @@ class TestSkillStalenessCheck:
         monkeypatch.setattr("poe.app.Path.home", lambda: home)
 
         def raise_error(_name):
-            raise PackageNotFoundError("poe-cli")
+            raise PackageNotFoundError("poe-tools")
 
         monkeypatch.setattr("poe.app._pkg_version", raise_error)
 
