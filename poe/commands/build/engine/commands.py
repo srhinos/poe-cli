@@ -27,17 +27,19 @@ def engine_load(name: str, *, human: bool = False) -> None:
 
 
 @engine_app.command(name="stats")
-def engine_stats(*, category: str = "all", human: bool = False) -> None:
+def engine_stats(name: str | None = None, *, category: str = "all", human: bool = False) -> None:
     """Get calculated stats from loaded build.
 
     Parameters
     ----------
+    name
+        Build name. If provided, loads the build first.
     category
         Stat category.
     human
         Human-readable output.
     """
-    _output(_svc().stats(category=category), human=human)
+    _output(_svc().stats(name=name, category=category), human=human)
 
 
 @engine_app.command(name="info")
