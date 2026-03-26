@@ -48,20 +48,23 @@ class BuildService:
         for f in files:
             meta = BuildMetadata(name=f.stem, file_path=str(f))
             with contextlib.suppress(ValueError, KeyError, OSError, XMLParseError):
-                meta.class_name, meta.ascendancy, meta.level = self._extract_build_attrs(f)
+                meta.class_name, meta.ascendancy, meta.level, meta.version = (
+                    self._extract_build_attrs(f)
+                )
             entries.append(meta)
         return entries
 
     @staticmethod
-    def _extract_build_attrs(path: Path) -> tuple[str, str, int]:
+    def _extract_build_attrs(path: Path) -> tuple[str, str, int, str]:
         tree = SafeET.parse(str(path))
         build_el = tree.find("Build")
         if build_el is None:
-            return "", "", 1
+            return "", "", 1, ""
         return (
             build_el.get("className", ""),
             build_el.get("ascendClassName", ""),
             int(build_el.get("level", "1")),
+            build_el.get("targetVersion", ""),
         )
 
     def load(self, name: str, file_path: str | None = None, **kwargs) -> tuple[Path, BuildDocument]:

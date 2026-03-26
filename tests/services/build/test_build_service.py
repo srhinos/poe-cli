@@ -93,6 +93,13 @@ class TestBuildService:
 
 
 class TestBuildServiceCoverage:
+    def test_list_builds_includes_version(self, builds_dir):
+        svc = BuildService()
+        result = svc.list_builds()
+        matching = [b for b in result if b.name == "TestBuild"]
+        assert len(matching) == 1
+        assert matching[0].version == "3_0"
+
     def test_list_builds_with_corrupt(self, builds_env):
         (builds_env / "Bad.xml").write_text("not xml")
         svc = BuildService()
