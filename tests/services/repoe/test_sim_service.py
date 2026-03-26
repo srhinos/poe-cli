@@ -8,9 +8,9 @@ from poe.models.ninja.economy import CraftingPrices
 from poe.services.repoe.sim_service import SimService
 from tests.conftest import make_repoe_data
 
-_NINJA_CLIENT = "poe.services.ninja.client.NinjaClient"
-_DISCOVERY = "poe.services.ninja.discovery.DiscoveryService"
-_ECONOMY = "poe.services.ninja.economy.EconomyService"
+_NINJA_CLIENT = "poe.services.repoe.sim_service.NinjaClient"
+_DISCOVERY = "poe.services.repoe.sim_service.DiscoveryService"
+_ECONOMY = "poe.services.repoe.sim_service.EconomyService"
 
 
 @pytest.fixture

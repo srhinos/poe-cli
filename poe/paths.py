@@ -104,9 +104,7 @@ def resolve_build_file(name: str) -> Path:
 
     stem = name.removesuffix(POB_XML_EXTENSION).casefold()
     prefix_matches = [
-        f
-        for f in builds_path.rglob(f"*{POB_XML_EXTENSION}")
-        if f.stem.casefold().startswith(stem)
+        f for f in builds_path.rglob(f"*{POB_XML_EXTENSION}") if f.stem.casefold().startswith(stem)
     ]
     if len(prefix_matches) == 1:
         return prefix_matches[0]

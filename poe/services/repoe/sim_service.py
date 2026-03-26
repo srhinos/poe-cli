@@ -14,6 +14,9 @@ from poe.models.sim import (
 )
 from poe.paths import resolve_build_file
 from poe.services.build.xml.parser import parse_build_file
+from poe.services.ninja.client import NinjaClient
+from poe.services.ninja.discovery import DiscoveryService
+from poe.services.ninja.economy import EconomyService
 from poe.services.repoe.constants import DEFAULT_ILVL, DEFAULT_ITERATIONS
 from poe.services.repoe.data import RepoEData
 from poe.services.repoe.sim import CraftingEngine
@@ -428,10 +431,6 @@ class SimService:
 
     def get_prices(self, *, league: str = "current") -> dict:
         try:
-            from poe.services.ninja.client import NinjaClient
-            from poe.services.ninja.discovery import DiscoveryService
-            from poe.services.ninja.economy import EconomyService
-
             with NinjaClient() as client:
                 if league == "current":
                     discovery = DiscoveryService(client)
@@ -444,5 +443,5 @@ class SimService:
                 result = crafting.model_dump()
                 result["league"] = resolved
                 return result
-        except Exception:
+        except (OSError, ValueError, KeyError, RuntimeError):
             return self._data.get_prices(league=league)

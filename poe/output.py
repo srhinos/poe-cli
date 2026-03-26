@@ -37,13 +37,13 @@ def render(data: Any, *, human: bool = False) -> None:
     human
         If True, use registered human formatters (fallback to JSON).
     """
-    if human:
-        text = _format_human(data)
+    text = _format_human(data) if human else _format_json(data)
+    if hasattr(sys.stdout, "buffer"):
+        sys.stdout.buffer.write(text.encode("utf-8"))
+        sys.stdout.buffer.write(b"\n")
+        sys.stdout.buffer.flush()
     else:
-        text = _format_json(data)
-    sys.stdout.buffer.write(text.encode("utf-8"))
-    sys.stdout.buffer.write(b"\n")
-    sys.stdout.buffer.flush()
+        print(text)
 
 
 def _format_json(data: Any) -> str:

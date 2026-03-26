@@ -10,17 +10,13 @@ register_formatters()
 
 class TestBuildMetadataFormatter:
     def test_human_differs_from_json(self):
-        meta = BuildMetadata(
-            name="Test", class_name="Witch", ascendancy="Necromancer", level=95
-        )
+        meta = BuildMetadata(name="Test", class_name="Witch", ascendancy="Necromancer", level=95)
         human = _format_human(meta)
         json_out = _format_json(meta)
         assert human != json_out
 
     def test_human_contains_name_and_class(self):
-        meta = BuildMetadata(
-            name="Test", class_name="Witch", ascendancy="Necromancer", level=95
-        )
+        meta = BuildMetadata(name="Test", class_name="Witch", ascendancy="Necromancer", level=95)
         human = _format_human(meta)
         assert "Test" in human
         assert "Necromancer" in human

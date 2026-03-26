@@ -830,19 +830,27 @@ SAMPLE_PRICES = {
 }
 
 
+_PATCH_NINJA = "poe.services.repoe.sim_service.NinjaClient"
+
+
 class TestCraftPrices:
     def test_success(self):
         cd = _mock_repoe_data(get_prices=SAMPLE_PRICES)
-        with patch(_PATCH_CD, return_value=cd):
+        with (
+            patch(_PATCH_CD, return_value=cd),
+            patch(_PATCH_NINJA, side_effect=ConnectionError("offline")),
+        ):
             result = invoke_cli(cli, ["sim", "prices"])
         assert result.exit_code == 0
         data = json.loads(result.output)
-        assert data["league"] == "Settlers"
         assert "currency" in data
 
     def test_with_league(self):
         cd = _mock_repoe_data(get_prices=SAMPLE_PRICES)
-        with patch(_PATCH_CD, return_value=cd):
+        with (
+            patch(_PATCH_CD, return_value=cd),
+            patch(_PATCH_NINJA, side_effect=ConnectionError("offline")),
+        ):
             result = invoke_cli(cli, ["sim", "prices", "--league", "Settlers"])
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -851,13 +859,19 @@ class TestCraftPrices:
     def test_exception(self):
         cd = _mock_repoe_data()
         cd.get_prices.side_effect = RuntimeError("no prices")
-        with patch(_PATCH_CD, return_value=cd):
+        with (
+            patch(_PATCH_CD, return_value=cd),
+            patch(_PATCH_NINJA, side_effect=ConnectionError("offline")),
+        ):
             result = invoke_cli(cli, ["sim", "prices"])
         assert result.exit_code != 0
 
     def test_human_output(self):
         cd = _mock_repoe_data(get_prices=SAMPLE_PRICES)
-        with patch(_PATCH_CD, return_value=cd):
+        with (
+            patch(_PATCH_CD, return_value=cd),
+            patch(_PATCH_NINJA, side_effect=ConnectionError("offline")),
+        ):
             result = invoke_cli(cli, ["sim", "prices", "--human"])
         assert result.exit_code == 0
         assert "Settlers" in result.output

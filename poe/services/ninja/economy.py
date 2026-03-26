@@ -47,9 +47,7 @@ def _route_type(item_type: str, *, game: str) -> tuple[str, str]:
     canonical = _TYPE_CANONICAL.get(item_type.lower())
     if canonical is None:
         valid = sorted(_TYPE_CANONICAL.values())
-        raise ApiSchemaError(
-            f"Unknown item type '{item_type}' for {game}. Valid types: {valid}"
-        )
+        raise ApiSchemaError(f"Unknown item type '{item_type}' for {game}. Valid types: {valid}")
     if canonical in NINJA_POE1_CURRENCY_STASH_TYPES:
         return "poe1_stash_currency", canonical
     if canonical in NINJA_POE1_STASH_TYPES:

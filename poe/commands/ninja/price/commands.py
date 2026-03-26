@@ -302,12 +302,14 @@ def price_fossil_recommend(
     for entry in optimizer_results:
         if entry["effect"] == "boost":
             chaos_value = price_map.get(entry["fossil"].lower(), 0.0)
-            results.append({
-                "name": entry["fossil"],
-                "tag": entry["tag"],
-                "multiplier": entry["multiplier"],
-                "chaos_value": chaos_value,
-            })
+            results.append(
+                {
+                    "name": entry["fossil"],
+                    "tag": entry["tag"],
+                    "multiplier": entry["multiplier"],
+                    "chaos_value": chaos_value,
+                }
+            )
 
     results.sort(key=lambda f: f["multiplier"], reverse=True)
     render(results, human=human)

@@ -6,6 +6,7 @@ import cyclopts
 
 from poe.output import render
 from poe.services.build.build_service import BuildService
+from poe.services.build.constants import ASCENDANCY_IDS, CLASS_IDS
 from poe.services.ninja.atlas import AtlasService
 from poe.services.ninja.builds import BuildsService
 from poe.services.ninja.client import NinjaClient
@@ -158,17 +159,10 @@ def builds_search(
         if result is None:
             render({"error": "No search results"}, human=human)
             return
-        if class_filter and result.dimensions:
-            valid_classes = {
-                e.name
-                for d in result.dimensions
-                if d.id == "class"
-                for e in d.entries
-            }
-            if valid_classes and class_filter not in valid_classes:
-                raise NinjaError(
-                    f"Unknown class: {class_filter!r}. Valid: {sorted(valid_classes)}"
-                )
+        if class_filter:
+            valid_classes = set(CLASS_IDS) | set(ASCENDANCY_IDS)
+            if class_filter not in valid_classes:
+                raise NinjaError(f"Unknown class: {class_filter!r}. Valid: {sorted(valid_classes)}")
         render(result, human=human)
 
 

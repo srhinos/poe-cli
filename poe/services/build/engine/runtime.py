@@ -154,22 +154,25 @@ class PoBEngine:
                 end)()
             """)
             result = lua_table_to_dict(info)
-            if result.get("className") in ("Scion", "Unknown", ""):
-                try:
-                    from poe.services.build.build_service import BuildService
-
-                    build_name = result.get("buildName", "")
-                    if build_name and self._last_build_name:
-                        _, build_obj = BuildService().load(
-                            self._last_build_name, file_path=None
-                        )
-                        result["className"] = build_obj.class_name
-                        result["ascendClassName"] = build_obj.ascend_class_name
-                except Exception:
-                    pass
+            if result.get("className") in ("Scion", "Unknown", "") and self._last_build_name:
+                result = self._fallback_class_from_xml(result)
             return result
         finally:
             os.chdir(orig_cwd)
+
+    def _fallback_class_from_xml(self, result: dict) -> dict:
+        try:
+            build_path = resolve_build_file(self._last_build_name)
+            tree = SafeET.parse(str(build_path))
+            build_el = tree.find("Build")
+            if build_el is not None:
+                result["className"] = build_el.get("className", result.get("className", ""))
+                result["ascendClassName"] = build_el.get(
+                    "ascendClassName", result.get("ascendClassName", "")
+                )
+        except (FileNotFoundError, XMLParseError, OSError):
+            pass
+        return result
 
     def get_stats(self, fields: list[str] | None = None) -> dict:
         if not self._initialized:

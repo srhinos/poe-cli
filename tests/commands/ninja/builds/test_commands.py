@@ -480,7 +480,7 @@ class TestBuildsSearchClassValidation:
 
         client = MagicMock()
 
-        def get_json(path, *, params=None):
+        def get_json(path, **_kwargs):
             if "index-state" in path:
                 return INDEX_STATE
             msg = f"Unmocked: {path}"
@@ -502,7 +502,5 @@ class TestBuildsSearchClassValidation:
         mock_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = invoke_cli(
-            app, ["ninja", "builds", "search", "--class", "NonExistentClass123"]
-        )
+        result = invoke_cli(app, ["ninja", "builds", "search", "--class", "NonExistentClass123"])
         assert result.exit_code == 1
