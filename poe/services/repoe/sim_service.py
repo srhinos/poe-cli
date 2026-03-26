@@ -409,4 +409,22 @@ class SimService:
         return results
 
     def get_prices(self, *, league: str = "current") -> dict:
-        return self._data.get_prices(league=league)
+        try:
+            from poe.services.ninja.client import NinjaClient
+            from poe.services.ninja.discovery import DiscoveryService
+            from poe.services.ninja.economy import EconomyService
+
+            with NinjaClient() as client:
+                if league == "current":
+                    discovery = DiscoveryService(client)
+                    info = discovery.get_current_league()
+                    resolved = info.name if info else league
+                else:
+                    resolved = league
+                economy = EconomyService(client)
+                crafting = economy.get_crafting_prices(resolved)
+                result = crafting.model_dump()
+                result["league"] = resolved
+                return result
+        except Exception:
+            return self._data.get_prices(league=league)
