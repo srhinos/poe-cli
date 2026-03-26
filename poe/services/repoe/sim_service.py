@@ -273,45 +273,55 @@ class SimService:
 
     def fossil_optimizer(self, mod_name: str) -> list[dict]:
         fossils = self._data.get_fossils()
+        seen: set[tuple[str, str]] = set()
         results = []
         mod_cf = mod_name.casefold()
         for fossil in fossils:
             for tag, multiplier in fossil.get("positive_weights", {}).items():
                 if mod_cf in tag.casefold():
-                    results.append(
-                        {
-                            "fossil": fossil["name"],
-                            "tag": tag,
-                            "multiplier": multiplier,
-                            "effect": (
-                                "boost"
-                                if multiplier > 1
-                                else "reduce"
-                                if multiplier < 1
-                                else "neutral"
-                            ),
-                        }
-                    )
+                    key = (fossil["name"], tag)
+                    if key not in seen:
+                        seen.add(key)
+                        results.append(
+                            {
+                                "fossil": fossil["name"],
+                                "tag": tag,
+                                "multiplier": multiplier,
+                                "effect": (
+                                    "boost"
+                                    if multiplier > 1
+                                    else "reduce"
+                                    if multiplier < 1
+                                    else "neutral"
+                                ),
+                            }
+                        )
             for tag, multiplier in fossil.get("negative_weights", {}).items():
                 if mod_cf in tag.casefold():
-                    results.append(
-                        {
-                            "fossil": fossil["name"],
-                            "tag": tag,
-                            "multiplier": multiplier,
-                            "effect": "block" if multiplier == 0 else "reduce",
-                        }
-                    )
-            results.extend(
-                {
-                    "fossil": fossil["name"],
-                    "tag": tag,
-                    "multiplier": 0.0,
-                    "effect": "block",
-                }
-                for tag in fossil.get("blocked", [])
-                if mod_cf in tag.casefold()
-            )
+                    key = (fossil["name"], tag)
+                    if key not in seen:
+                        seen.add(key)
+                        results.append(
+                            {
+                                "fossil": fossil["name"],
+                                "tag": tag,
+                                "multiplier": multiplier,
+                                "effect": "block" if multiplier == 0 else "reduce",
+                            }
+                        )
+            for tag in fossil.get("blocked", []):
+                if mod_cf in tag.casefold():
+                    key = (fossil["name"], tag)
+                    if key not in seen:
+                        seen.add(key)
+                        results.append(
+                            {
+                                "fossil": fossil["name"],
+                                "tag": tag,
+                                "multiplier": 0.0,
+                                "effect": "block",
+                            }
+                        )
         results.sort(key=lambda x: x["multiplier"], reverse=True)
         return results
 

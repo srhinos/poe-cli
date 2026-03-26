@@ -18,6 +18,14 @@ def sim_service():
     return SimService(repoe_data=make_repoe_data())
 
 
+class TestFossilOptimizer:
+    def test_no_duplicates(self):
+        svc = SimService(repoe_data=make_repoe_data())
+        results = svc.fossil_optimizer("physical")
+        keys = [(r["fossil"], r["tag"]) for r in results]
+        assert len(keys) == len(set(keys)), f"Duplicates found: {keys}"
+
+
 class TestGetTiers:
     def test_accepts_group_name(self):
         svc = SimService(repoe_data=make_repoe_data())
