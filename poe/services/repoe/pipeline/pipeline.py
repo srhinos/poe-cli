@@ -60,7 +60,7 @@ def _detect_influence(spawn_weights: list[dict]) -> str | None:
 def _process_mods(raw: dict) -> dict[str, dict]:
     result: dict[str, dict] = {}
     for mod_id, entry in raw.items():
-        if entry.get("domain") != "item":
+        if entry.get("domain") not in ("item", "crafted"):
             continue
         gen_type = entry.get("generation_type", "")
         if gen_type not in ("prefix", "suffix"):

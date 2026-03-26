@@ -99,6 +99,24 @@ class TestProcessMods:
         assert "TestPrefix1" in result
         assert "UniqueOnly1" not in result
 
+    def test_includes_crafted_domain(self):
+        raw = {
+            "HelenaMasterLife1": {
+                "domain": "crafted",
+                "generation_type": "prefix",
+                "groups": ["IncreasedLife"],
+                "spawn_weights": [],
+                "implicit_tags": [],
+                "stats": [{"id": "base_maximum_life", "min": 50, "max": 60}],
+                "required_level": 30,
+                "name": "Crafted Life",
+                "is_essence_only": False,
+            },
+        }
+        result = _process_mods(raw)
+        assert "HelenaMasterLife1" in result
+        assert result["HelenaMasterLife1"]["name"] == "Crafted Life"
+
     def test_extracts_group(self):
         raw = {
             "Mod1": {
