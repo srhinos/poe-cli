@@ -25,6 +25,23 @@ from poe.services.repoe.sim import CraftingEngine
 from poe.types import CraftMethod
 
 
+_RARITY_PRODUCED: dict[str, str] = {
+    CraftMethod.CHAOS: "rare",
+    CraftMethod.ALCHEMY: "rare",
+    CraftMethod.FOSSIL: "rare",
+    CraftMethod.HARVEST: "rare",
+    CraftMethod.ALT: "magic",
+    CraftMethod.TRANSMUTATION: "magic",
+    CraftMethod.SCOUR: "normal",
+}
+
+_RARITY_REQUIRED: dict[str, str] = {
+    CraftMethod.REGAL: "magic",
+    CraftMethod.AUGMENTATION: "magic",
+    CraftMethod.EXALT: "rare",
+}
+
+
 class SimService:
     """Owns crafting business logic."""
 
@@ -211,6 +228,16 @@ class SimService:
         influence: list[str] | None = None,
         match: str = "all",
     ) -> dict:
+        produced_rarity = "normal"
+        for i, step in enumerate(steps):
+            method = step.get("method", "chaos")
+            required = _RARITY_REQUIRED.get(method)
+            if required and produced_rarity != required:
+                raise SimDataError(
+                    f"Step {i + 1} ({method}) requires {required} rarity, "
+                    f"but previous step produces {produced_rarity} items"
+                )
+            produced_rarity = _RARITY_PRODUCED.get(method, produced_rarity)
         data_copy = copy.copy(self._data)
         data_copy._cache = copy.deepcopy(self._data._cache)
         eng = CraftingEngine(data_copy)

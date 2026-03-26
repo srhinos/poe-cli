@@ -4,6 +4,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from poe.exceptions import SimDataError
 from poe.models.ninja.economy import CraftingPrices
 from poe.services.repoe.sim_service import SimService
 from tests.conftest import make_repoe_data
@@ -95,3 +96,23 @@ class TestGetPrices:
         assert result["currency"] == {}
         assert result["fossils"] == {}
         assert result["league"] == "current"
+
+
+class TestMultistepValidation:
+    def test_regal_after_chaos_raises(self, sim_service):
+        with pytest.raises(SimDataError, match="regal.*requires.*magic"):
+            sim_service.simulate_multistep(
+                "Hubris Circlet",
+                steps=[{"method": "chaos"}, {"method": "regal"}],
+                target=["IncreasedLife"],
+                iterations=10,
+            )
+
+    def test_augmentation_after_chaos_raises(self, sim_service):
+        with pytest.raises(SimDataError, match="augmentation.*requires"):
+            sim_service.simulate_multistep(
+                "Hubris Circlet",
+                steps=[{"method": "chaos"}, {"method": "augmentation"}],
+                target=["IncreasedLife"],
+                iterations=10,
+            )
