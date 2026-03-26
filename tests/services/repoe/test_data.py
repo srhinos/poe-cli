@@ -165,6 +165,11 @@ class TestBenchCrafts:
             assert "cost" in c
             assert "cost_raw" in c
 
+    def test_cost_display_has_no_metadata_paths(self, repoe_data):
+        crafts = repoe_data.get_bench_crafts("Hubris Circlet")
+        for craft in crafts:
+            assert "Metadata/" not in craft["cost"], f"Raw path in cost: {craft['cost']}"
+
     def test_bench_crafts_unknown_base(self, repoe_data):
         crafts = repoe_data.get_bench_crafts("Nonexistent Base")
         assert crafts == []

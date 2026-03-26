@@ -66,6 +66,9 @@ CURRENCY_PATH_NAMES: dict[str, str] = {
     "Metadata/Items/Currency/CurrencyFlaskQuality": "Glassblower's Bauble",
     "Metadata/Items/Currency/CurrencyMapQuality": "Cartographer's Chisel",
     "Metadata/Items/Currency/CurrencyPassiveRefund": "Orb of Regret",
+    "Metadata/Items/Currency/CurrencyAddModToMagic": "Orb of Augmentation",
+    "Metadata/Items/Currency/CurrencyArmourQuality": "Armourer's Scrap",
+    "Metadata/Items/Currency/CurrencyModValues": "Divine Orb",
 }
 
 RECOMBINATOR_TRANSFER_CHANCE = 0.5

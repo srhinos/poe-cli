@@ -5,6 +5,7 @@ import typing
 from pathlib import Path
 
 from poe.services.repoe.constants import (
+    CURRENCY_PATH_NAMES,
     ESSENCE_TIER_PREFIXES,
     INFLUENCE_TAG_MAP,
     MAX_RESONATOR_SOCKETS,
@@ -259,7 +260,10 @@ class RepoEData:
             affix = mod["affix"]
             if affix not in ("prefix", "suffix"):
                 continue
-            cost_parts = [f"{count}x {cname}" for cname, count in craft["cost"].items()]
+            cost_parts = [
+                f"{count}x {CURRENCY_PATH_NAMES.get(cname, cname)}"
+                for cname, count in craft["cost"].items()
+            ]
             values = [[s["min"], s["max"]] for s in mod["stats"]]
             results.append(
                 {
