@@ -277,19 +277,36 @@ class TestBuildSummary:
         assert "total_dps" in result
 
 
+class TestSummaryResistFallback:
+    def test_missing_resists_default_to_zero(self, tmp_path):
+        from tests.conftest import PoBXmlBuilder
+
+        builder = PoBXmlBuilder(tmp_path)
+        builder.with_class("Witch", "Necromancer", level=90)
+        builder.with_stat("Life", 5000)
+        build_file = builder.write()
+        svc = BuildService()
+        result = svc.summary("ignored", file_path=str(build_file))
+        assert result["fire_resist"] == 0
+        assert result["cold_resist"] == 0
+        assert result["lightning_resist"] == 0
+        assert result["chaos_resist"] == 0
+        assert result["fire_resist"] is not None
+
+
 class TestBuildNameValidation:
     def test_reject_windows_invalid_chars(self):
         from poe.paths import validate_build_name
 
         for char in ':*?"<>|':
-            with pytest.raises(ValueError, match="invalid characters"):
+            with pytest.raises(BuildValidationError, match="invalid characters"):
                 validate_build_name(f"test{char}build")
 
     def test_reject_reserved_words(self):
         from poe.paths import validate_build_name
 
         for word in ("CON", "NUL", "PRN", "COM1", "LPT3"):
-            with pytest.raises(ValueError, match="reserved word"):
+            with pytest.raises(BuildValidationError, match="reserved word"):
                 validate_build_name(word)
 
     def test_accept_valid_names(self):

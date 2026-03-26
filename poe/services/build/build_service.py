@@ -424,10 +424,10 @@ class BuildService:
             "mana": get("Mana") or 0,
             "total_dps": total,
             "combined_dps": combined,
-            "fire_resist": get("FireResist"),
-            "cold_resist": get("ColdResist"),
-            "lightning_resist": get("LightningResist"),
-            "chaos_resist": get("ChaosResist"),
+            "fire_resist": get("FireResist") or 0,
+            "cold_resist": get("ColdResist") or 0,
+            "lightning_resist": get("LightningResist") or 0,
+            "chaos_resist": get("ChaosResist") or 0,
         }
 
     def set_main_skill(
