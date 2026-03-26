@@ -247,6 +247,13 @@ class TestBuildSetClass:
             svc.set_class("ignored", ascendancy="FakeAscendancy", file_path=str(rich_build))
 
 
+class TestSetClassRequiresInput:
+    def test_no_args_raises(self, rich_build):
+        svc = BuildService()
+        with pytest.raises(BuildValidationError, match="at least one"):
+            svc.set_class("ignored", file_path=str(rich_build))
+
+
 class TestBuildSetBandit:
     def test_set_bandit(self, rich_build):
         svc = BuildService()

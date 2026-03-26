@@ -321,6 +321,10 @@ class BuildService:
         ascendancy: str | None = None,
         file_path: str | None = None,
     ) -> MutationResult:
+        if not class_name and not ascendancy:
+            raise BuildValidationError(
+                "Provide at least one of --class or --ascendancy"
+            )
         if class_name and ascendancy:
             asc = ASCENDANCY_IDS.get(ascendancy)
             class_id = CLASS_IDS.get(class_name)
