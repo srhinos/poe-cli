@@ -2,6 +2,7 @@
 name = "poe-tools"
 version = "0.1.0"
 description = "Interact with all your favorite PoE tools through the command line"
+readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "lupa>=2.6.0",
