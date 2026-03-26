@@ -18,6 +18,18 @@ def sim_service():
     return SimService(repoe_data=make_repoe_data())
 
 
+class TestGetTiers:
+    def test_accepts_group_name(self):
+        svc = SimService(repoe_data=make_repoe_data())
+        result = svc.get_tiers("IncreasedLife", "Hubris Circlet")
+        assert result.tiers
+
+    def test_accepts_exact_mod_id(self):
+        svc = SimService(repoe_data=make_repoe_data())
+        result = svc.get_tiers("IncreasedLife4", "Hubris Circlet")
+        assert result.tiers
+
+
 class TestGetPrices:
     def test_returns_populated_data_from_ninja(self, sim_service):
         mock_prices = CraftingPrices(

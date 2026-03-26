@@ -60,6 +60,14 @@ class SimService:
     def get_tiers(self, mod_id: str, base_name: str, *, ilvl: int = DEFAULT_ILVL) -> ModTierResult:
         tiers = self._data.get_mod_tiers(mod_id, base_name, ilvl=ilvl)
         if not tiers:
+            pool = self._data.get_mod_pool(base_name, ilvl=ilvl)
+            for mod in pool:
+                if mod["group"].casefold() == mod_id.casefold():
+                    tiers = self._data.get_mod_tiers(mod["mod_id"], base_name, ilvl=ilvl)
+                    if tiers:
+                        mod_id = mod["mod_id"]
+                        break
+        if not tiers:
             raise SimDataError(f"No tiers found for mod {mod_id} on {base_name}")
         return ModTierResult(mod_id=mod_id, base=base_name, ilvl=ilvl, tiers=tiers)
 
