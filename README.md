@@ -19,7 +19,8 @@ All output is JSON by default. Add `--human` for readable output. Ships with a [
 Requires [uv](https://docs.astral.sh/uv/) and [Path of Building Community](https://github.com/PathOfBuildingCommunity/PathOfBuilding).
 
 ```bash
-uv tool install git+https://github.com/srhinos/poe-cli
+uv tool install poe-tools          # install
+uv tool upgrade poe-tools          # upgrade
 poe --help
 ```
 
