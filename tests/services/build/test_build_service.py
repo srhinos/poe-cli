@@ -360,6 +360,28 @@ class TestSetPantheonValidation:
         assert result.pantheon_major == "Soul of Lunaris"
 
 
+class TestNewAscendancies:
+    def test_warden_in_ascendancy_ids(self):
+        from poe.services.build.constants import ASCENDANCY_IDS
+
+        assert "Warden" in ASCENDANCY_IDS
+
+    def test_reliquarian_in_ascendancy_ids(self):
+        from poe.services.build.constants import ASCENDANCY_IDS
+
+        assert "Reliquarian" in ASCENDANCY_IDS
+
+    def test_warden_is_ranger(self):
+        from poe.services.build.constants import ASCENDANCY_IDS, CLASS_IDS
+
+        assert ASCENDANCY_IDS["Warden"][0] == CLASS_IDS["Ranger"]
+
+    def test_reliquarian_is_witch(self):
+        from poe.services.build.constants import ASCENDANCY_IDS, CLASS_IDS
+
+        assert ASCENDANCY_IDS["Reliquarian"][0] == CLASS_IDS["Witch"]
+
+
 class TestUnicodeBuildNames:
     def test_unicode_name(self, tmp_path, monkeypatch):
         monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_path))

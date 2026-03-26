@@ -42,6 +42,8 @@ ASCENDANCY_IDS: dict[str, tuple[int, int]] = {
     "Assassin": (6, 1),
     "Trickster": (6, 2),
     "Saboteur": (6, 3),
+    "Warden": (2, 4),
+    "Reliquarian": (3, 4),
 }
 
 ASCENDANCY_ID_TO_NAME: dict[tuple[int, int], str] = {v: k for k, v in ASCENDANCY_IDS.items()}
