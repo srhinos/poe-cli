@@ -82,9 +82,7 @@ class TestPriceCheck:
         mock_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         result = invoke_cli(app, ["ninja", "price", "check", "Fake Orb", "Currency"])
-        assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert "error" in data
+        assert result.exit_code == 1
 
     @patch("poe.commands.ninja.price.commands.NinjaClient")
     def test_price_check_with_league(self, mock_cls):

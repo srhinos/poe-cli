@@ -8,6 +8,7 @@ from poe.services.ninja.client import NinjaClient
 from poe.services.ninja.costing import cost_build
 from poe.services.ninja.discovery import DiscoveryService
 from poe.services.ninja.economy import EconomyService
+from poe.services.ninja.errors import NinjaError
 from poe.services.ninja.history import HistoryService
 
 price_app = cyclopts.App(name="price", help="Price checking and currency conversion.")
@@ -55,8 +56,7 @@ def price_check(
         economy = EconomyService(client)
         result = economy.price_check(resolved_league, item, item_type, game=game, language=language)
         if result is None:
-            render({"error": f"'{item}' not found in {item_type}"}, human=human)
-            return
+            raise NinjaError(f"'{item}' not found in {item_type}")
         render(result, human=human)
 
 

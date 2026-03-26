@@ -24,7 +24,7 @@ from poe.services.ninja.economy import (
     _exchange_chaos_value,
     _route_type,
 )
-from poe.services.ninja.errors import ApiSchemaError
+from poe.services.ninja.errors import ApiSchemaError, NinjaError
 
 CURRENCY_RESPONSE = {
     "lines": [
@@ -388,6 +388,12 @@ class TestPriceCheck:
         result = svc.price_check("Mirage", "Fake Orb", "Currency")
         assert result is None
 
+    def test_chaos_orb_returns_one(self, tmp_path):
+        svc = _make_service(tmp_path, {"currency/overview": CURRENCY_RESPONSE})
+        result = svc.price_check("Mirage", "Chaos Orb", "Currency")
+        assert result is not None
+        assert result.chaos_value == 1.0
+
 
 class TestPriceList:
     def test_sorted_by_value(self, tmp_path):
@@ -418,10 +424,15 @@ class TestCurrencyConvert:
         result = svc.currency_convert("Mirage", 1, "Exalted Orb", "Chaos Orb")
         assert result == pytest.approx(17.5, rel=0.01)
 
-    def test_zero_target(self, tmp_path):
+    def test_unknown_target_raises(self, tmp_path):
         svc = _make_service(tmp_path, {"currency/overview": CURRENCY_RESPONSE})
-        result = svc.currency_convert("Mirage", 10, "Exalted Orb", "Unknown")
-        assert result == 0.0
+        with pytest.raises(NinjaError, match="Currency not found"):
+            svc.currency_convert("Mirage", 10, "Exalted Orb", "FakeOrb")
+
+    def test_unknown_source_raises(self, tmp_path):
+        svc = _make_service(tmp_path, {"currency/overview": CURRENCY_RESPONSE})
+        with pytest.raises(NinjaError, match="Currency not found"):
+            svc.currency_convert("Mirage", 100, "FakeOrb", "Divine Orb")
 
 
 class TestCraftingPrices:

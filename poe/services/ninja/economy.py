@@ -231,6 +231,13 @@ class EconomyService:
         game: str = "poe1",
         language: str = "en",
     ) -> PriceResult | None:
+        if item_name.lower() == "chaos orb" and item_type.lower() == "currency":
+            return PriceResult(
+                name="Chaos Orb",
+                chaos_value=1.0,
+                divine_value=0.0,
+                details_id="chaos-orb",
+            )
         prices = self.get_prices(league, item_type, game=game, language=language)
         name_lower = item_name.lower()
         return next(
@@ -283,10 +290,12 @@ class EconomyService:
         price_map = {p.name.lower(): p.chaos_value for p in prices}
         price_map["chaos orb"] = 1.0
 
-        from_chaos = price_map.get(from_currency.lower(), 0.0)
-        to_chaos = price_map.get(to_currency.lower(), 0.0)
-        if to_chaos <= 0:
-            return 0.0
+        from_chaos = price_map.get(from_currency.lower())
+        if from_chaos is None:
+            raise NinjaError(f"Currency not found: {from_currency!r}")
+        to_chaos = price_map.get(to_currency.lower())
+        if to_chaos is None or to_chaos <= 0:
+            raise NinjaError(f"Currency not found: {to_currency!r}")
         return amount * from_chaos / to_chaos
 
     def get_crafting_prices(self, league: str, *, language: str = "en") -> CraftingPrices:
