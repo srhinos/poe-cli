@@ -52,6 +52,14 @@ class TestModPool:
         mod_names = [m["name"] for m in mods]
         assert "Shaper Life" in mod_names
 
+    def test_influence_case_insensitive(self, repoe_data):
+        mods_upper = repoe_data.get_mod_pool("Hubris Circlet", influences=["Shaper"])
+        mods_lower = repoe_data.get_mod_pool("Hubris Circlet", influences=["shaper"])
+        shaper_ids_upper = {m["mod_id"] for m in mods_upper if m.get("influence")}
+        shaper_ids_lower = {m["mod_id"] for m in mods_lower if m.get("influence")}
+        assert shaper_ids_upper == shaper_ids_lower
+        assert len(shaper_ids_lower) > 0
+
     def test_no_influence_excludes_influence_mods(self, repoe_data):
         mods = repoe_data.get_mod_pool("Hubris Circlet")
         mod_names = [m["name"] for m in mods]
