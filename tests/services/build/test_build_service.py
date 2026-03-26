@@ -47,6 +47,11 @@ class TestBuildService:
         assert "TotalDPS" in off.stats
         assert "Life" not in off.stats
 
+    def test_stats_rejects_invalid_category(self, builds_dir):
+        svc = BuildService()
+        with pytest.raises(BuildValidationError, match="Unknown stat category"):
+            svc.stats("TestBuild", category="invalid")
+
     def test_notes_get(self, build_file):
         svc = BuildService()
         result = svc.notes_get("ignored", file_path=str(build_file))

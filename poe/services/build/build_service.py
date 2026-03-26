@@ -166,6 +166,11 @@ class BuildService:
         return build_obj
 
     def stats(self, name: str, *, category: str = StatCategory.ALL) -> StatBlock:
+        valid = {c.value for c in StatCategory}
+        if category not in valid:
+            raise BuildValidationError(
+                f"Unknown stat category: {category!r}. Valid: {sorted(valid)}"
+            )
         _, build_obj = self.load(name)
         all_stats = {s.stat: s.value for s in build_obj.player_stats}
         off_terms = ["DPS", "Damage", "Hit", "Crit", "Speed", "AverageHit", "AverageBurst"]
