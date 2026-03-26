@@ -36,16 +36,25 @@ CRAFTING_TYPE_MAP: dict[str, list[tuple[str, str]]] = {
 }
 
 
-def _route_type(item_type: str, *, game: str) -> str:
+_TYPE_CANONICAL: dict[str, str] = {}
+for _t in NINJA_POE1_CURRENCY_STASH_TYPES | NINJA_POE1_STASH_TYPES | NINJA_POE1_EXCHANGE_TYPES:
+    _TYPE_CANONICAL[_t.lower()] = _t
+
+
+def _route_type(item_type: str, *, game: str) -> tuple[str, str]:
     if game == "poe2":
-        return "poe2_exchange"
-    if item_type in NINJA_POE1_CURRENCY_STASH_TYPES:
-        return "poe1_stash_currency"
-    if item_type in NINJA_POE1_STASH_TYPES:
-        return "poe1_stash_item"
-    if item_type in NINJA_POE1_EXCHANGE_TYPES:
-        return "poe1_exchange"
-    raise ApiSchemaError(f"Unknown item type '{item_type}' for {game}")
+        return "poe2_exchange", item_type
+    canonical = _TYPE_CANONICAL.get(item_type.lower())
+    if canonical is None:
+        valid = sorted(_TYPE_CANONICAL.values())
+        raise ApiSchemaError(
+            f"Unknown item type '{item_type}' for {game}. Valid types: {valid}"
+        )
+    if canonical in NINJA_POE1_CURRENCY_STASH_TYPES:
+        return "poe1_stash_currency", canonical
+    if canonical in NINJA_POE1_STASH_TYPES:
+        return "poe1_stash_item", canonical
+    return "poe1_exchange", canonical
 
 
 def _endpoint_path(route: str) -> str:
@@ -122,17 +131,17 @@ class EconomyService:
         game: str = "poe1",
         language: str = "en",
     ) -> list[PriceResult]:
-        route = _route_type(item_type, game=game)
+        route, canonical_type = _route_type(item_type, game=game)
 
         if route == "poe1_stash_currency":
-            cache_key = f"currency_{league}_{item_type}_{language}"
-            results = self._prices_from_currency(league, item_type, language=language)
+            cache_key = f"currency_{league}_{canonical_type}_{language}"
+            results = self._prices_from_currency(league, canonical_type, language=language)
         elif route == "poe1_stash_item":
-            cache_key = f"item_{league}_{item_type}_{language}"
-            results = self._prices_from_items(league, item_type, language=language)
+            cache_key = f"item_{league}_{canonical_type}_{language}"
+            results = self._prices_from_items(league, canonical_type, language=language)
         else:
-            cache_key = f"exchange_{game}_{league}_{item_type}"
-            results = self._prices_from_exchange(league, item_type, game=game)
+            cache_key = f"exchange_{game}_{league}_{canonical_type}"
+            results = self._prices_from_exchange(league, canonical_type, game=game)
 
         freshness = ninja_cache.get_freshness(self._cache_dir, cache_key, "economy")
         for r in results:

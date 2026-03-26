@@ -249,29 +249,37 @@ def _make_service(tmp_path, fixture_map=None):
 class TestRouteType:
     @pytest.mark.parametrize("item_type", sorted(NINJA_POE1_CURRENCY_STASH_TYPES))
     def test_poe1_currency_stash_types(self, item_type):
-        assert _route_type(item_type, game="poe1") == "poe1_stash_currency"
+        route, canonical = _route_type(item_type, game="poe1")
+        assert route == "poe1_stash_currency"
+        assert canonical == item_type
 
     @pytest.mark.parametrize(
         "item_type",
         sorted(NINJA_POE1_STASH_TYPES - NINJA_POE1_CURRENCY_STASH_TYPES),
     )
     def test_poe1_item_stash_types(self, item_type):
-        assert _route_type(item_type, game="poe1") == "poe1_stash_item"
+        route, canonical = _route_type(item_type, game="poe1")
+        assert route == "poe1_stash_item"
+        assert canonical == item_type
 
     @pytest.mark.parametrize(
         "item_type",
         sorted(NINJA_POE1_EXCHANGE_TYPES - NINJA_POE1_CURRENCY_STASH_TYPES),
     )
     def test_poe1_exchange_types(self, item_type):
-        assert _route_type(item_type, game="poe1") == "poe1_exchange"
+        route, canonical = _route_type(item_type, game="poe1")
+        assert route == "poe1_exchange"
+        assert canonical == item_type
 
     def test_currency_and_fragment_prefer_stash(self):
         for t in ("Currency", "Fragment"):
-            assert _route_type(t, game="poe1") == "poe1_stash_currency"
+            route, _canonical = _route_type(t, game="poe1")
+            assert route == "poe1_stash_currency"
 
     @pytest.mark.parametrize("item_type", sorted(NINJA_POE2_EXCHANGE_TYPES))
     def test_poe2_exchange_types(self, item_type):
-        assert _route_type(item_type, game="poe2") == "poe2_exchange"
+        route, _canonical = _route_type(item_type, game="poe2")
+        assert route == "poe2_exchange"
 
     def test_unknown_type_raises(self):
         with pytest.raises(ApiSchemaError, match="Unknown item type"):
@@ -280,6 +288,11 @@ class TestRouteType:
     def test_no_overlap_stash_exchange(self):
         overlap = NINJA_POE1_STASH_TYPES & NINJA_POE1_EXCHANGE_TYPES
         assert overlap == frozenset()
+
+    def test_case_insensitive(self):
+        assert _route_type("currency", game="poe1") == _route_type("Currency", game="poe1")
+        assert _route_type("FOSSIL", game="poe1") == _route_type("Fossil", game="poe1")
+        assert _route_type("uniquearmour", game="poe1") == _route_type("UniqueArmour", game="poe1")
 
 
 class TestExchangeChaosValue:
