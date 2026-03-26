@@ -4,6 +4,7 @@ import json
 import typing
 from pathlib import Path
 
+from poe.exceptions import SimDataError
 from poe.services.repoe.constants import (
     CURRENCY_PATH_NAMES,
     ESSENCE_TIER_PREFIXES,
@@ -198,9 +199,10 @@ class RepoEData:
         if base_name:
             base_items = self._load("base_items")
             bitem = self._find_base_item(base_name, base_items)
-            if bitem:
-                item_class = bitem["item_class"]
-                mods_data = self._load("mods")
+            if not bitem:
+                raise SimDataError(f"Base item {base_name!r} not found")
+            item_class = bitem["item_class"]
+            mods_data = self._load("mods")
 
         results = []
         for name, ess in essences.items():

@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import pytest
+
+from poe.exceptions import SimDataError
 from poe.services.repoe.data import RepoEData
 
 
@@ -147,9 +150,9 @@ class TestEssences:
         essences = repoe_data.get_essences(base_name="Hubris Circlet")
         assert len(essences) >= 1
 
-    def test_filter_no_match_returns_all(self, repoe_data):
-        essences = repoe_data.get_essences(base_name="Nonexistent Base")
-        assert len(essences) >= 1
+    def test_invalid_base_name_raises(self, repoe_data):
+        with pytest.raises(SimDataError, match="not found"):
+            repoe_data.get_essences("NonexistentBase999")
 
 
 class TestBenchCrafts:
