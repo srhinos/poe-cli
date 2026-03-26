@@ -27,7 +27,7 @@ def config_get(name: str, *, human: bool = False) -> None:
 
 
 @config_app.command(name="options")
-def config_options(*, query: str | None = None, human: bool = False) -> None:
+def config_options(_name: str = "", *, query: str | None = None, human: bool = False) -> None:
     """List available PoB config keys.
 
     Parameters

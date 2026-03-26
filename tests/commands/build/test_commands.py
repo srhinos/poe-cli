@@ -23,3 +23,9 @@ class TestOpenNonexistent:
             result = invoke_cli(app, ["build", "open", "nonexistent_build_xyz"])
         assert result.exit_code == 1
         assert isinstance(result.exception, BuildNotFoundError)
+
+
+class TestConfigOptionsInterface:
+    def test_accepts_build_name_without_error(self):
+        result = invoke_cli(app, ["build", "config", "options", "SomeBuild"])
+        assert "Unused Tokens" not in result.output
