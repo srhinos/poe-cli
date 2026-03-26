@@ -394,6 +394,20 @@ class TestPriceCheck:
         assert result is not None
         assert result.chaos_value == 1.0
 
+    def test_chaos_orb_has_category(self, tmp_path):
+        svc = _make_service(tmp_path, {"currency/overview": CURRENCY_RESPONSE})
+        result = svc.price_check("Mirage", "Chaos Orb", "Currency")
+        assert result.category == "Currency"
+
+    def test_chaos_orb_poe2_not_hardcoded(self, tmp_path):
+        empty_exchange = {"items": [], "lines": []}
+        svc = _make_service(tmp_path, {
+            "currency/overview": CURRENCY_RESPONSE,
+            "poe2": empty_exchange,
+        })
+        result = svc.price_check("Mirage", "Chaos Orb", "Currency", game="poe2")
+        assert result is None or result.chaos_value != 1.0
+
 
 class TestPriceList:
     def test_sorted_by_value(self, tmp_path):
@@ -433,6 +447,16 @@ class TestCurrencyConvert:
         svc = _make_service(tmp_path, {"currency/overview": CURRENCY_RESPONSE})
         with pytest.raises(NinjaError, match="Currency not found"):
             svc.currency_convert("Mirage", 100, "FakeOrb", "Divine Orb")
+
+    def test_negative_amount_raises(self, tmp_path):
+        svc = _make_service(tmp_path, {"currency/overview": CURRENCY_RESPONSE})
+        with pytest.raises(NinjaError, match="positive"):
+            svc.currency_convert("Mirage", -5, "Divine Orb", "Chaos Orb")
+
+    def test_zero_amount_raises(self, tmp_path):
+        svc = _make_service(tmp_path, {"currency/overview": CURRENCY_RESPONSE})
+        with pytest.raises(NinjaError, match="positive"):
+            svc.currency_convert("Mirage", 0, "Divine Orb", "Chaos Orb")
 
 
 class TestCraftingPrices:

@@ -229,12 +229,13 @@ class EconomyService:
         game: str = "poe1",
         language: str = "en",
     ) -> PriceResult | None:
-        if item_name.lower() == "chaos orb" and item_type.lower() == "currency":
+        if item_name.lower() == "chaos orb" and item_type.lower() == "currency" and game == "poe1":
             return PriceResult(
                 name="Chaos Orb",
                 chaos_value=1.0,
                 divine_value=0.0,
                 details_id="chaos-orb",
+                category="Currency",
             )
         prices = self.get_prices(league, item_type, game=game, language=language)
         name_lower = item_name.lower()
@@ -284,6 +285,8 @@ class EconomyService:
         *,
         game: str = "poe1",
     ) -> float:
+        if amount <= 0:
+            raise NinjaError("Amount must be positive")
         prices = self.get_prices(league, "Currency", game=game)
         price_map = {p.name.lower(): p.chaos_value for p in prices}
         price_map["chaos orb"] = 1.0
