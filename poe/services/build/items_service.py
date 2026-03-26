@@ -49,6 +49,8 @@ def _parse_item_text(text: str) -> dict:
 
 def _slot_matches_type(slot_name: str, slot_type: str) -> bool:
     normalized = slot_type.casefold()
+    if slot_name.casefold() == normalized:
+        return True
     if normalized == "jewel":
         return slot_name.startswith("Jewel")
     mapped = SLOT_TYPE_MAP.get(normalized)
@@ -99,7 +101,12 @@ class ItemsService:
     def list_items(self, name: str, *, item_set: str | None = None) -> list[EquippedItem]:
         _, build_obj = self._build.load(name)
         equipped = build_obj.get_equipped_items(item_set_id=item_set)
-        return [EquippedItem(slot=slot_name, **item.model_dump()) for slot_name, item in equipped]
+        flask_slots = set(SLOT_TYPE_MAP["flask"])
+        return [
+            EquippedItem(slot=slot_name, **item.model_dump())
+            for slot_name, item in equipped
+            if slot_name not in flask_slots
+        ]
 
     def add_item(
         self,
