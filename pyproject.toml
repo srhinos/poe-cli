@@ -28,7 +28,7 @@ dev = [
 ]
 
 [project.scripts]
-poe = "poe.app:app"
+poe = "poe.app:run"
 
 [build-system]
 requires = ["hatchling"]

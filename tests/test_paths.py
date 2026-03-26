@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from poe.exceptions import BuildNotFoundError
+from poe.exceptions import BuildNotFoundError, BuildValidationError
 from poe.paths import (
     get_builds_path,
     get_pob_path,
@@ -115,15 +115,15 @@ class TestResolveBuildFile:
 class TestPathTraversal:
     def test_reject_dotdot(self, tmp_builds_dir, monkeypatch):
         monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_builds_dir))
-        with pytest.raises(ValueError, match="Invalid build name"):
+        with pytest.raises(BuildValidationError, match="Invalid build name"):
             resolve_build_file("../etc/passwd")
 
     def testvalidate_build_name_rejects_dotdot(self):
-        with pytest.raises(ValueError, match="Invalid build name"):
+        with pytest.raises(BuildValidationError, match="Invalid build name"):
             validate_build_name("../foo")
 
     def testvalidate_build_name_rejects_backslash(self):
-        with pytest.raises(ValueError, match="Invalid build name"):
+        with pytest.raises(BuildValidationError, match="Invalid build name"):
             validate_build_name("foo\\bar")
 
     def testvalidate_build_name_accepts_normal(self):
@@ -133,19 +133,24 @@ class TestPathTraversal:
         validate_build_name("build-v2")
 
     def test_validate_name_rejects_slash(self):
-        """Forward slash in build name should be rejected."""
-        with pytest.raises(ValueError, match="Invalid build name"):
+        with pytest.raises(BuildValidationError, match="Invalid build name"):
             validate_build_name("sub/dir")
 
     def test_validate_name_rejects_empty(self):
-        """Empty string should be rejected."""
-        with pytest.raises(ValueError, match="Invalid build name"):
+        with pytest.raises(BuildValidationError, match="Invalid build name"):
             validate_build_name("")
 
     def test_validate_name_rejects_whitespace(self):
-        """Whitespace-only string should be rejected."""
-        with pytest.raises(ValueError, match="Invalid build name"):
+        with pytest.raises(BuildValidationError, match="Invalid build name"):
             validate_build_name("   ")
+
+    def test_validate_name_rejects_invalid_chars(self):
+        with pytest.raises(BuildValidationError, match="invalid characters"):
+            validate_build_name("build:name")
+
+    def test_validate_name_rejects_reserved(self):
+        with pytest.raises(BuildValidationError, match="reserved word"):
+            validate_build_name("CON")
 
 
 # ── resolve_or_file ──────────────────────────────────────────────────────────

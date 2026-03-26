@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 
 from poe.constants import CLAUDE_SUBFOLDER, POB_XML_EXTENSION
-from poe.exceptions import BuildNotFoundError
+from poe.exceptions import BuildNotFoundError, BuildValidationError
 
 _WINDOWS_INVALID_CHARS = frozenset(':*?"<>|')
 _WINDOWS_RESERVED = frozenset(
@@ -21,14 +21,14 @@ _WINDOWS_RESERVED = frozenset(
 
 def validate_build_name(name: str) -> None:
     if not name or not name.strip():
-        raise ValueError(f"Invalid build name: {name!r}")
+        raise BuildValidationError(f"Invalid build name: {name!r}")
     if ".." in name or "\\" in name or "/" in name:
-        raise ValueError(f"Invalid build name: {name!r}")
+        raise BuildValidationError(f"Invalid build name: {name!r}")
     stem = name.removesuffix(".xml")
     if any(c in stem for c in _WINDOWS_INVALID_CHARS):
-        raise ValueError(f"Build name contains invalid characters: {name!r}")
+        raise BuildValidationError(f"Build name contains invalid characters: {name!r}")
     if stem.upper() in _WINDOWS_RESERVED:
-        raise ValueError(f"Build name uses a reserved word: {name!r}")
+        raise BuildValidationError(f"Build name uses a reserved word: {name!r}")
 
 
 def get_pob_path() -> Path:
@@ -94,7 +94,7 @@ def resolve_build_file(name: str) -> Path:
 
     path = builds_path / name
     if not path.resolve().is_relative_to(builds_path.resolve()):
-        raise ValueError(f"Invalid build name: {name!r}")
+        raise BuildValidationError(f"Invalid build name: {name!r}")
     if path.exists():
         return path
 
