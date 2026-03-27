@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import random
 
 import pytest
 
-from poe.services.repoe.sim import CraftingEngine, RolledMod, SimResult
+from poe.services.repoe.sim import BestTier, CraftingEngine, ModPoolEntry, RolledMod, SimResult
 from poe.types import Rarity
 from tests.conftest import REPOE_DATA, make_repoe_data
 
@@ -20,6 +21,49 @@ def engine():
 def blank_item(engine):
     """A blank Hubris Circlet item."""
     return engine.create_item("Hubris Circlet", ilvl=84)
+
+
+# ── Frozen dataclasses ───────────────────────────────────────────────────────
+
+
+class TestFrozenModPoolEntry:
+    def test_mod_pool_entry_is_frozen(self):
+        tier = BestTier(ilvl=68, values=((60, 80),), weight=500)
+        entry = ModPoolEntry(
+            mod_id="IncreasedLife2",
+            name="Increased Life",
+            affix="prefix",
+            group="IncreasedLife",
+            weight=500,
+            tier_count=4,
+            best_tier=tier,
+            implicit_tags=("resource", "life"),
+            influence=None,
+        )
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            entry.weight = 999
+
+    def test_best_tier_is_frozen(self):
+        tier = BestTier(ilvl=68, values=((60, 80),), weight=500)
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            tier.ilvl = 99
+
+    def test_dataclasses_replace_creates_new(self):
+        tier = BestTier(ilvl=68, values=((60, 80),), weight=500)
+        entry = ModPoolEntry(
+            mod_id="IncreasedLife2",
+            name="Increased Life",
+            affix="prefix",
+            group="IncreasedLife",
+            weight=500,
+            tier_count=4,
+            best_tier=tier,
+            implicit_tags=("resource", "life"),
+            influence=None,
+        )
+        modified = dataclasses.replace(entry, weight=999)
+        assert modified.weight == 999
+        assert entry.weight == 500
 
 
 # ── Item creation ────────────────────────────────────────────────────────────

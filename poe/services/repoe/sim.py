@@ -19,6 +19,26 @@ if typing.TYPE_CHECKING:
     from poe.services.repoe.data import RepoEData
 
 
+@dataclass(frozen=True, slots=True)
+class BestTier:
+    ilvl: int
+    values: tuple[tuple[int, int], ...]
+    weight: int
+
+
+@dataclass(frozen=True, slots=True)
+class ModPoolEntry:
+    mod_id: str
+    name: str
+    affix: str
+    group: str
+    weight: int
+    tier_count: int
+    best_tier: BestTier
+    implicit_tags: tuple[str, ...]
+    influence: str | None
+
+
 @dataclass
 class RolledMod:
     """A mod rolled onto an item."""
@@ -105,6 +125,7 @@ class CraftingEngine:
     def __init__(self, data: RepoEData) -> None:
         """Initialize with a RepoEData instance for mod pool lookups."""
         self.data = data
+        self._mod_pool_cache: dict[tuple, list[dict]] = {}
 
     def _rare_mod_count(self) -> int:
         """Sample a rare item mod count using GGG's 58/28/14 distribution."""
@@ -132,6 +153,16 @@ class CraftingEngine:
             max_suffixes=bitem["max_suffixes"],
         )
 
+    def _get_base_mod_pool(self, item: CraftableItem) -> list[dict]:
+        cache_key = (item.base_name, item.ilvl, tuple(sorted(item.influences)))
+        if cache_key not in self._mod_pool_cache:
+            self._mod_pool_cache[cache_key] = self.data.get_mod_pool(
+                item.base_name,
+                ilvl=item.ilvl,
+                influences=item.influences,
+            )
+        return self._mod_pool_cache[cache_key]
+
     def _build_mod_pool(
         self,
         item: CraftableItem,
@@ -140,14 +171,12 @@ class CraftingEngine:
         blocked_tags: set[str] | None = None,
     ) -> list[dict]:
         """Build the weighted mod pool for an item, respecting current mods."""
-        all_mods = self.data.get_mod_pool(
-            item.base_name,
-            ilvl=item.ilvl,
-            influences=item.influences,
-        )
+        all_mods = self._get_base_mod_pool(item)
 
         existing_groups = item.groups
         pool = []
+        open_prefixes = item.open_prefixes
+        open_suffixes = item.open_suffixes
 
         for mod in all_mods:
             if mod["group"] in existing_groups:
@@ -158,9 +187,9 @@ class CraftingEngine:
             if affix_type and affix != affix_type:
                 continue
 
-            if affix == "prefix" and item.open_prefixes <= 0:
+            if affix == "prefix" and open_prefixes <= 0:
                 continue
-            if affix == "suffix" and item.open_suffixes <= 0:
+            if affix == "suffix" and open_suffixes <= 0:
                 continue
 
             if blocked_tags and mod.get("implicit_tags"):
@@ -168,20 +197,18 @@ class CraftingEngine:
                 if any(t in blocked_tags for t in mod_tags):
                     continue
 
-            weight = mod["weight"]
-
             if fossil_weights and mod.get("implicit_tags"):
                 multiplier = 1.0
                 for tag_name in mod["implicit_tags"]:
                     key = tag_name.casefold()
                     if key in fossil_weights:
                         multiplier *= fossil_weights[key]
-                weight = int(weight * max(multiplier, 0))
-
-            if weight <= 0:
-                continue
-
-            pool.append({**mod, "weight": weight})
+                weight = int(mod["weight"] * max(multiplier, 0))
+                if weight <= 0:
+                    continue
+                pool.append({**mod, "weight": weight})
+            else:
+                pool.append(mod)
 
         return pool
 
@@ -259,6 +286,47 @@ class CraftingEngine:
         if item.is_corrupted:
             raise ValueError("Cannot craft on a corrupted item")
 
+    def _pick_excluding_groups(
+        self,
+        pool: list[dict],
+        excluded_groups: set[str],
+        affix_type: str | None = None,
+        max_prefixes: int = 3,
+        max_suffixes: int = 3,
+        current_prefixes: int = 0,
+        current_suffixes: int = 0,
+    ) -> dict | None:
+        total = 0
+        for mod in pool:
+            if mod["group"] in excluded_groups:
+                continue
+            affix = mod["affix"]
+            if affix_type and affix != affix_type:
+                continue
+            if affix == "prefix" and current_prefixes >= max_prefixes:
+                continue
+            if affix == "suffix" and current_suffixes >= max_suffixes:
+                continue
+            total += mod["weight"]
+        if total <= 0:
+            return None
+        r = random.randint(1, total)
+        cumulative = 0
+        for mod in pool:
+            if mod["group"] in excluded_groups:
+                continue
+            affix = mod["affix"]
+            if affix_type and affix != affix_type:
+                continue
+            if affix == "prefix" and current_prefixes >= max_prefixes:
+                continue
+            if affix == "suffix" and current_suffixes >= max_suffixes:
+                continue
+            cumulative += mod["weight"]
+            if r <= cumulative:
+                return mod
+        return None
+
     def _roll_item(
         self,
         item: CraftableItem,
@@ -270,33 +338,46 @@ class CraftingEngine:
     ) -> None:
         item.prefixes.clear()
         item.suffixes.clear()
+
+        full_pool = self._build_mod_pool(
+            item, fossil_weights=fossil_weights, blocked_tags=blocked_tags
+        )
+
         for _ in range(num_mods):
-            pool = self._build_mod_pool(
-                item, fossil_weights=fossil_weights, blocked_tags=blocked_tags
+            picked = self._pick_excluding_groups(
+                full_pool,
+                item.groups,
+                max_prefixes=item.max_prefixes,
+                max_suffixes=item.max_suffixes,
+                current_prefixes=len(item.prefixes),
+                current_suffixes=len(item.suffixes),
             )
-            picked = self._weighted_pick(pool)
             if picked:
                 self._add_mod(item, picked)
 
         if require_both_affixes and num_mods >= self._MIN_MODS_FOR_BOTH_AFFIXES:
             if not item.prefixes and item.open_prefixes > 0:
-                pool = self._build_mod_pool(
-                    item,
+                picked = self._pick_excluding_groups(
+                    full_pool,
+                    item.groups,
                     affix_type="prefix",
-                    fossil_weights=fossil_weights,
-                    blocked_tags=blocked_tags,
+                    max_prefixes=item.max_prefixes,
+                    max_suffixes=item.max_suffixes,
+                    current_prefixes=len(item.prefixes),
+                    current_suffixes=len(item.suffixes),
                 )
-                picked = self._weighted_pick(pool)
                 if picked:
                     self._add_mod(item, picked)
             elif not item.suffixes and item.open_suffixes > 0:
-                pool = self._build_mod_pool(
-                    item,
+                picked = self._pick_excluding_groups(
+                    full_pool,
+                    item.groups,
                     affix_type="suffix",
-                    fossil_weights=fossil_weights,
-                    blocked_tags=blocked_tags,
+                    max_prefixes=item.max_prefixes,
+                    max_suffixes=item.max_suffixes,
+                    current_prefixes=len(item.prefixes),
+                    current_suffixes=len(item.suffixes),
                 )
-                picked = self._weighted_pick(pool)
                 if picked:
                     self._add_mod(item, picked)
 
@@ -968,12 +1049,20 @@ class CraftingEngine:
             for attempt in range(1, max_attempts + 1):
                 self._apply_roll(item, method, fossil_weights, blocked_tags, essence_name)
 
-                rolled_groups = {m.group.casefold() for m in item.all_mods}
-                hit = (
-                    target_set.issubset(rolled_groups)
-                    if match_mode == "all"
-                    else bool(target_set & rolled_groups)
-                )
+                if match_mode == "all":
+                    hit = all(
+                        any(t == m.group.casefold() for m in item.prefixes)
+                        or any(t == m.group.casefold() for m in item.suffixes)
+                        or any(t == m.group.casefold() for m in item.fractured_mods)
+                        for t in target_set
+                    )
+                else:
+                    hit = any(
+                        any(t == m.group.casefold() for m in item.prefixes)
+                        or any(t == m.group.casefold() for m in item.suffixes)
+                        or any(t == m.group.casefold() for m in item.fractured_mods)
+                        for t in target_set
+                    )
                 if hit:
                     hits += 1
                     attempts_on_hit.append(attempt)
