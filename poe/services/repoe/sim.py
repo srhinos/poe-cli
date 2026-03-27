@@ -178,7 +178,11 @@ class CraftingEngine:
         fossil_weights: dict[str, float] | None = None,
         blocked_tags: set[str] | None = None,
     ) -> list[ModPoolEntry]:
-        """Build the weighted mod pool for an item, respecting current mods."""
+        """Build the weighted mod pool for an item, respecting current mods.
+
+        NOTE: Fossil/blocked-tag filtering is duplicated in _prepare_fast_pool.
+        Update both when changing mod pool construction logic.
+        """
         all_mods = self._get_base_mod_pool(item)
 
         existing_groups = item.groups
@@ -297,6 +301,8 @@ class CraftingEngine:
         current_prefixes: int = 0,
         current_suffixes: int = 0,
     ) -> ModPoolEntry | None:
+        # NOTE: Weighted selection with group exclusion is duplicated in
+        # _fast_pick / _fast_total. Update both when changing this logic.
         total = 0
         for mod in pool:
             if mod.group in excluded_groups:
@@ -337,6 +343,8 @@ class CraftingEngine:
         *,
         require_both_affixes: bool = False,
     ) -> None:
+        # NOTE: Roll logic (mod count, group exclusion, ensure-both-affixes) is
+        # duplicated in _run_chunk_fast. Update both when changing roll behavior.
         item.prefixes.clear()
         item.suffixes.clear()
 
@@ -1273,6 +1281,19 @@ class CraftingEngine:
         influences: list[str],
         seed: int,
     ) -> list[int]:
+        """Optimized simulation loop for chaos/fossil/alt methods.
+
+        This is a performance-critical duplicate of the logic in:
+        - _build_mod_pool (fossil weight filtering) → _prepare_fast_pool
+        - _roll_item (mod count, group exclusion, ensure-both-affixes)
+        - _pick_excluding_groups (weighted selection) → _fast_pick / _fast_total
+
+        It skips RolledMod/CraftableItem object creation and uses precomputed
+        parallel arrays + per-group weight sums for O(1) total weight lookups.
+
+        If you change crafting roll logic in any of those methods, you MUST
+        update the corresponding code here or simulation results will diverge.
+        """
         rng = random.Random(seed)
         rng_randint = rng.randint
         choices_fn = rng.choices
