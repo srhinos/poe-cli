@@ -19,7 +19,7 @@ from poe.services.build.xml.parser import parse_build_file
 from poe.services.ninja.client import NinjaClient
 from poe.services.ninja.discovery import DiscoveryService
 from poe.services.ninja.economy import EconomyService
-from poe.services.repoe.constants import DEFAULT_ILVL, DEFAULT_ITERATIONS
+from poe.services.repoe.constants import DEFAULT_ILVL, DEFAULT_ITERATIONS, DEFAULT_MAX_ATTEMPTS
 from poe.services.repoe.data import RepoEData
 from poe.services.repoe.sim import CraftingEngine
 from poe.types import CraftMethod
@@ -171,7 +171,7 @@ class SimService:
             analysis=analysis,
         )
 
-    def simulate(
+    async def simulate(
         self,
         base_name: str,
         *,
@@ -184,7 +184,8 @@ class SimService:
         iterations: int = DEFAULT_ITERATIONS,
         match: str = "all",
         existing_mods: list[str] | None = None,
-        max_attempts: int = DEFAULT_ITERATIONS,
+        max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+        workers: int | None = None,
     ) -> SimulationResult:
         if method == CraftMethod.ESSENCE and not essence:
             raise SimDataError("--essence is required when method is 'essence'")
@@ -193,7 +194,7 @@ class SimService:
             resolved = self.resolve_mod_name(t, base_name)
             resolved_targets.append(resolved or t)
         eng = CraftingEngine(self._data.snapshot())
-        sim_result = eng.simulate(
+        sim_result = await eng.simulate(
             base=base_name,
             ilvl=ilvl,
             method=method,
@@ -205,6 +206,7 @@ class SimService:
             essence_name=essence,
             existing_mods=existing_mods,
             max_attempts=max_attempts,
+            workers=workers,
         )
         return SimulationResult(
             base=base_name,
@@ -368,7 +370,7 @@ class SimService:
         results.sort(key=lambda x: x["multiplier"], reverse=True)
         return results
 
-    def compare_methods(
+    async def compare_methods(
         self,
         base_name: str,
         *,
@@ -386,7 +388,7 @@ class SimService:
             methods_to_try.append("essence")
         results = []
         for method in methods_to_try:
-            sim = self.simulate(
+            sim = await self.simulate(
                 base_name,
                 ilvl=ilvl,
                 method=method,

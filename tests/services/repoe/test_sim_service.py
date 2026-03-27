@@ -20,11 +20,12 @@ def sim_service():
 
 
 class TestSimulateCacheIntegrity:
-    def test_simulate_does_not_corrupt_cache(self, sim_service):
+    @pytest.mark.asyncio
+    async def test_simulate_does_not_corrupt_cache(self, sim_service):
         mod_pool_before = sim_service._data.get_mod_pool("Hubris Circlet")
         ids_before = {m.mod_id for m in mod_pool_before}
 
-        sim_service.simulate(
+        await sim_service.simulate(
             "Hubris Circlet",
             method="chaos",
             target=["IncreasedLife"],
@@ -107,8 +108,9 @@ class TestModNameResolution:
         result = sim_service.resolve_mod_name("IncreasedLife", "Hubris Circlet")
         assert result is None or result == "IncreasedLife"
 
-    def test_simulate_accepts_display_name(self, sim_service):
-        result = sim_service.simulate(
+    @pytest.mark.asyncio
+    async def test_simulate_accepts_display_name(self, sim_service):
+        result = await sim_service.simulate(
             "Hubris Circlet",
             method="chaos",
             target=["Increased Life"],
@@ -116,8 +118,9 @@ class TestModNameResolution:
         )
         assert float(result.hit_rate.rstrip("%")) >= 0
 
-    def test_simulate_accepts_group_name(self, sim_service):
-        result = sim_service.simulate(
+    @pytest.mark.asyncio
+    async def test_simulate_accepts_group_name(self, sim_service):
+        result = await sim_service.simulate(
             "Hubris Circlet",
             method="chaos",
             target=["IncreasedLife"],
