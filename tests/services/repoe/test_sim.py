@@ -23,6 +23,31 @@ def blank_item(engine):
     return engine.create_item("Hubris Circlet", ilvl=84)
 
 
+def _entry(
+    mod_id: str = "test_mod",
+    name: str = "Test",
+    affix: str = "prefix",
+    group: str = "TestGroup",
+    weight: int = 100,
+    tier_count: int = 1,
+    ilvl: int = 1,
+    values: tuple[tuple[int, int], ...] = ((10, 20),),
+    implicit_tags: tuple[str, ...] = (),
+    influence: str | None = None,
+) -> ModPoolEntry:
+    return ModPoolEntry(
+        mod_id=mod_id,
+        name=name,
+        affix=affix,
+        group=group,
+        weight=weight,
+        tier_count=tier_count,
+        best_tier=BestTier(ilvl=ilvl, values=values, weight=weight),
+        implicit_tags=implicit_tags,
+        influence=influence,
+    )
+
+
 # ── Frozen dataclasses ───────────────────────────────────────────────────────
 
 
@@ -129,7 +154,7 @@ class TestCraftableItemProperties:
                 group="IncreasedLife",
                 weight=100,
                 chance=0.5,
-                tier={},
+                tier=BestTier(ilvl=1, values=(), weight=0),
                 rolls=[],
             )
         )
@@ -154,13 +179,13 @@ class TestModPool:
                 group="IncreasedLife",
                 weight=1000,
                 chance=0.5,
-                tier={},
+                tier=BestTier(ilvl=1, values=(), weight=0),
                 rolls=[],
             )
         )
         pool = engine._build_mod_pool(blank_item)
         for m in pool:
-            assert m["group"] != "IncreasedLife"
+            assert m.group != "IncreasedLife"
 
     def test_prefix_cap(self, engine, blank_item):
         # Fill all prefix slots
@@ -173,13 +198,13 @@ class TestModPool:
                     group=f"PG{i}",
                     weight=100,
                     chance=0.5,
-                    tier={},
+                    tier=BestTier(ilvl=1, values=(), weight=0),
                     rolls=[],
                 )
             )
         pool = engine._build_mod_pool(blank_item)
         for m in pool:
-            assert m["affix"] != "prefix"
+            assert m.affix != "prefix"
 
     def test_suffix_cap(self, engine, blank_item):
         for i in range(3):
@@ -191,13 +216,13 @@ class TestModPool:
                     group=f"SG{i}",
                     weight=100,
                     chance=0.5,
-                    tier={},
+                    tier=BestTier(ilvl=1, values=(), weight=0),
                     rolls=[],
                 )
             )
         pool = engine._build_mod_pool(blank_item)
         for m in pool:
-            assert m["affix"] != "suffix"
+            assert m.affix != "suffix"
 
 
 # ── Weighted selection ───────────────────────────────────────────────────────
@@ -205,9 +230,9 @@ class TestModPool:
 
 class TestWeightedPick:
     def test_single_item(self, engine):
-        pool = [{"mod_id": "a", "weight": 100}]
+        pool = [_entry(mod_id="a", weight=100)]
         picked = engine._weighted_pick(pool)
-        assert picked["mod_id"] == "a"
+        assert picked.mod_id == "a"
 
     def test_empty_pool(self, engine):
         assert engine._weighted_pick([]) is None
@@ -215,10 +240,10 @@ class TestWeightedPick:
     def test_bias_towards_heavy(self, engine):
         random.seed(42)
         pool = [
-            {"mod_id": "light", "weight": 1},
-            {"mod_id": "heavy", "weight": 10000},
+            _entry(mod_id="light", weight=1),
+            _entry(mod_id="heavy", weight=10000),
         ]
-        picks = [engine._weighted_pick(pool)["mod_id"] for _ in range(100)]
+        picks = [engine._weighted_pick(pool).mod_id for _ in range(100)]
         assert picks.count("heavy") > 80
 
 
@@ -307,7 +332,7 @@ class TestExalt:
                 group="IncreasedLife",
                 weight=1000,
                 chance=0.5,
-                tier={},
+                tier=BestTier(ilvl=1, values=(), weight=0),
                 rolls=[],
             )
         )
@@ -589,8 +614,8 @@ class TestFossilWeights:
 
         pool = engine._build_mod_pool(item, blocked_tags=blocked)
         for mod in pool:
-            if mod.get("implicit_tags"):
-                mod_tags = [t.lower() for t in mod["implicit_tags"]]
+            if mod.implicit_tags:
+                mod_tags = [t.lower() for t in mod.implicit_tags]
                 assert "physical" not in mod_tags
 
     def test_fossil_blocking_no_effect_unmatched(self):
@@ -600,7 +625,7 @@ class TestFossilWeights:
 
         _weights, blocked = engine._get_fossil_weights(["Metallic Fossil"])
         pool = engine._build_mod_pool(item, blocked_tags=blocked)
-        life_mods = [m for m in pool if m["group"] == "IncreasedLife"]
+        life_mods = [m for m in pool if m.group == "IncreasedLife"]
         assert len(life_mods) > 0
 
 
@@ -644,7 +669,7 @@ class TestRollValues:
         """All rolled values are int, not float."""
         cd = make_repoe_data()
         engine = CraftingEngine(cd)
-        tier = {"values": [[10, 20], [30, 40]]}
+        tier = BestTier(ilvl=1, values=((10, 20), (30, 40)), weight=0)
         random.seed(42)
         for _ in range(50):
             rolled = engine._roll_values(tier)
@@ -655,7 +680,7 @@ class TestRollValues:
         """Scalar values (non-range) are returned as-is."""
         cd = make_repoe_data()
         engine = CraftingEngine(cd)
-        result = engine._roll_values({"values": [42]})
+        result = engine._roll_values(BestTier(ilvl=1, values=((42, 42),), weight=0))
         assert result == [42]
 
 
@@ -736,8 +761,8 @@ class TestWeightedPickEdge:
     def test_weighted_pick_zero_total(self, engine):
         """Pool with all-zero weights returns None."""
         pool = [
-            {"mod_id": "a", "weight": 0},
-            {"mod_id": "b", "weight": 0},
+            _entry(mod_id="a", weight=0),
+            _entry(mod_id="b", weight=0),
         ]
         assert engine._weighted_pick(pool) is None
 
@@ -887,9 +912,9 @@ class TestFossilTagCase:
         weights, _blocked = engine._get_fossil_weights(["Pristine Fossil"])
         pool_with = engine._build_mod_pool(item, fossil_weights=weights)
         pool_without = engine._build_mod_pool(item)
-        life_with = next(m for m in pool_with if m["group"] == "IncreasedLife")
-        life_without = next(m for m in pool_without if m["group"] == "IncreasedLife")
-        assert life_with["weight"] > life_without["weight"]
+        life_with = next(m for m in pool_with if m.group == "IncreasedLife")
+        life_without = next(m for m in pool_without if m.group == "IncreasedLife")
+        assert life_with.weight > life_without.weight
 
 
 # ── Fractured mods (D1) ────────────────────────────────────────────────────
@@ -905,7 +930,7 @@ class TestFracturedMods:
             group="IncreasedLife",
             weight=1000,
             chance=1.0,
-            tier={},
+            tier=BestTier(ilvl=1, values=(), weight=0),
             rolls=[90],
         )
         blank_item.fractured_mods.append(fractured)
@@ -921,13 +946,13 @@ class TestFracturedMods:
             group="IncreasedLife",
             weight=1000,
             chance=1.0,
-            tier={},
+            tier=BestTier(ilvl=1, values=(), weight=0),
             rolls=[90],
         )
         blank_item.fractured_mods.append(fractured)
         pool = engine._build_mod_pool(blank_item)
         for m in pool:
-            assert m["group"] != "IncreasedLife"
+            assert m.group != "IncreasedLife"
 
     def test_fractured_mod_reduces_open_slots(self, engine, blank_item):
         fractured = RolledMod(
@@ -937,7 +962,7 @@ class TestFracturedMods:
             group="IncreasedLife",
             weight=1000,
             chance=1.0,
-            tier={},
+            tier=BestTier(ilvl=1, values=(), weight=0),
             rolls=[90],
         )
         blank_item.fractured_mods.append(fractured)
@@ -953,7 +978,7 @@ class TestFracturedMods:
             group="FracGroup",
             weight=100,
             chance=1.0,
-            tier={},
+            tier=BestTier(ilvl=1, values=(), weight=0),
             rolls=[],
         )
         blank_item.fractured_mods.append(fractured)
@@ -971,7 +996,7 @@ class TestFracturedMods:
             group="ColdResistance",
             weight=500,
             chance=1.0,
-            tier={},
+            tier=BestTier(ilvl=1, values=(), weight=0),
             rolls=[30],
         )
         blank_item.fractured_mods.append(fractured)
@@ -986,7 +1011,7 @@ class TestFracturedMods:
             group="IncreasedLife",
             weight=1000,
             chance=1.0,
-            tier={},
+            tier=BestTier(ilvl=1, values=(), weight=0),
             rolls=[90],
         )
         blank_item.fractured_mods.append(fractured)
@@ -1004,7 +1029,7 @@ class TestFracturedMods:
             group="ColdResistance",
             weight=500,
             chance=1.0,
-            tier={},
+            tier=BestTier(ilvl=1, values=(), weight=0),
             rolls=[30],
         )
         blank_item.fractured_mods.append(fractured)
@@ -1020,7 +1045,7 @@ class TestFracturedMods:
             group="ColdResistance",
             weight=500,
             chance=1.0,
-            tier={},
+            tier=BestTier(ilvl=1, values=(), weight=0),
             rolls=[30],
         )
         blank_item.fractured_mods.append(fractured)
@@ -1065,7 +1090,7 @@ class TestMetamods:
                     group=f"SG{i}",
                     weight=100,
                     chance=0.5,
-                    tier={},
+                    tier=BestTier(ilvl=1, values=(), weight=0),
                     rolls=[],
                 )
             )
@@ -1139,7 +1164,7 @@ class TestCraftedMods:
                     group=f"PG{i}",
                     weight=100,
                     chance=0.5,
-                    tier={},
+                    tier=BestTier(ilvl=1, values=(), weight=0),
                     rolls=[],
                 )
             )
@@ -1152,17 +1177,13 @@ class TestCraftedMods:
                     group=f"SG{i}",
                     weight=100,
                     chance=0.5,
-                    tier={},
+                    tier=BestTier(ilvl=1, values=(), weight=0),
                     rolls=[],
                 )
             )
-        pool_entry = {
-            "mod_id": "test",
-            "name": "Test",
-            "affix": "prefix",
-            "group": "TestGroup",
-            "weight": 100,
-        }
+        pool_entry = _entry(
+            mod_id="test", name="Test", affix="prefix", group="TestGroup", weight=100
+        )
         with pytest.raises(ValueError, match="No open prefix slots"):
             engine.apply_crafted_mod(blank_item, pool_entry)
 
@@ -1247,7 +1268,7 @@ class TestImplicits:
                 group="ImplicitLife",
                 weight=0,
                 chance=0,
-                tier={},
+                tier=BestTier(ilvl=1, values=(), weight=0),
                 rolls=[50],
             )
         )
@@ -1262,12 +1283,12 @@ class TestImplicits:
                 group="IncreasedLife",
                 weight=0,
                 chance=0,
-                tier={},
+                tier=BestTier(ilvl=1, values=(), weight=0),
                 rolls=[50],
             )
         )
         pool = engine._build_mod_pool(blank_item)
-        life_mods = [m for m in pool if m["group"] == "IncreasedLife"]
+        life_mods = [m for m in pool if m.group == "IncreasedLife"]
         assert len(life_mods) > 0
 
 
@@ -1300,7 +1321,7 @@ class TestAugmentation:
                 group="PG",
                 weight=100,
                 chance=0.5,
-                tier={},
+                tier=BestTier(ilvl=1, values=(), weight=0),
                 rolls=[],
             )
         )
@@ -1319,7 +1340,7 @@ class TestAugmentation:
                 group="PG",
                 weight=100,
                 chance=0.5,
-                tier={},
+                tier=BestTier(ilvl=1, values=(), weight=0),
                 rolls=[],
             )
         )
@@ -1331,7 +1352,7 @@ class TestAugmentation:
                 group="SG",
                 weight=100,
                 chance=0.5,
-                tier={},
+                tier=BestTier(ilvl=1, values=(), weight=0),
                 rolls=[],
             )
         )
@@ -1384,7 +1405,7 @@ class TestBlessed:
                 group="IG",
                 weight=0,
                 chance=0,
-                tier={"values": [[10, 20]]},
+                tier=BestTier(ilvl=1, values=((10, 20),), weight=0),
                 rolls=[15],
             )
         )
@@ -1475,7 +1496,7 @@ class TestFracture:
                     group=f"FracG{i}",
                     weight=100,
                     chance=0.5,
-                    tier={},
+                    tier=BestTier(ilvl=1, values=(), weight=0),
                     rolls=[],
                 )
             )
@@ -1494,7 +1515,7 @@ class TestFracture:
                 group="PG",
                 weight=100,
                 chance=0.5,
-                tier={},
+                tier=BestTier(ilvl=1, values=(), weight=0),
                 rolls=[],
             )
         )
@@ -1511,7 +1532,7 @@ class TestFracture:
                 group="FG",
                 weight=100,
                 chance=0.5,
-                tier={},
+                tier=BestTier(ilvl=1, values=(), weight=0),
                 rolls=[],
             )
         )

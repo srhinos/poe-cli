@@ -415,7 +415,7 @@ class CraftingEngine:
         pool = self._build_mod_pool(item)
         picked = self._weighted_pick(pool)
         if picked:
-            total = sum(m["weight"] for m in pool)
+            total = sum(m.weight for m in pool)
             return self._add_mod(item, picked, pool_total=total)
         return None
 
@@ -426,7 +426,7 @@ class CraftingEngine:
         pool = self._build_mod_pool(item)
         picked = self._weighted_pick(pool)
         if picked:
-            total = sum(m["weight"] for m in pool)
+            total = sum(m.weight for m in pool)
             return self._add_mod(item, picked, pool_total=total)
         return None
 
@@ -462,34 +462,48 @@ class CraftingEngine:
         if not item.prefixes and not item.suffixes and not item.fractured_mods:
             item.rarity = Rarity.NORMAL
 
-    def apply_crafted_mod(self, item: CraftableItem, mod: dict) -> RolledMod | None:
+    def apply_crafted_mod(
+        self, item: CraftableItem, mod: ModPoolEntry | dict,
+    ) -> RolledMod | None:
         self._check_craftable(item)
         if item.crafted_mod_count >= item.max_crafted_mods:
             raise ValueError(
                 f"Item already has {item.crafted_mod_count}/{item.max_crafted_mods} crafted mods"
             )
-        affix = mod["affix"]
+        if isinstance(mod, ModPoolEntry):
+            affix = mod.affix
+            mod_id = mod.mod_id
+            name = mod.name
+            group = mod.group
+            weight = mod.weight
+            tier = mod.best_tier
+        else:
+            affix = mod["affix"]
+            mod_id = mod["mod_id"]
+            name = mod["name"]
+            group = mod["group"]
+            weight = mod.get("weight", 0)
+            raw_tier = mod.get("best_tier")
+            if isinstance(raw_tier, BestTier):
+                tier = raw_tier
+            elif isinstance(raw_tier, dict) and raw_tier:
+                tier = BestTier(
+                    ilvl=raw_tier.get("ilvl", 0),
+                    values=tuple(tuple(v) for v in raw_tier.get("values", [])),
+                    weight=raw_tier.get("weight", 0),
+                )
+            else:
+                tier = BestTier(ilvl=0, values=(), weight=0)
         if affix == "prefix" and item.open_prefixes <= 0:
             raise ValueError("No open prefix slots")
         if affix == "suffix" and item.open_suffixes <= 0:
             raise ValueError("No open suffix slots")
-        raw_tier = mod.get("best_tier")
-        if isinstance(raw_tier, BestTier):
-            tier = raw_tier
-        elif isinstance(raw_tier, dict) and raw_tier:
-            tier = BestTier(
-                ilvl=raw_tier.get("ilvl", 0),
-                values=tuple(tuple(v) for v in raw_tier.get("values", [])),
-                weight=raw_tier.get("weight", 0),
-            )
-        else:
-            tier = BestTier(ilvl=0, values=(), weight=0)
         rolled = RolledMod(
-            mod_id=mod["mod_id"],
-            name=mod["name"],
+            mod_id=mod_id,
+            name=name,
             affix=affix,
-            group=mod["group"],
-            weight=mod.get("weight", 0),
+            group=group,
+            weight=weight,
             chance=1.0,
             tier=tier,
             rolls=self._roll_values(tier) if tier.values else [],
@@ -641,7 +655,7 @@ class CraftingEngine:
         pool = self._build_mod_pool(item)
         picked = self._weighted_pick(pool)
         if picked:
-            total = sum(m["weight"] for m in pool)
+            total = sum(m.weight for m in pool)
             return self._add_mod(item, picked, pool_total=total)
         return None
 
@@ -697,7 +711,7 @@ class CraftingEngine:
             return None
         picked = self._weighted_pick(tagged)
         if picked:
-            total = sum(m["weight"] for m in tagged)
+            total = sum(m.weight for m in tagged)
             return self._add_mod(item, picked, pool_total=total)
         return None
 
@@ -715,7 +729,7 @@ class CraftingEngine:
             return None
         picked = self._weighted_pick(inf_pool)
         if picked:
-            total = sum(m["weight"] for m in inf_pool)
+            total = sum(m.weight for m in inf_pool)
             return self._add_mod(item, picked, pool_total=total)
         return None
 
