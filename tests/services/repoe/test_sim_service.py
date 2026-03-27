@@ -22,7 +22,7 @@ def sim_service():
 class TestSimulateCacheIntegrity:
     def test_simulate_does_not_corrupt_cache(self, sim_service):
         mod_pool_before = sim_service._data.get_mod_pool("Hubris Circlet")
-        ids_before = {m["mod_id"] for m in mod_pool_before}
+        ids_before = {m.mod_id for m in mod_pool_before}
 
         sim_service.simulate(
             "Hubris Circlet",
@@ -32,7 +32,7 @@ class TestSimulateCacheIntegrity:
         )
 
         mod_pool_after = sim_service._data.get_mod_pool("Hubris Circlet")
-        ids_after = {m["mod_id"] for m in mod_pool_after}
+        ids_after = {m.mod_id for m in mod_pool_after}
         assert ids_before == ids_after
 
 

@@ -5,6 +5,7 @@ import json
 from unittest.mock import MagicMock, patch
 
 from poe.app import app as cli
+from poe.services.repoe.sim import BestTier, ModPoolEntry
 from tests.conftest import invoke_cli
 
 # Imports are now at the top of craft/cli.py, so patch where they're used.
@@ -35,28 +36,28 @@ def _mock_repoe_data(**overrides):
 
 
 SAMPLE_MODS = [
-    {
-        "mod_id": "IncreasedLife1",
-        "name": "Increased Life",
-        "affix": "prefix",
-        "group": "IncreasedLife",
-        "weight": 1000,
-        "tier_count": 4,
-        "best_tier": {"ilvl": 82, "values": [[90, 100]], "weight": 200},
-        "implicit_tags": ["resource", "life"],
-        "influence": None,
-    },
-    {
-        "mod_id": "ColdResistance1",
-        "name": "Cold Resistance",
-        "affix": "suffix",
-        "group": "ColdResistance",
-        "weight": 500,
-        "tier_count": 2,
-        "best_tier": {"ilvl": 60, "values": [[30, 40]], "weight": 500},
-        "implicit_tags": ["elemental", "resistance", "cold"],
-        "influence": None,
-    },
+    ModPoolEntry(
+        mod_id="IncreasedLife1",
+        name="Increased Life",
+        affix="prefix",
+        group="IncreasedLife",
+        weight=1000,
+        tier_count=4,
+        best_tier=BestTier(ilvl=82, values=((90, 100),), weight=200),
+        implicit_tags=("resource", "life"),
+        influence=None,
+    ),
+    ModPoolEntry(
+        mod_id="ColdResistance1",
+        name="Cold Resistance",
+        affix="suffix",
+        group="ColdResistance",
+        weight=500,
+        tier_count=2,
+        best_tier=BestTier(ilvl=60, values=((30, 40),), weight=500),
+        implicit_tags=("elemental", "resistance", "cold"),
+        influence=None,
+    ),
 ]
 
 

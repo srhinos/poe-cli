@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import dataclasses
+
 from poe.exceptions import SimDataError, SlotError
 from poe.models.build.items import EquippedItem
 from poe.models.sim import (
@@ -73,7 +75,7 @@ class SimService:
             influences=influences or ["none"],
             filter=affix_type or "all",
             total_mods=len(mods),
-            mods=mods[:limit],
+            mods=[dataclasses.asdict(m) for m in mods[:limit]],
         )
 
     def get_tiers(self, mod_id: str, base_name: str, *, ilvl: int = DEFAULT_ILVL) -> ModTierResult:
@@ -81,10 +83,10 @@ class SimService:
         if not tiers:
             pool = self._data.get_mod_pool(base_name, ilvl=ilvl)
             for mod in pool:
-                if mod["group"].casefold() == mod_id.casefold():
-                    tiers = self._data.get_mod_tiers(mod["mod_id"], base_name, ilvl=ilvl)
+                if mod.group.casefold() == mod_id.casefold():
+                    tiers = self._data.get_mod_tiers(mod.mod_id, base_name, ilvl=ilvl)
                     if tiers:
-                        mod_id = mod["mod_id"]
+                        mod_id = mod.mod_id
                         break
         if not tiers:
             raise SimDataError(f"No tiers found for mod {mod_id} on {base_name}")
@@ -143,16 +145,20 @@ class SimService:
                 ilvl=item_ilvl,
                 influences=target_item.influences,
             )
-            avail_prefixes = [m for m in mods if m["affix"] == "prefix"]
-            avail_suffixes = [m for m in mods if m["affix"] == "suffix"]
+            avail_prefixes = [m for m in mods if m.affix == "prefix"]
+            avail_suffixes = [m for m in mods if m.affix == "suffix"]
             analysis["total_rollable_prefixes"] = len(avail_prefixes)
             analysis["total_rollable_suffixes"] = len(avail_suffixes)
             analysis["open_prefix_slots"] = target_item.open_prefixes
             analysis["open_suffix_slots"] = target_item.open_suffixes
             if target_item.open_prefixes > 0:
-                analysis["top_available_prefixes"] = avail_prefixes[:10]
+                analysis["top_available_prefixes"] = [
+                    dataclasses.asdict(m) for m in avail_prefixes[:10]
+                ]
             if target_item.open_suffixes > 0:
-                analysis["top_available_suffixes"] = avail_suffixes[:10]
+                analysis["top_available_suffixes"] = [
+                    dataclasses.asdict(m) for m in avail_suffixes[:10]
+                ]
             bench = self._data.get_bench_crafts(target_item.base_type)
             if bench:
                 analysis["bench_craft_count"] = len(bench)
@@ -430,8 +436,8 @@ class SimService:
         mods = self._data.get_mod_pool(base_name)
         name_cf = display_name.casefold()
         for mod in mods:
-            if name_cf in mod["name"].casefold():
-                return mod["group"]
+            if name_cf in mod.name.casefold():
+                return mod.group
         return None
 
     def mod_weights(
@@ -447,17 +453,17 @@ class SimService:
             ilvl=ilvl,
             influences=influences or [],
         )
-        total = sum(m["weight"] for m in mods)
+        total = sum(m.weight for m in mods)
         results = []
         for mod in mods[:limit]:
-            pct = (mod["weight"] / total * 100) if total > 0 else 0
+            pct = (mod.weight / total * 100) if total > 0 else 0
             results.append(
                 {
-                    "mod_id": mod["mod_id"],
-                    "name": mod["name"],
-                    "group": mod["group"],
-                    "affix": mod["affix"],
-                    "weight": mod["weight"],
+                    "mod_id": mod.mod_id,
+                    "name": mod.name,
+                    "group": mod.group,
+                    "affix": mod.affix,
+                    "weight": mod.weight,
                     "probability": f"{pct:.2f}%",
                 }
             )
