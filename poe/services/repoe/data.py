@@ -6,6 +6,7 @@ import typing
 from pathlib import Path
 
 from poe.exceptions import SimDataError
+from poe.services.repoe.sim import BestTier, ModPoolEntry
 from poe.services.repoe.constants import (
     CURRENCY_PATH_NAMES,
     ESSENCE_TIER_PREFIXES,
@@ -24,7 +25,11 @@ class RepoEData:
 
     def snapshot(self) -> RepoEData:
         clone = copy.copy(self)
-        object.__setattr__(clone, "_cache", copy.deepcopy(self._cache))
+        # Shallow-copy the cache dict so the clone has its own namespace for
+        # lazy loads, but shares the already-loaded (immutable) JSON data.
+        # A deep copy would duplicate the entire dataset and cause OOM under
+        # heavy simulation workloads.
+        object.__setattr__(clone, "_cache", dict(self._cache))
         return clone
 
     def _load(self, name: str) -> dict | list:
@@ -80,7 +85,14 @@ class RepoEData:
             for tag in bitem["tags"]:
                 inf_tags.add(f"{tag}_{codename}")
 
-        results = []
+        group_tier_counts: dict[str, int] = {}
+        for mid in mod_ids:
+            mod = mods.get(mid)
+            if mod and mod["required_level"] <= ilvl:
+                group = mod["group"]
+                group_tier_counts[group] = group_tier_counts.get(group, 0) + 1
+
+        results: list[ModPoolEntry] = []
         for mid in mod_ids:
             mod = mods.get(mid)
             if not mod:
@@ -97,27 +109,27 @@ class RepoEData:
             if best_weight <= 0:
                 continue
 
-            group_mods = self._get_group_tiers_from(mod["group"], base_id, ilvl, mod_pool, mods)
-
             results.append(
-                {
-                    "mod_id": mid,
-                    "name": mod["name"],
-                    "affix": affix,
-                    "group": mod["group"],
-                    "weight": best_weight,
-                    "tier_count": len(group_mods),
-                    "best_tier": {
-                        "ilvl": mod["required_level"],
-                        "values": [[s["min"], s["max"]] for s in mod["stats"]],
-                        "weight": best_weight,
-                    },
-                    "implicit_tags": mod["implicit_tags"],
-                    "influence": mod["influence"],
-                }
+                ModPoolEntry(
+                    mod_id=mid,
+                    name=mod["name"],
+                    affix=affix,
+                    group=mod["group"],
+                    weight=best_weight,
+                    tier_count=group_tier_counts.get(mod["group"], 1),
+                    best_tier=BestTier(
+                        ilvl=mod["required_level"],
+                        values=tuple(
+                            (s["min"], s["max"]) for s in mod["stats"]
+                        ),
+                        weight=best_weight,
+                    ),
+                    implicit_tags=tuple(mod["implicit_tags"]),
+                    influence=mod["influence"],
+                )
             )
 
-        results.sort(key=lambda x: x["weight"], reverse=True)
+        results.sort(key=lambda x: x.weight, reverse=True)
         return results
 
     @staticmethod
@@ -129,17 +141,6 @@ class RepoEData:
             if sw["tag"] in base_tags:
                 return sw["weight"]
         return 0
-
-    @staticmethod
-    def _get_group_tiers_from(
-        group: str, base_id: str, ilvl: int, mod_pool: dict, mods: dict
-    ) -> list[str]:
-        mod_ids = mod_pool.get(base_id, [])
-        return [
-            mid
-            for mid in mod_ids
-            if mods.get(mid, {}).get("group") == group and mods[mid]["required_level"] <= ilvl
-        ]
 
     def get_mod_tiers(self, mod_id: str, base_name: str, ilvl: int = 100) -> list[dict]:
         base_items = self._load("base_items")

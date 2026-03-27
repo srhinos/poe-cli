@@ -66,6 +66,24 @@ class TestFrozenModPoolEntry:
         assert entry.weight == 500
 
 
+class TestGetModPoolReturnsEntries:
+    def test_returns_mod_pool_entries(self, engine):
+        pool = engine.data.get_mod_pool("Hubris Circlet", ilvl=84)
+        assert len(pool) > 0
+        entry = pool[0]
+        assert isinstance(entry, ModPoolEntry)
+        assert isinstance(entry.best_tier, BestTier)
+        assert isinstance(entry.implicit_tags, tuple)
+
+    def test_entries_have_correct_fields(self, engine):
+        pool = engine.data.get_mod_pool("Hubris Circlet", ilvl=84)
+        entry = pool[0]
+        assert isinstance(entry.mod_id, str)
+        assert isinstance(entry.weight, int)
+        assert entry.affix in ("prefix", "suffix")
+        assert isinstance(entry.tier_count, int)
+
+
 # ── Item creation ────────────────────────────────────────────────────────────
 
 
