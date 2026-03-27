@@ -2,6 +2,8 @@ from __future__ import annotations
 
 DEFAULT_ILVL = 84
 DEFAULT_ITERATIONS = 10000
+DEFAULT_MAX_ATTEMPTS = 1000
+DEFAULT_WORKERS = 4
 
 ESSENCE_TIER_PREFIXES: dict[str, int] = {
     "whispering": 1,
