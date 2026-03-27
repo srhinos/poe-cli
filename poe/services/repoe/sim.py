@@ -1107,6 +1107,34 @@ class CraftingEngine:
         return attempts_on_hit
 
     @staticmethod
+    def _fast_total(
+        rolled_groups: set[str],
+        n_prefix: int,
+        n_suffix: int,
+        max_p: int,
+        max_s: int,
+        group_prefix_w: dict[str, int],
+        group_suffix_w: dict[str, int],
+        total_prefix_w: int,
+        total_suffix_w: int,
+        affix_filter: int = 0,
+    ) -> int:
+        _fp = CraftingEngine._FILTER_PREFIX
+        _fs = CraftingEngine._FILTER_SUFFIX
+        prefix_avail = affix_filter != _fs and n_prefix < max_p
+        suffix_avail = affix_filter != _fp and n_suffix < max_s
+        total = 0
+        if prefix_avail:
+            total += total_prefix_w
+            for g in rolled_groups:
+                total -= group_prefix_w.get(g, 0)
+        if suffix_avail:
+            total += total_suffix_w
+            for g in rolled_groups:
+                total -= group_suffix_w.get(g, 0)
+        return total
+
+    @staticmethod
     def _fast_pick(
         pool_size: int,
         weights: list[int],
@@ -1118,39 +1146,33 @@ class CraftingEngine:
         max_p: int,
         max_s: int,
         rng_randint: typing.Callable,
+        group_prefix_w: dict[str, int],
+        group_suffix_w: dict[str, int],
+        total_prefix_w: int,
+        total_suffix_w: int,
         affix_filter: int = 0,
     ) -> int:
-        """Return pool index of picked mod, or -1 if none available.
-
-        affix_filter: 0=any, 1=prefix only, 2=suffix only.
-        """
-        prefix_full = n_prefix >= max_p
-        suffix_full = n_suffix >= max_s
-        total = 0
-        for i in range(pool_size):
-            if groups[i] in rolled_groups:
-                continue
-            ip = is_prefix[i]
-            if affix_filter == CraftingEngine._FILTER_PREFIX and not ip:
-                continue
-            if affix_filter == CraftingEngine._FILTER_SUFFIX and ip:
-                continue
-            if ip and prefix_full:
-                continue
-            if not ip and suffix_full:
-                continue
-            total += weights[i]
+        """Return pool index of picked mod, or -1 if none available."""
+        total = CraftingEngine._fast_total(
+            rolled_groups, n_prefix, n_suffix, max_p, max_s,
+            group_prefix_w, group_suffix_w, total_prefix_w, total_suffix_w,
+            affix_filter,
+        )
         if total <= 0:
             return -1
+        prefix_full = n_prefix >= max_p
+        suffix_full = n_suffix >= max_s
+        _fp = CraftingEngine._FILTER_PREFIX
+        _fs = CraftingEngine._FILTER_SUFFIX
         r = rng_randint(0, total - 1)
         cumulative = 0
         for i in range(pool_size):
             if groups[i] in rolled_groups:
                 continue
             ip = is_prefix[i]
-            if affix_filter == CraftingEngine._FILTER_PREFIX and not ip:
+            if affix_filter == _fp and not ip:
                 continue
-            if affix_filter == CraftingEngine._FILTER_SUFFIX and ip:
+            if affix_filter == _fs and ip:
                 continue
             if ip and prefix_full:
                 continue
@@ -1169,7 +1191,7 @@ class CraftingEngine:
         influences: list[str],
         fossil_weights: dict[str, float] | None,
         blocked_tags: set[str] | None,
-    ) -> tuple[int, list[int], list[str], list[bool]]:
+    ) -> tuple[int, list[int], list[str], list[bool], dict[str, int], dict[str, int], int, int]:
         engine = CraftingEngine(data)
         base_pool = engine._get_base_mod_pool(
             engine.create_item(base, ilvl, influences),
@@ -1200,7 +1222,25 @@ class CraftingEngine:
         weights = [m.weight for m in base_pool]
         groups = [m.group.casefold() for m in base_pool]
         is_prefix = [m.affix == "prefix" for m in base_pool]
-        return pool_size, weights, groups, is_prefix
+
+        group_prefix_w: dict[str, int] = {}
+        group_suffix_w: dict[str, int] = {}
+        total_prefix_w = 0
+        total_suffix_w = 0
+        for i in range(pool_size):
+            g = groups[i]
+            w = weights[i]
+            if is_prefix[i]:
+                group_prefix_w[g] = group_prefix_w.get(g, 0) + w
+                total_prefix_w += w
+            else:
+                group_suffix_w[g] = group_suffix_w.get(g, 0) + w
+                total_suffix_w += w
+
+        return (
+            pool_size, weights, groups, is_prefix,
+            group_prefix_w, group_suffix_w, total_prefix_w, total_suffix_w,
+        )
 
     @staticmethod
     def _resolve_pinned_groups(
@@ -1237,7 +1277,10 @@ class CraftingEngine:
         rng_randint = rng.randint
         choices_fn = rng.choices
 
-        pool_size, weights, groups, is_prefix = CraftingEngine._prepare_fast_pool(
+        (
+            pool_size, weights, groups, is_prefix,
+            group_prefix_w, group_suffix_w, total_prefix_w, total_suffix_w,
+        ) = CraftingEngine._prepare_fast_pool(
             data, base, ilvl, influences, fossil_weights, blocked_tags,
         )
 
@@ -1264,10 +1307,17 @@ class CraftingEngine:
                 n_suffix = 0
 
                 fast_pick = CraftingEngine._fast_pick
+                pick_args = (
+                    pool_size, weights, groups, is_prefix,
+                )
+                weight_args = (
+                    group_prefix_w, group_suffix_w, total_prefix_w, total_suffix_w,
+                )
                 for _ in range(num_mods):
                     idx = fast_pick(
-                        pool_size, weights, groups, is_prefix, rolled_groups,
+                        *pick_args, rolled_groups,
                         n_prefix, n_suffix, max_p, max_s, rng_randint,
+                        *weight_args,
                     )
                     if idx < 0:
                         break
@@ -1285,9 +1335,9 @@ class CraftingEngine:
                     )
                     if missing_filter:
                         idx = fast_pick(
-                            pool_size, weights, groups, is_prefix, rolled_groups,
+                            *pick_args, rolled_groups,
                             n_prefix, n_suffix, max_p, max_s, rng_randint,
-                            affix_filter=missing_filter,
+                            *weight_args, affix_filter=missing_filter,
                         )
                         if idx >= 0:
                             rolled_groups.add(groups[idx])
