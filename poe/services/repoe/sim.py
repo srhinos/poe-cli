@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import asyncio
 import contextlib
 import copy
 import dataclasses
+import os
 import random
 import typing
 from dataclasses import dataclass, field
@@ -10,6 +12,8 @@ from dataclasses import dataclass, field
 from poe.services.repoe.constants import (
     DEFAULT_ILVL,
     DEFAULT_ITERATIONS,
+    DEFAULT_MAX_ATTEMPTS,
+    DEFAULT_WORKERS,
     RECOMBINATOR_TRANSFER_CHANCE,
     TAINTED_OUTCOME_CHANCE,
 )
@@ -1032,7 +1036,77 @@ class CraftingEngine:
             return self.data.get_craft_cost("alt", prices=prices)
         return 1.0
 
-    def simulate(
+    @staticmethod
+    def _run_chunk(
+        data: RepoEData,
+        base: str,
+        ilvl: int,
+        method: str,
+        target_set: set[str],
+        chunk_size: int,
+        max_attempts: int,
+        match_mode: str,
+        fossil_weights: dict[str, float] | None,
+        blocked_tags: set[str] | None,
+        essence_name: str | None,
+        existing_mods: list[str] | None,
+        influences: list[str],
+        seed: int,
+    ) -> list[int]:
+        rng = random.Random(seed)
+        orig_random = random.random
+        orig_randint = random.randint
+        orig_choice = random.choice
+        orig_choices = random.choices
+        random.random = rng.random
+        random.randint = rng.randint
+        random.choice = rng.choice
+        random.choices = rng.choices
+
+        try:
+            engine = CraftingEngine(data)
+            attempts_on_hit: list[int] = []
+            item = engine.create_item(base, ilvl, influences)
+            if existing_mods:
+                pool = engine._build_mod_pool(item)
+                for mod_name in existing_mods:
+                    for m in pool:
+                        if m.group.casefold() == mod_name.casefold():
+                            engine._add_mod(item, m)
+                            break
+
+            for _ in range(chunk_size):
+                for attempt in range(1, max_attempts + 1):
+                    engine._apply_roll(
+                        item, method, fossil_weights, blocked_tags, essence_name,
+                    )
+
+                    if match_mode == "all":
+                        hit = all(
+                            any(t == m.group.casefold() for m in item.prefixes)
+                            or any(t == m.group.casefold() for m in item.suffixes)
+                            or any(t == m.group.casefold() for m in item.fractured_mods)
+                            for t in target_set
+                        )
+                    else:
+                        hit = any(
+                            any(t == m.group.casefold() for m in item.prefixes)
+                            or any(t == m.group.casefold() for m in item.suffixes)
+                            or any(t == m.group.casefold() for m in item.fractured_mods)
+                            for t in target_set
+                        )
+                    if hit:
+                        attempts_on_hit.append(attempt)
+                        break
+
+            return attempts_on_hit
+        finally:
+            random.random = orig_random
+            random.randint = orig_randint
+            random.choice = orig_choice
+            random.choices = orig_choices
+
+    async def simulate(
         self,
         base: str,
         ilvl: int,
@@ -1042,59 +1116,65 @@ class CraftingEngine:
         influences: list[str] | None = None,
         fossils: list[str] | None = None,
         match_mode: str = "all",
-        max_attempts: int = DEFAULT_ITERATIONS,
+        max_attempts: int = DEFAULT_MAX_ATTEMPTS,
         essence_name: str | None = None,
         existing_mods: list[str] | None = None,
+        workers: int | None = None,
     ) -> SimResult:
         target_set = {t.casefold() for t in target_mods}
-        hits = 0
-        attempts_on_hit: list[int] = []
 
         fossil_weights, blocked_tags = None, None
         if method == CraftMethod.FOSSIL and fossils:
             fossil_weights, blocked_tags = self._get_fossil_weights(fossils)
 
-        item = self.create_item(base, ilvl, influences)
-        if existing_mods:
-            pool = self._build_mod_pool(item)
-            for mod_name in existing_mods:
-                for m in pool:
-                    if m.group.casefold() == mod_name.casefold():
-                        self._add_mod(item, m)
-                        break
+        num_workers = workers or min((os.cpu_count() or 2) // 2, DEFAULT_WORKERS)
+        num_workers = max(num_workers, 1)
+        chunk_size = iterations // num_workers
+        remainder = iterations % num_workers
 
-        for _ in range(iterations):
-            for attempt in range(1, max_attempts + 1):
-                self._apply_roll(item, method, fossil_weights, blocked_tags, essence_name)
+        base_seed = random.randint(0, 2**31)
 
-                if match_mode == "all":
-                    hit = all(
-                        any(t == m.group.casefold() for m in item.prefixes)
-                        or any(t == m.group.casefold() for m in item.suffixes)
-                        or any(t == m.group.casefold() for m in item.fractured_mods)
-                        for t in target_set
-                    )
-                else:
-                    hit = any(
-                        any(t == m.group.casefold() for m in item.prefixes)
-                        or any(t == m.group.casefold() for m in item.suffixes)
-                        or any(t == m.group.casefold() for m in item.fractured_mods)
-                        for t in target_set
-                    )
-                if hit:
-                    hits += 1
-                    attempts_on_hit.append(attempt)
-                    break
+        tasks = []
+        for i in range(num_workers):
+            size = chunk_size + (1 if i < remainder else 0)
+            if size <= 0:
+                continue
+            tasks.append(
+                asyncio.to_thread(
+                    self._run_chunk,
+                    self.data,
+                    base,
+                    ilvl,
+                    method,
+                    target_set,
+                    size,
+                    max_attempts,
+                    match_mode,
+                    fossil_weights,
+                    blocked_tags,
+                    essence_name,
+                    existing_mods,
+                    influences or [],
+                    base_seed + i,
+                )
+            )
 
+        chunk_results = await asyncio.gather(*tasks)
+
+        all_attempts: list[int] = []
+        for chunk in chunk_results:
+            all_attempts.extend(chunk)
+
+        hits = len(all_attempts)
         cost_per = self._get_cost_per_attempt(method, fossils, essence_name)
         avg_attempts = (
-            sum(attempts_on_hit) / len(attempts_on_hit) if attempts_on_hit else float("inf")
+            sum(all_attempts) / len(all_attempts) if all_attempts else float("inf")
         )
         hit_rate = hits / iterations if iterations > 0 else 0
 
         percentiles = {}
-        if attempts_on_hit:
-            sorted_attempts = sorted(attempts_on_hit)
+        if all_attempts:
+            sorted_attempts = sorted(all_attempts)
             for label, pct in [("p50", 0.5), ("p75", 0.75), ("p90", 0.9), ("p99", 0.99)]:
                 idx = min(int(len(sorted_attempts) * pct), len(sorted_attempts) - 1)
                 percentiles[label] = sorted_attempts[idx]

@@ -451,9 +451,10 @@ class TestFossilRoll:
 
 
 class TestSimulation:
-    def test_result_fields(self, engine):
+    @pytest.mark.asyncio
+    async def test_result_fields(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -467,9 +468,10 @@ class TestSimulation:
         assert result.avg_attempts > 0
         assert result.cost_per_attempt > 0
 
-    def test_hit_rate_range(self, engine):
+    @pytest.mark.asyncio
+    async def test_hit_rate_range(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -479,9 +481,10 @@ class TestSimulation:
         # Life mod is very common, should hit often
         assert result.hit_rate > 0.1
 
-    def test_percentiles_ordered(self, engine):
+    @pytest.mark.asyncio
+    async def test_percentiles_ordered(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -494,9 +497,10 @@ class TestSimulation:
             assert p.get("p75", 0) <= p.get("p90", float("inf"))
             assert p.get("p90", 0) <= p.get("p99", float("inf"))
 
-    def test_alt_method(self, engine):
+    @pytest.mark.asyncio
+    async def test_alt_method(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="alt",
@@ -505,9 +509,10 @@ class TestSimulation:
         )
         assert result.method == "alt"
 
-    def test_fossil_method(self, engine):
+    @pytest.mark.asyncio
+    async def test_fossil_method(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="fossil",
@@ -517,9 +522,10 @@ class TestSimulation:
         )
         assert result.method == "fossil"
 
-    def test_match_mode_any(self, engine):
+    @pytest.mark.asyncio
+    async def test_match_mode_any(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -529,9 +535,10 @@ class TestSimulation:
         )
         assert result.hit_rate > 0
 
-    def test_match_mode_all(self, engine):
+    @pytest.mark.asyncio
+    async def test_match_mode_all(self, engine):
         random.seed(42)
-        result_all = engine.simulate(
+        result_all = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -539,7 +546,7 @@ class TestSimulation:
             match_mode="all",
             iterations=100,
         )
-        result_any = engine.simulate(
+        result_any = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -550,9 +557,10 @@ class TestSimulation:
         # "all" should be equal or harder to hit than "any"
         assert result_all.hit_rate <= result_any.hit_rate + 0.01
 
-    def test_impossible_target(self, engine):
+    @pytest.mark.asyncio
+    async def test_impossible_target(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -562,9 +570,10 @@ class TestSimulation:
         )
         assert result.hit_rate == 0
 
-    def test_cost_math(self, engine):
+    @pytest.mark.asyncio
+    async def test_cost_math(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -723,10 +732,11 @@ class TestEssenceRoll:
 
 
 class TestEssenceSimulation:
-    def test_simulate_essence_method(self, engine):
+    @pytest.mark.asyncio
+    async def test_simulate_essence_method(self, engine):
         """simulate() with method='essence' runs and produces results."""
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="essence",
@@ -739,10 +749,11 @@ class TestEssenceSimulation:
         assert result.iterations == 100
         assert 0 <= result.hit_rate <= 1
 
-    def test_simulate_essence_uses_essence_roll(self, engine):
+    @pytest.mark.asyncio
+    async def test_simulate_essence_uses_essence_roll(self, engine):
         """simulate() with method='essence' calls essence_roll internally."""
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="essence",
@@ -820,10 +831,11 @@ class TestInvalidFossil:
 
 
 class TestZeroHitInf:
-    def test_zero_hits_avg_attempts_is_inf(self, engine):
+    @pytest.mark.asyncio
+    async def test_zero_hits_avg_attempts_is_inf(self, engine):
         """When no hits, avg_attempts is float('inf') (T5)."""
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -888,9 +900,10 @@ class TestMethodValidation:
         with pytest.raises(ValueError, match="Unknown craft method"):
             engine._apply_roll(blank_item, "invalid_method", None, None, None)
 
-    def test_simulate_invalid_method_raises(self, engine):
+    @pytest.mark.asyncio
+    async def test_simulate_invalid_method_raises(self, engine):
         with pytest.raises(ValueError, match="Unknown craft method"):
-            engine.simulate(
+            await engine.simulate(
                 "Hubris Circlet",
                 ilvl=84,
                 method="bogus",
@@ -1652,9 +1665,10 @@ class TestVeiledChaos:
 
 
 class TestSimulateExistingMods:
-    def test_simulate_with_existing_mods(self, engine):
+    @pytest.mark.asyncio
+    async def test_simulate_with_existing_mods(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -1669,9 +1683,10 @@ class TestSimulateExistingMods:
 
 
 class TestFourFossilCost:
-    def test_four_fossil_simulation(self, engine):
+    @pytest.mark.asyncio
+    async def test_four_fossil_simulation(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="fossil",
@@ -1686,9 +1701,10 @@ class TestFourFossilCost:
 
 
 class TestSimulateWithInfluences:
-    def test_simulate_with_shaper(self, engine):
+    @pytest.mark.asyncio
+    async def test_simulate_with_shaper(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -1697,3 +1713,33 @@ class TestSimulateWithInfluences:
             influences=["Shaper"],
         )
         assert result.method == "chaos"
+
+
+class TestAsyncSimulate:
+    @pytest.mark.asyncio
+    async def test_simulate_returns_result(self, engine):
+        random.seed(42)
+        result = await engine.simulate(
+            base="Hubris Circlet",
+            ilvl=84,
+            method="chaos",
+            target_mods=["IncreasedLife"],
+            iterations=50,
+        )
+        assert isinstance(result, SimResult)
+        assert result.iterations == 50
+        assert result.hit_rate >= 0
+
+    @pytest.mark.asyncio
+    async def test_simulate_respects_workers(self, engine):
+        random.seed(42)
+        result = await engine.simulate(
+            base="Hubris Circlet",
+            ilvl=84,
+            method="chaos",
+            target_mods=["IncreasedLife"],
+            iterations=40,
+            workers=2,
+        )
+        assert isinstance(result, SimResult)
+        assert result.iterations == 40
