@@ -47,15 +47,10 @@ def _check_skill_version() -> None:
         pass
 
 
-@app.meta.default
-def _main(*tokens: str) -> None:
-    _check_skill_version()
-    app(tokens)
-
-
 def run() -> None:
+    _check_skill_version()
     try:
-        _main()
+        app()
     except PoeError as e:
         print(json.dumps({"error": str(e)}), file=sys.stderr)
         raise SystemExit(1) from None
