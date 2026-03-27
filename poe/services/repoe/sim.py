@@ -1069,9 +1069,19 @@ class CraftingEngine:
     ) -> list[int]:
         if method in (CraftMethod.CHAOS, CraftMethod.FOSSIL, CraftMethod.ALT):
             return CraftingEngine._run_chunk_fast(
-                data, base, ilvl, method, target_set, chunk_size, max_attempts,
-                match_mode, fossil_weights, blocked_tags, existing_mods,
-                influences, seed,
+                data,
+                base,
+                ilvl,
+                method,
+                target_set,
+                chunk_size,
+                max_attempts,
+                match_mode,
+                fossil_weights,
+                blocked_tags,
+                existing_mods,
+                influences,
+                seed,
             )
         engine = CraftingEngine(data, rng=random.Random(seed))
         attempts_on_hit: list[int] = []
@@ -1162,8 +1172,15 @@ class CraftingEngine:
     ) -> int:
         """Return pool index of picked mod, or -1 if none available."""
         total = CraftingEngine._fast_total(
-            rolled_groups, n_prefix, n_suffix, max_p, max_s,
-            group_prefix_w, group_suffix_w, total_prefix_w, total_suffix_w,
+            rolled_groups,
+            n_prefix,
+            n_suffix,
+            max_p,
+            max_s,
+            group_prefix_w,
+            group_suffix_w,
+            total_prefix_w,
+            total_suffix_w,
             affix_filter,
         )
         if total <= 0:
@@ -1246,8 +1263,14 @@ class CraftingEngine:
                 total_suffix_w += w
 
         return (
-            pool_size, weights, groups, is_prefix,
-            group_prefix_w, group_suffix_w, total_prefix_w, total_suffix_w,
+            pool_size,
+            weights,
+            groups,
+            is_prefix,
+            group_prefix_w,
+            group_suffix_w,
+            total_prefix_w,
+            total_suffix_w,
         )
 
     @staticmethod
@@ -1299,10 +1322,21 @@ class CraftingEngine:
         choices_fn = rng.choices
 
         (
-            pool_size, weights, groups, is_prefix,
-            group_prefix_w, group_suffix_w, total_prefix_w, total_suffix_w,
+            pool_size,
+            weights,
+            groups,
+            is_prefix,
+            group_prefix_w,
+            group_suffix_w,
+            total_prefix_w,
+            total_suffix_w,
         ) = CraftingEngine._prepare_fast_pool(
-            data, base, ilvl, influences, fossil_weights, blocked_tags,
+            data,
+            base,
+            ilvl,
+            influences,
+            fossil_weights,
+            blocked_tags,
         )
 
         mod_counts = CraftingEngine._RARE_MOD_COUNTS
@@ -1319,9 +1353,15 @@ class CraftingEngine:
 
         for _ in range(chunk_size):
             for attempt in range(1, max_attempts + 1):
-                num_mods = rng.randint(1, 2) if is_alt else choices_fn(
-                    mod_counts, weights=mod_weights, k=1,
-                )[0]
+                num_mods = (
+                    rng.randint(1, 2)
+                    if is_alt
+                    else choices_fn(
+                        mod_counts,
+                        weights=mod_weights,
+                        k=1,
+                    )[0]
+                )
 
                 rolled_groups: set[str] = set(pinned_groups)
                 n_prefix = 0
@@ -1329,15 +1369,26 @@ class CraftingEngine:
 
                 fast_pick = CraftingEngine._fast_pick
                 pick_args = (
-                    pool_size, weights, groups, is_prefix,
+                    pool_size,
+                    weights,
+                    groups,
+                    is_prefix,
                 )
                 weight_args = (
-                    group_prefix_w, group_suffix_w, total_prefix_w, total_suffix_w,
+                    group_prefix_w,
+                    group_suffix_w,
+                    total_prefix_w,
+                    total_suffix_w,
                 )
                 for _ in range(num_mods):
                     idx = fast_pick(
-                        *pick_args, rolled_groups,
-                        n_prefix, n_suffix, max_p, max_s, rng_randint,
+                        *pick_args,
+                        rolled_groups,
+                        n_prefix,
+                        n_suffix,
+                        max_p,
+                        max_s,
+                        rng_randint,
                         *weight_args,
                     )
                     if idx < 0:
@@ -1350,15 +1401,23 @@ class CraftingEngine:
 
                 if not is_alt and num_mods >= min_both:
                     missing_filter = (
-                        CraftingEngine._FILTER_PREFIX if n_prefix == 0 and n_prefix < max_p
-                        else CraftingEngine._FILTER_SUFFIX if n_suffix == 0 and n_suffix < max_s
+                        CraftingEngine._FILTER_PREFIX
+                        if n_prefix == 0 and n_prefix < max_p
+                        else CraftingEngine._FILTER_SUFFIX
+                        if n_suffix == 0 and n_suffix < max_s
                         else CraftingEngine._FILTER_ANY
                     )
                     if missing_filter:
                         idx = fast_pick(
-                            *pick_args, rolled_groups,
-                            n_prefix, n_suffix, max_p, max_s, rng_randint,
-                            *weight_args, affix_filter=missing_filter,
+                            *pick_args,
+                            rolled_groups,
+                            n_prefix,
+                            n_suffix,
+                            max_p,
+                            max_s,
+                            rng_randint,
+                            *weight_args,
+                            affix_filter=missing_filter,
                         )
                         if idx >= 0:
                             rolled_groups.add(groups[idx])
