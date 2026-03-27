@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import copy
+import dataclasses
 import random
 import typing
 from dataclasses import dataclass, field
@@ -11,7 +12,6 @@ from poe.services.repoe.constants import (
     DEFAULT_ITERATIONS,
     RECOMBINATOR_TRANSFER_CHANCE,
     TAINTED_OUTCOME_CHANCE,
-    VALUE_RANGE_LENGTH,
 )
 from poe.types import CraftMethod, Rarity
 
@@ -49,7 +49,7 @@ class RolledMod:
     group: str
     weight: int
     chance: float
-    tier: dict
+    tier: BestTier
     rolls: list
     is_crafted: bool = False
 
@@ -125,7 +125,7 @@ class CraftingEngine:
     def __init__(self, data: RepoEData) -> None:
         """Initialize with a RepoEData instance for mod pool lookups."""
         self.data = data
-        self._mod_pool_cache: dict[tuple, list[dict]] = {}
+        self._mod_pool_cache: dict[tuple, list[ModPoolEntry]] = {}
 
     def _rare_mod_count(self) -> int:
         """Sample a rare item mod count using GGG's 58/28/14 distribution."""
@@ -153,7 +153,7 @@ class CraftingEngine:
             max_suffixes=bitem["max_suffixes"],
         )
 
-    def _get_base_mod_pool(self, item: CraftableItem) -> list[dict]:
+    def _get_base_mod_pool(self, item: CraftableItem) -> list[ModPoolEntry]:
         cache_key = (item.base_name, item.ilvl, tuple(sorted(item.influences)))
         if cache_key not in self._mod_pool_cache:
             self._mod_pool_cache[cache_key] = self.data.get_mod_pool(
@@ -169,20 +169,20 @@ class CraftingEngine:
         affix_type: str | None = None,
         fossil_weights: dict[str, float] | None = None,
         blocked_tags: set[str] | None = None,
-    ) -> list[dict]:
+    ) -> list[ModPoolEntry]:
         """Build the weighted mod pool for an item, respecting current mods."""
         all_mods = self._get_base_mod_pool(item)
 
         existing_groups = item.groups
-        pool = []
+        pool: list[ModPoolEntry] = []
         open_prefixes = item.open_prefixes
         open_suffixes = item.open_suffixes
 
         for mod in all_mods:
-            if mod["group"] in existing_groups:
+            if mod.group in existing_groups:
                 continue
 
-            affix = mod["affix"]
+            affix = mod.affix
 
             if affix_type and affix != affix_type:
                 continue
@@ -192,68 +192,61 @@ class CraftingEngine:
             if affix == "suffix" and open_suffixes <= 0:
                 continue
 
-            if blocked_tags and mod.get("implicit_tags"):
-                mod_tags = [t.casefold() for t in mod["implicit_tags"]]
+            if blocked_tags and mod.implicit_tags:
+                mod_tags = [t.casefold() for t in mod.implicit_tags]
                 if any(t in blocked_tags for t in mod_tags):
                     continue
 
-            if fossil_weights and mod.get("implicit_tags"):
+            if fossil_weights and mod.implicit_tags:
                 multiplier = 1.0
-                for tag_name in mod["implicit_tags"]:
+                for tag_name in mod.implicit_tags:
                     key = tag_name.casefold()
                     if key in fossil_weights:
                         multiplier *= fossil_weights[key]
-                weight = int(mod["weight"] * max(multiplier, 0))
+                weight = int(mod.weight * max(multiplier, 0))
                 if weight <= 0:
                     continue
-                pool.append({**mod, "weight": weight})
+                pool.append(dataclasses.replace(mod, weight=weight))
             else:
                 pool.append(mod)
 
         return pool
 
-    def _weighted_pick(self, pool: list[dict]) -> dict | None:
+    def _weighted_pick(self, pool: list[ModPoolEntry]) -> ModPoolEntry | None:
         """Weighted random selection from mod pool."""
         if not pool:
             return None
-        total = sum(m["weight"] for m in pool)
+        total = sum(m.weight for m in pool)
         if total <= 0:
             return None
         r = random.randint(1, total)
         cumulative = 0
         for mod in pool:
-            cumulative += mod["weight"]
+            cumulative += mod.weight
             if r <= cumulative:
                 return mod
         return pool[-1]
 
-    def _roll_values(self, tier: dict) -> list:
+    def _roll_values(self, tier: BestTier) -> list:
         """Roll random values within tier ranges."""
-        values = tier.get("values", [])
-        rolled = []
-        for v in values:
-            if isinstance(v, list) and len(v) == VALUE_RANGE_LENGTH:
-                rolled.append(random.randint(int(v[0]), int(v[1])))
-            else:
-                rolled.append(v)
-        return rolled
+        return [random.randint(int(v[0]), int(v[1])) for v in tier.values]
 
-    def _add_mod(self, item: CraftableItem, mod: dict, pool_total: int = 0) -> RolledMod:
+    def _add_mod(self, item: CraftableItem, mod: ModPoolEntry, pool_total: int = 0) -> RolledMod:
         """Roll and add a mod to the item."""
-        chance = mod["weight"] / pool_total if pool_total > 0 else 0
+        chance = mod.weight / pool_total if pool_total > 0 else 0
 
         rolled = RolledMod(
-            mod_id=mod["mod_id"],
-            name=mod["name"],
-            affix=mod["affix"],
-            group=mod["group"],
-            weight=mod["weight"],
+            mod_id=mod.mod_id,
+            name=mod.name,
+            affix=mod.affix,
+            group=mod.group,
+            weight=mod.weight,
             chance=chance,
-            tier=mod["best_tier"],
-            rolls=self._roll_values(mod["best_tier"]),
+            tier=mod.best_tier,
+            rolls=self._roll_values(mod.best_tier),
         )
 
-        if mod["affix"] == "prefix":
+        if mod.affix == "prefix":
             item.prefixes.append(rolled)
         else:
             item.suffixes.append(rolled)
@@ -288,41 +281,41 @@ class CraftingEngine:
 
     def _pick_excluding_groups(
         self,
-        pool: list[dict],
+        pool: list[ModPoolEntry],
         excluded_groups: set[str],
         affix_type: str | None = None,
         max_prefixes: int = 3,
         max_suffixes: int = 3,
         current_prefixes: int = 0,
         current_suffixes: int = 0,
-    ) -> dict | None:
+    ) -> ModPoolEntry | None:
         total = 0
         for mod in pool:
-            if mod["group"] in excluded_groups:
+            if mod.group in excluded_groups:
                 continue
-            affix = mod["affix"]
+            affix = mod.affix
             if affix_type and affix != affix_type:
                 continue
             if affix == "prefix" and current_prefixes >= max_prefixes:
                 continue
             if affix == "suffix" and current_suffixes >= max_suffixes:
                 continue
-            total += mod["weight"]
+            total += mod.weight
         if total <= 0:
             return None
         r = random.randint(1, total)
         cumulative = 0
         for mod in pool:
-            if mod["group"] in excluded_groups:
+            if mod.group in excluded_groups:
                 continue
-            affix = mod["affix"]
+            affix = mod.affix
             if affix_type and affix != affix_type:
                 continue
             if affix == "prefix" and current_prefixes >= max_prefixes:
                 continue
             if affix == "suffix" and current_suffixes >= max_suffixes:
                 continue
-            cumulative += mod["weight"]
+            cumulative += mod.weight
             if r <= cumulative:
                 return mod
         return None
@@ -480,6 +473,17 @@ class CraftingEngine:
             raise ValueError("No open prefix slots")
         if affix == "suffix" and item.open_suffixes <= 0:
             raise ValueError("No open suffix slots")
+        raw_tier = mod.get("best_tier")
+        if isinstance(raw_tier, BestTier):
+            tier = raw_tier
+        elif isinstance(raw_tier, dict) and raw_tier:
+            tier = BestTier(
+                ilvl=raw_tier.get("ilvl", 0),
+                values=tuple(tuple(v) for v in raw_tier.get("values", [])),
+                weight=raw_tier.get("weight", 0),
+            )
+        else:
+            tier = BestTier(ilvl=0, values=(), weight=0)
         rolled = RolledMod(
             mod_id=mod["mod_id"],
             name=mod["name"],
@@ -487,8 +491,8 @@ class CraftingEngine:
             group=mod["group"],
             weight=mod.get("weight", 0),
             chance=1.0,
-            tier=mod.get("best_tier", {}),
-            rolls=self._roll_values(mod.get("best_tier", {})) if mod.get("best_tier") else [],
+            tier=tier,
+            rolls=self._roll_values(tier) if tier.values else [],
             is_crafted=True,
         )
         if affix == "prefix":
@@ -584,13 +588,13 @@ class CraftingEngine:
             mod_text = ess["mods"][0].get("mod", "")
             pool = self._build_mod_pool(item)
             for m in pool:
-                if m["mod_id"] == mod_text or m["name"] == mod_text:
+                if mod_text in (m.mod_id, m.name):
                     guaranteed_mod = m
                     break
             if not guaranteed_mod:
                 text_cf = mod_text.casefold()
                 for m in pool:
-                    name_cf = m["name"].casefold()
+                    name_cf = m.name.casefold()
                     if name_cf in text_cf or text_cf in name_cf:
                         guaranteed_mod = m
                         break
@@ -688,7 +692,7 @@ class CraftingEngine:
             raise ValueError("Harvest augment requires a Rare item")
         pool = self._build_mod_pool(item)
         tag_cf = tag.casefold()
-        tagged = [m for m in pool if tag_cf in [t.casefold() for t in m.get("implicit_tags", [])]]
+        tagged = [m for m in pool if tag_cf in [t.casefold() for t in m.implicit_tags]]
         if not tagged:
             return None
         picked = self._weighted_pick(tagged)
@@ -706,7 +710,7 @@ class CraftingEngine:
         if influence not in item.influences:
             item.influences.append(influence)
         pool = self._build_mod_pool(item)
-        inf_pool = [m for m in pool if m.get("influence") is not None]
+        inf_pool = [m for m in pool if m.influence is not None]
         if not inf_pool:
             return None
         picked = self._weighted_pick(inf_pool)
@@ -1041,7 +1045,7 @@ class CraftingEngine:
             pool = self._build_mod_pool(item)
             for mod_name in existing_mods:
                 for m in pool:
-                    if m["group"].casefold() == mod_name.casefold():
+                    if m.group.casefold() == mod_name.casefold():
                         self._add_mod(item, m)
                         break
 
