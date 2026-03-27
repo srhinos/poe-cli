@@ -5,7 +5,7 @@ from typing import Annotated, Any
 import cyclopts
 
 from poe.output import render as _output
-from poe.services.repoe.constants import DEFAULT_ILVL, DEFAULT_ITERATIONS
+from poe.services.repoe.constants import DEFAULT_ILVL, DEFAULT_ITERATIONS, DEFAULT_MAX_ATTEMPTS
 from poe.services.repoe.sim_service import SimService
 
 sim_app = cyclopts.App(name="sim", help="Crafting simulation and mod pool analysis.")
@@ -157,7 +157,7 @@ def craft_analyze(
 
 
 @sim_app.command(name="simulate")
-def craft_simulate(
+async def craft_simulate(
     base_name: str,
     *,
     ilvl: int = DEFAULT_ILVL,
@@ -169,7 +169,8 @@ def craft_simulate(
     iterations: int = DEFAULT_ITERATIONS,
     match: str = "all",
     existing_mod: list[str] | None = None,
-    max_attempts: int = DEFAULT_ITERATIONS,
+    max_attempts: int = DEFAULT_MAX_ATTEMPTS,
+    workers: int | None = None,
     human: bool = False,
 ) -> None:
     """Simulate crafting to estimate costs and probabilities.
@@ -194,6 +195,10 @@ def craft_simulate(
         Simulation iterations.
     match
         Match mode: all or any.
+    max_attempts
+        Max attempts per iteration.
+    workers
+        Number of parallel workers.
     human
         Human-readable output.
     """
@@ -203,7 +208,7 @@ def craft_simulate(
     for t in target:
         resolved = svc.resolve_mod_name(t, base_name)
         resolved_targets.append(resolved or t)
-    result = svc.simulate(
+    result = await svc.simulate(
         base_name,
         ilvl=ilvl,
         method=method,
@@ -215,6 +220,7 @@ def craft_simulate(
         match=match,
         existing_mods=existing_mod,
         max_attempts=max_attempts,
+        workers=workers,
     )
     _output(result, human=human)
 
@@ -292,7 +298,7 @@ def craft_fossil_optimizer(mod: str, *, human: bool = False) -> None:
 
 
 @sim_app.command(name="compare")
-def craft_compare(
+async def craft_compare(
     base_name: str,
     *,
     ilvl: int = DEFAULT_ILVL,
@@ -326,7 +332,7 @@ def craft_compare(
     """
     fossil_list = [f.strip() for f in fossils.split(",")] if fossils else None
     _output(
-        _svc().compare_methods(
+        await _svc().compare_methods(
             base_name,
             ilvl=ilvl,
             target=target,

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import contextlib
 import json
-from unittest.mock import MagicMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 from poe.app import app as cli
 from poe.services.repoe.sim import BestTier, ModPoolEntry
@@ -576,7 +576,7 @@ class TestCraftSimulate:
     def test_success_chaos(self):
         cd = _mock_repoe_data()
         eng = MagicMock()
-        eng.simulate.return_value = _make_sim_result()
+        eng.simulate = AsyncMock(return_value=_make_sim_result())
 
         with (
             patch(_PATCH_CD, return_value=cd),
@@ -604,7 +604,9 @@ class TestCraftSimulate:
     def test_success_fossil(self):
         cd = _mock_repoe_data()
         eng = MagicMock()
-        eng.simulate.return_value = _make_sim_result(method="fossil", cost_per_attempt=5.0)
+        eng.simulate = AsyncMock(
+            return_value=_make_sim_result(method="fossil", cost_per_attempt=5.0),
+        )
 
         with (
             patch(_PATCH_CD, return_value=cd),
@@ -632,7 +634,7 @@ class TestCraftSimulate:
     def test_success_alt(self):
         cd = _mock_repoe_data()
         eng = MagicMock()
-        eng.simulate.return_value = _make_sim_result(method="alt")
+        eng.simulate = AsyncMock(return_value=_make_sim_result(method="alt"))
 
         with (
             patch(_PATCH_CD, return_value=cd),
@@ -657,7 +659,7 @@ class TestCraftSimulate:
     def test_multiple_targets(self):
         cd = _mock_repoe_data()
         eng = MagicMock()
-        eng.simulate.return_value = _make_sim_result()
+        eng.simulate = AsyncMock(return_value=_make_sim_result())
 
         with (
             patch(_PATCH_CD, return_value=cd),
@@ -687,7 +689,7 @@ class TestCraftSimulate:
     def test_custom_iterations(self):
         cd = _mock_repoe_data()
         eng = MagicMock()
-        eng.simulate.return_value = _make_sim_result(iterations=500)
+        eng.simulate = AsyncMock(return_value=_make_sim_result(iterations=500))
 
         with (
             patch(_PATCH_CD, return_value=cd),
@@ -712,7 +714,7 @@ class TestCraftSimulate:
     def test_exception(self):
         cd = _mock_repoe_data()
         eng = MagicMock()
-        eng.simulate.side_effect = RuntimeError("sim failed")
+        eng.simulate = AsyncMock(side_effect=RuntimeError("sim failed"))
 
         with (
             patch(_PATCH_CD, return_value=cd),
@@ -735,7 +737,7 @@ class TestCraftSimulate:
     def test_with_influence(self):
         cd = _mock_repoe_data()
         eng = MagicMock()
-        eng.simulate.return_value = _make_sim_result()
+        eng.simulate = AsyncMock(return_value=_make_sim_result())
 
         with (
             patch(_PATCH_CD, return_value=cd),
@@ -760,7 +762,7 @@ class TestCraftSimulate:
     def test_success_essence(self):
         cd = _mock_repoe_data()
         eng = MagicMock()
-        eng.simulate.return_value = _make_sim_result(method="essence")
+        eng.simulate = AsyncMock(return_value=_make_sim_result(method="essence"))
 
         with (
             patch(_PATCH_CD, return_value=cd),
@@ -795,7 +797,7 @@ class TestCraftSimulate:
         """Using --method essence without --essence should error."""
         cd = _mock_repoe_data()
         eng = MagicMock()
-        eng.simulate.return_value = _make_sim_result(method="essence")
+        eng.simulate = AsyncMock(return_value=_make_sim_result(method="essence"))
 
         with (
             patch(_PATCH_CD, return_value=cd),
@@ -885,7 +887,7 @@ class TestCraftSimulateNewParams:
     def test_existing_mod_param(self):
         cd = _mock_repoe_data()
         eng = MagicMock()
-        eng.simulate.return_value = _make_sim_result()
+        eng.simulate = AsyncMock(return_value=_make_sim_result())
 
         with (
             patch(_PATCH_CD, return_value=cd),
@@ -912,7 +914,7 @@ class TestCraftSimulateNewParams:
     def test_max_attempts_param(self):
         cd = _mock_repoe_data()
         eng = MagicMock()
-        eng.simulate.return_value = _make_sim_result()
+        eng.simulate = AsyncMock(return_value=_make_sim_result())
 
         with (
             patch(_PATCH_CD, return_value=cd),

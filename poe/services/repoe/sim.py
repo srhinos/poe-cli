@@ -467,7 +467,9 @@ class CraftingEngine:
             item.rarity = Rarity.NORMAL
 
     def apply_crafted_mod(
-        self, item: CraftableItem, mod: ModPoolEntry | dict,
+        self,
+        item: CraftableItem,
+        mod: ModPoolEntry | dict,
     ) -> RolledMod | None:
         self._check_craftable(item)
         if item.crafted_mod_count >= item.max_crafted_mods:
@@ -1078,7 +1080,11 @@ class CraftingEngine:
             for _ in range(chunk_size):
                 for attempt in range(1, max_attempts + 1):
                     engine._apply_roll(
-                        item, method, fossil_weights, blocked_tags, essence_name,
+                        item,
+                        method,
+                        fossil_weights,
+                        blocked_tags,
+                        essence_name,
                     )
 
                     if match_mode == "all":
@@ -1167,9 +1173,7 @@ class CraftingEngine:
 
         hits = len(all_attempts)
         cost_per = self._get_cost_per_attempt(method, fossils, essence_name)
-        avg_attempts = (
-            sum(all_attempts) / len(all_attempts) if all_attempts else float("inf")
-        )
+        avg_attempts = sum(all_attempts) / len(all_attempts) if all_attempts else float("inf")
         hit_rate = hits / iterations if iterations > 0 else 0
 
         percentiles = {}

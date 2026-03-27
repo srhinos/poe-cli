@@ -6,7 +6,6 @@ import typing
 from pathlib import Path
 
 from poe.exceptions import SimDataError
-from poe.services.repoe.sim import BestTier, ModPoolEntry
 from poe.services.repoe.constants import (
     CURRENCY_PATH_NAMES,
     ESSENCE_TIER_PREFIXES,
@@ -14,6 +13,7 @@ from poe.services.repoe.constants import (
     MAX_RESONATOR_SOCKETS,
     RESONATOR_BY_SOCKETS,
 )
+from poe.services.repoe.sim import BestTier, ModPoolEntry
 
 
 class RepoEData:
@@ -119,9 +119,7 @@ class RepoEData:
                     tier_count=group_tier_counts.get(mod["group"], 1),
                     best_tier=BestTier(
                         ilvl=mod["required_level"],
-                        values=tuple(
-                            (s["min"], s["max"]) for s in mod["stats"]
-                        ),
+                        values=tuple((s["min"], s["max"]) for s in mod["stats"]),
                         weight=best_weight,
                     ),
                     implicit_tags=tuple(mod["implicit_tags"]),
