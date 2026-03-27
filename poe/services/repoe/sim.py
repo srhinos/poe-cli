@@ -125,6 +125,9 @@ class CraftingEngine:
     _RARE_MOD_COUNTS: typing.ClassVar[list[int]] = [4, 5, 6]
     _RARE_MOD_WEIGHTS: typing.ClassVar[list[int]] = [8, 3, 1]
     _MIN_MODS_FOR_BOTH_AFFIXES: typing.ClassVar[int] = 2
+    _FILTER_ANY: typing.ClassVar[int] = 0
+    _FILTER_PREFIX: typing.ClassVar[int] = 1
+    _FILTER_SUFFIX: typing.ClassVar[int] = 2
 
     def __init__(self, data: RepoEData, rng: random.Random | None = None) -> None:
         """Initialize with a RepoEData instance for mod pool lookups."""
@@ -1056,6 +1059,12 @@ class CraftingEngine:
         influences: list[str],
         seed: int,
     ) -> list[int]:
+        if method in (CraftMethod.CHAOS, CraftMethod.FOSSIL, CraftMethod.ALT):
+            return CraftingEngine._run_chunk_fast(
+                data, base, ilvl, method, target_set, chunk_size, max_attempts,
+                match_mode, fossil_weights, blocked_tags, existing_mods,
+                influences, seed,
+            )
         engine = CraftingEngine(data, rng=random.Random(seed))
         attempts_on_hit: list[int] = []
         item = engine.create_item(base, ilvl, influences)
@@ -1093,6 +1102,202 @@ class CraftingEngine:
                     )
                 if hit:
                     attempts_on_hit.append(attempt)
+                    break
+
+        return attempts_on_hit
+
+    @staticmethod
+    def _fast_pick(
+        pool_size: int,
+        weights: list[int],
+        groups: list[str],
+        is_prefix: list[bool],
+        rolled_groups: set[str],
+        n_prefix: int,
+        n_suffix: int,
+        max_p: int,
+        max_s: int,
+        rng_randint: typing.Callable,
+        affix_filter: int = 0,
+    ) -> int:
+        """Return pool index of picked mod, or -1 if none available.
+
+        affix_filter: 0=any, 1=prefix only, 2=suffix only.
+        """
+        prefix_full = n_prefix >= max_p
+        suffix_full = n_suffix >= max_s
+        total = 0
+        for i in range(pool_size):
+            if groups[i] in rolled_groups:
+                continue
+            ip = is_prefix[i]
+            if affix_filter == CraftingEngine._FILTER_PREFIX and not ip:
+                continue
+            if affix_filter == CraftingEngine._FILTER_SUFFIX and ip:
+                continue
+            if ip and prefix_full:
+                continue
+            if not ip and suffix_full:
+                continue
+            total += weights[i]
+        if total <= 0:
+            return -1
+        r = rng_randint(0, total - 1)
+        cumulative = 0
+        for i in range(pool_size):
+            if groups[i] in rolled_groups:
+                continue
+            ip = is_prefix[i]
+            if affix_filter == CraftingEngine._FILTER_PREFIX and not ip:
+                continue
+            if affix_filter == CraftingEngine._FILTER_SUFFIX and ip:
+                continue
+            if ip and prefix_full:
+                continue
+            if not ip and suffix_full:
+                continue
+            cumulative += weights[i]
+            if r < cumulative:
+                return i
+        return -1
+
+    @staticmethod
+    def _prepare_fast_pool(
+        data: RepoEData,
+        base: str,
+        ilvl: int,
+        influences: list[str],
+        fossil_weights: dict[str, float] | None,
+        blocked_tags: set[str] | None,
+    ) -> tuple[int, list[int], list[str], list[bool]]:
+        engine = CraftingEngine(data)
+        base_pool = engine._get_base_mod_pool(
+            engine.create_item(base, ilvl, influences),
+        )
+
+        if fossil_weights:
+            filtered: list[ModPoolEntry] = []
+            for mod in base_pool:
+                if blocked_tags and mod.implicit_tags:
+                    mod_tags = [t.casefold() for t in mod.implicit_tags]
+                    if any(t in blocked_tags for t in mod_tags):
+                        continue
+                if mod.implicit_tags:
+                    multiplier = 1.0
+                    for tag_name in mod.implicit_tags:
+                        key = tag_name.casefold()
+                        if key in fossil_weights:
+                            multiplier *= fossil_weights[key]
+                    w = int(mod.weight * max(multiplier, 0))
+                    if w <= 0:
+                        continue
+                    filtered.append(dataclasses.replace(mod, weight=w))
+                else:
+                    filtered.append(mod)
+            base_pool = filtered
+
+        pool_size = len(base_pool)
+        weights = [m.weight for m in base_pool]
+        groups = [m.group.casefold() for m in base_pool]
+        is_prefix = [m.affix == "prefix" for m in base_pool]
+        return pool_size, weights, groups, is_prefix
+
+    @staticmethod
+    def _resolve_pinned_groups(
+        existing_mods: list[str] | None,
+        groups: list[str],
+    ) -> set[str]:
+        pinned: set[str] = set()
+        if existing_mods:
+            for mod_name in existing_mods:
+                mcf = mod_name.casefold()
+                for g in groups:
+                    if g == mcf:
+                        pinned.add(g)
+                        break
+        return pinned
+
+    @staticmethod
+    def _run_chunk_fast(
+        data: RepoEData,
+        base: str,
+        ilvl: int,
+        method: str,
+        target_set: set[str],
+        chunk_size: int,
+        max_attempts: int,
+        match_mode: str,
+        fossil_weights: dict[str, float] | None,
+        blocked_tags: set[str] | None,
+        existing_mods: list[str] | None,
+        influences: list[str],
+        seed: int,
+    ) -> list[int]:
+        rng = random.Random(seed)
+        rng_randint = rng.randint
+        choices_fn = rng.choices
+
+        pool_size, weights, groups, is_prefix = CraftingEngine._prepare_fast_pool(
+            data, base, ilvl, influences, fossil_weights, blocked_tags,
+        )
+
+        mod_counts = CraftingEngine._RARE_MOD_COUNTS
+        mod_weights = CraftingEngine._RARE_MOD_WEIGHTS
+        is_alt = method == CraftMethod.ALT
+        max_p = 1 if is_alt else 3
+        max_s = 1 if is_alt else 3
+        min_both = CraftingEngine._MIN_MODS_FOR_BOTH_AFFIXES
+
+        pinned_groups = CraftingEngine._resolve_pinned_groups(existing_mods, groups)
+        match_all = match_mode == "all"
+        attempts_on_hit: list[int] = []
+        append = attempts_on_hit.append
+
+        for _ in range(chunk_size):
+            for attempt in range(1, max_attempts + 1):
+                num_mods = rng.randint(1, 2) if is_alt else choices_fn(
+                    mod_counts, weights=mod_weights, k=1,
+                )[0]
+
+                rolled_groups: set[str] = set(pinned_groups)
+                n_prefix = 0
+                n_suffix = 0
+
+                fast_pick = CraftingEngine._fast_pick
+                for _ in range(num_mods):
+                    idx = fast_pick(
+                        pool_size, weights, groups, is_prefix, rolled_groups,
+                        n_prefix, n_suffix, max_p, max_s, rng_randint,
+                    )
+                    if idx < 0:
+                        break
+                    rolled_groups.add(groups[idx])
+                    if is_prefix[idx]:
+                        n_prefix += 1
+                    else:
+                        n_suffix += 1
+
+                if not is_alt and num_mods >= min_both:
+                    missing_filter = (
+                        CraftingEngine._FILTER_PREFIX if n_prefix == 0 and n_prefix < max_p
+                        else CraftingEngine._FILTER_SUFFIX if n_suffix == 0 and n_suffix < max_s
+                        else CraftingEngine._FILTER_ANY
+                    )
+                    if missing_filter:
+                        idx = fast_pick(
+                            pool_size, weights, groups, is_prefix, rolled_groups,
+                            n_prefix, n_suffix, max_p, max_s, rng_randint,
+                            affix_filter=missing_filter,
+                        )
+                        if idx >= 0:
+                            rolled_groups.add(groups[idx])
+
+                if match_all:
+                    hit = target_set <= rolled_groups
+                else:
+                    hit = not target_set.isdisjoint(rolled_groups)
+                if hit:
+                    append(attempt)
                     break
 
         return attempts_on_hit
