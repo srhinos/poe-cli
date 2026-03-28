@@ -23,7 +23,7 @@ def craft_mods(
     influence: list[str] | None = None,
     affix_type: Annotated[str | None, cyclopts.Parameter(name="--type")] = None,
     limit: int = 30,
-    human: bool = False,
+    json: bool = False,
 ) -> None:
     """Show rollable mods for a base item.
 
@@ -39,8 +39,8 @@ def craft_mods(
         prefix or suffix.
     limit
         Max results.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
     result = _svc().get_mods(
         base_name,
@@ -49,12 +49,12 @@ def craft_mods(
         affix_type=affix_type,
         limit=limit,
     )
-    _output(result, human=human)
+    _output(result, json_mode=json)
 
 
 @sim_app.command(name="tiers")
 def craft_tiers(
-    mod_id: str, base_name: str, *, ilvl: int = DEFAULT_ILVL, human: bool = False
+    mod_id: str, base_name: str, *, ilvl: int = DEFAULT_ILVL, json: bool = False
 ) -> None:
     """Show all tiers for a specific mod on a base item.
 
@@ -66,17 +66,17 @@ def craft_tiers(
         Base item name.
     ilvl
         Item level.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
-    _output(_svc().get_tiers(mod_id, base_name, ilvl=ilvl), human=human)
+    _output(_svc().get_tiers(mod_id, base_name, ilvl=ilvl), json_mode=json)
 
 
 @sim_app.command(name="fossils")
 def craft_fossils(
     *,
     filter_tag: Annotated[str | None, cyclopts.Parameter(name="--filter")] = None,
-    human: bool = False,
+    json: bool = False,
 ) -> None:
     """List fossils and their mod weight effects.
 
@@ -84,52 +84,52 @@ def craft_fossils(
     ----------
     filter_tag
         Filter by tag.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
-    _output(_svc().get_fossils(filter_tag=filter_tag), human=human)
+    _output(_svc().get_fossils(filter_tag=filter_tag), json_mode=json)
 
 
 @sim_app.command(name="essences")
-def craft_essences(base_name: str | None = None, *, human: bool = False) -> None:
+def craft_essences(base_name: str | None = None, *, json: bool = False) -> None:
     """List essences, optionally filtered for a base item.
 
     Parameters
     ----------
     base_name
         Base item name.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
-    _output(_svc().get_essences(base_name), human=human)
+    _output(_svc().get_essences(base_name), json_mode=json)
 
 
 @sim_app.command(name="bench")
-def craft_bench(base_name: str, *, human: bool = False) -> None:
+def craft_bench(base_name: str, *, json: bool = False) -> None:
     """Show available bench crafts for a base item.
 
     Parameters
     ----------
     base_name
         Base item name.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
-    _output(_svc().get_bench_crafts(base_name), human=human)
+    _output(_svc().get_bench_crafts(base_name), json_mode=json)
 
 
 @sim_app.command(name="search")
-def craft_search(query: str, *, human: bool = False) -> None:
+def craft_search(query: str, *, json: bool = False) -> None:
     """Search for base items by name.
 
     Parameters
     ----------
     query
         Search query.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
-    _output(_svc().search_bases(query), human=human)
+    _output(_svc().search_bases(query), json_mode=json)
 
 
 @sim_app.command(name="analyze")
@@ -138,7 +138,7 @@ def craft_analyze(
     *,
     slot: str,
     ilvl: int | None = None,
-    human: bool = False,
+    json: bool = False,
 ) -> None:
     """Analyze an equipped item's mods, tiers, and open slots.
 
@@ -150,10 +150,10 @@ def craft_analyze(
         Equipment slot to analyze.
     ilvl
         Override item level.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
-    _output(_svc().analyze_item(build_name, slot=slot, ilvl=ilvl), human=human)
+    _output(_svc().analyze_item(build_name, slot=slot, ilvl=ilvl), json_mode=json)
 
 
 @sim_app.command(name="simulate")
@@ -171,7 +171,7 @@ async def craft_simulate(
     existing_mod: list[str] | None = None,
     max_attempts: int = DEFAULT_MAX_ATTEMPTS,
     workers: int | None = None,
-    human: bool = False,
+    json: bool = False,
 ) -> None:
     """Simulate crafting to estimate costs and probabilities.
 
@@ -199,8 +199,8 @@ async def craft_simulate(
         Max attempts per iteration.
     workers
         Number of parallel workers.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
     fossil_list = [f.strip() for f in fossils.split(",")] if fossils else None
     svc = _svc()
@@ -222,7 +222,7 @@ async def craft_simulate(
         max_attempts=max_attempts,
         workers=workers,
     )
-    _output(result, human=human)
+    _output(result, json_mode=json)
 
 
 @sim_app.command(name="simulate-multistep")
@@ -235,7 +235,7 @@ def craft_simulate_multistep(
     influence: list[str] | None = None,
     iterations: int = DEFAULT_ITERATIONS,
     match: str = "all",
-    human: bool = False,
+    json: bool = False,
 ) -> None:
     """Simulate a multi-step craft sequence.
 
@@ -255,8 +255,8 @@ def craft_simulate_multistep(
         Iterations.
     match
         Match mode: all or any.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
     steps: list[dict[str, Any]] = []
     for s in step:
@@ -279,22 +279,22 @@ def craft_simulate_multistep(
             influence=influence,
             match=match,
         ),
-        human=human,
+        json_mode=json,
     )
 
 
 @sim_app.command(name="fossil-optimizer")
-def craft_fossil_optimizer(mod: str, *, human: bool = False) -> None:
+def craft_fossil_optimizer(mod: str, *, json: bool = False) -> None:
     """Find fossils that boost a specific mod tag.
 
     Parameters
     ----------
     mod
         Mod tag to optimize for.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
-    _output(_svc().fossil_optimizer(mod), human=human)
+    _output(_svc().fossil_optimizer(mod), json_mode=json)
 
 
 @sim_app.command(name="compare")
@@ -307,7 +307,7 @@ async def craft_compare(
     essence: str | None = None,
     influence: list[str] | None = None,
     iterations: int = DEFAULT_ITERATIONS,
-    human: bool = False,
+    json: bool = False,
 ) -> None:
     """Compare crafting costs across methods for the same target.
 
@@ -327,8 +327,8 @@ async def craft_compare(
         Influence(s).
     iterations
         Iterations.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
     fossil_list = [f.strip() for f in fossils.split(",")] if fossils else None
     _output(
@@ -341,7 +341,7 @@ async def craft_compare(
             influence=influence,
             iterations=iterations,
         ),
-        human=human,
+        json_mode=json,
     )
 
 
@@ -349,7 +349,7 @@ async def craft_compare(
 def craft_suggest(
     *,
     mod: Annotated[list[str], cyclopts.Parameter(name="--mod")],
-    human: bool = False,
+    json: bool = False,
 ) -> None:
     """Suggest best crafting approach for desired mods.
 
@@ -357,10 +357,10 @@ def craft_suggest(
     ----------
     mod
         Desired mod name(s).
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
-    _output(_svc().suggest_craft(mod), human=human)
+    _output(_svc().suggest_craft(mod), json_mode=json)
 
 
 @sim_app.command(name="weights")
@@ -370,7 +370,7 @@ def craft_weights(
     ilvl: int = DEFAULT_ILVL,
     influence: list[str] | None = None,
     limit: int = 20,
-    human: bool = False,
+    json: bool = False,
 ) -> None:
     """Show mod weight breakdown with probabilities.
 
@@ -384,24 +384,24 @@ def craft_weights(
         Influence(s).
     limit
         Max results.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
     _output(
         _svc().mod_weights(base_name, ilvl=ilvl, influences=influence, limit=limit),
-        human=human,
+        json_mode=json,
     )
 
 
 @sim_app.command(name="prices")
-def craft_prices(*, league: str = "current", human: bool = False) -> None:
+def craft_prices(*, league: str = "current", json: bool = False) -> None:
     """Show current currency, fossil, and essence prices.
 
     Parameters
     ----------
     league
         League name or 'current'.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
-    _output(_svc().get_prices(league=league), human=human)
+    _output(_svc().get_prices(league=league), json_mode=json)

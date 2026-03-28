@@ -228,7 +228,7 @@ class TestAtlasCli:
         mock_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = invoke_cli(app, ["ninja", "atlas", "search"])
+        result = invoke_cli(app, ["ninja", "atlas", "search", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert "total" in data

@@ -68,7 +68,7 @@ class TestCraftMods:
     def test_success(self):
         cd = _mock_repoe_data(get_mod_pool=SAMPLE_MODS)
         with patch(_PATCH_CD, return_value=cd):
-            result = invoke_cli(cli, ["sim", "mods", "Hubris Circlet"])
+            result = invoke_cli(cli, ["sim", "mods", "Hubris Circlet", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["base"] == "Hubris Circlet"
@@ -92,6 +92,7 @@ class TestCraftMods:
                     "prefix",
                     "--limit",
                     "5",
+                    "--json",
                 ],
             )
         assert result.exit_code == 0
@@ -131,7 +132,7 @@ class TestCraftMods:
     def test_human_output(self):
         cd = _mock_repoe_data(get_mod_pool=SAMPLE_MODS)
         with patch(_PATCH_CD, return_value=cd):
-            result = invoke_cli(cli, ["sim", "mods", "Hubris Circlet", "--human"])
+            result = invoke_cli(cli, ["sim", "mods", "Hubris Circlet"])
         assert result.exit_code == 0
         # Human output is not JSON
         with contextlib.suppress(Exception):
@@ -153,7 +154,7 @@ class TestCraftTiers:
     def test_success(self):
         cd = _mock_repoe_data(get_mod_tiers=SAMPLE_TIERS)
         with patch(_PATCH_CD, return_value=cd):
-            result = invoke_cli(cli, ["sim", "tiers", "mod_life", "Hubris Circlet"])
+            result = invoke_cli(cli, ["sim", "tiers", "mod_life", "Hubris Circlet", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["mod_id"] == "mod_life"
@@ -177,7 +178,9 @@ class TestCraftTiers:
     def test_custom_ilvl(self):
         cd = _mock_repoe_data(get_mod_tiers=SAMPLE_TIERS[:2])
         with patch(_PATCH_CD, return_value=cd):
-            result = invoke_cli(cli, ["sim", "tiers", "mod_life", "Hubris Circlet", "--ilvl", "75"])
+            result = invoke_cli(
+                cli, ["sim", "tiers", "mod_life", "Hubris Circlet", "--ilvl", "75", "--json"]
+            )
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["ilvl"] == 75
@@ -206,7 +209,7 @@ class TestCraftFossils:
     def test_success(self):
         cd = _mock_repoe_data(get_fossils=SAMPLE_FOSSILS)
         with patch(_PATCH_CD, return_value=cd):
-            result = invoke_cli(cli, ["sim", "fossils"])
+            result = invoke_cli(cli, ["sim", "fossils", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["count"] == 2
@@ -215,7 +218,7 @@ class TestCraftFossils:
     def test_with_filter(self):
         cd = _mock_repoe_data(get_fossils=SAMPLE_FOSSILS[:1])
         with patch(_PATCH_CD, return_value=cd):
-            result = invoke_cli(cli, ["sim", "fossils", "--filter", "life"])
+            result = invoke_cli(cli, ["sim", "fossils", "--filter", "life", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["filter"] == "life"
@@ -230,7 +233,7 @@ class TestCraftFossils:
     def test_human_output(self):
         cd = _mock_repoe_data(get_fossils=SAMPLE_FOSSILS)
         with patch(_PATCH_CD, return_value=cd):
-            result = invoke_cli(cli, ["sim", "fossils", "--human"])
+            result = invoke_cli(cli, ["sim", "fossils"])
         assert result.exit_code == 0
         assert "Pristine Fossil" in result.output
 
@@ -260,7 +263,7 @@ class TestCraftEssences:
     def test_success_no_base(self):
         cd = _mock_repoe_data(get_essences=SAMPLE_ESSENCES_ALL)
         with patch(_PATCH_CD, return_value=cd):
-            result = invoke_cli(cli, ["sim", "essences"])
+            result = invoke_cli(cli, ["sim", "essences", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["base"] == "all"
@@ -269,7 +272,7 @@ class TestCraftEssences:
     def test_success_with_base(self):
         cd = _mock_repoe_data(get_essences=SAMPLE_ESSENCES)
         with patch(_PATCH_CD, return_value=cd):
-            result = invoke_cli(cli, ["sim", "essences", "Hubris Circlet"])
+            result = invoke_cli(cli, ["sim", "essences", "Hubris Circlet", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["base"] == "Hubris Circlet"
@@ -302,7 +305,7 @@ class TestCraftBench:
     def test_success(self):
         cd = _mock_repoe_data(get_bench_crafts=SAMPLE_BENCH_CRAFTS)
         with patch(_PATCH_CD, return_value=cd):
-            result = invoke_cli(cli, ["sim", "bench", "Hubris Circlet"])
+            result = invoke_cli(cli, ["sim", "bench", "Hubris Circlet", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["base"] == "Hubris Circlet"
@@ -330,7 +333,7 @@ class TestCraftSearch:
     def test_success(self):
         cd = _mock_repoe_data(search_base_items=SAMPLE_SEARCH_RESULTS)
         with patch(_PATCH_CD, return_value=cd):
-            result = invoke_cli(cli, ["sim", "search", "hubris"])
+            result = invoke_cli(cli, ["sim", "search", "hubris", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["query"] == "hubris"
@@ -342,7 +345,7 @@ class TestCraftSearch:
     def test_no_results(self):
         cd = _mock_repoe_data(search_base_items=[])
         with patch(_PATCH_CD, return_value=cd):
-            result = invoke_cli(cli, ["sim", "search", "zzzznothing"])
+            result = invoke_cli(cli, ["sim", "search", "zzzznothing", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["count"] == 0
@@ -359,7 +362,7 @@ class TestCraftSearch:
         items = [{"name": "Crown", "drop_level": 10, "properties": {"es": 50}}]
         cd = _mock_repoe_data(search_base_items=items)
         with patch(_PATCH_CD, return_value=cd):
-            result = invoke_cli(cli, ["sim", "search", "crown"])
+            result = invoke_cli(cli, ["sim", "search", "crown", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["items"][0]["properties"] == {"es": 50}
@@ -368,7 +371,7 @@ class TestCraftSearch:
         items = [{"name": "Crown", "drop_level": 10, "properties": {}}]
         cd = _mock_repoe_data(search_base_items=items)
         with patch(_PATCH_CD, return_value=cd):
-            result = invoke_cli(cli, ["sim", "search", "crown"])
+            result = invoke_cli(cli, ["sim", "search", "crown", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["items"][0]["properties"] == {}
@@ -377,7 +380,7 @@ class TestCraftSearch:
         items = [{"name": f"Item{i}", "drop_level": i, "properties": {}} for i in range(30)]
         cd = _mock_repoe_data(search_base_items=items)
         with patch(_PATCH_CD, return_value=cd):
-            result = invoke_cli(cli, ["sim", "search", "item"])
+            result = invoke_cli(cli, ["sim", "search", "item", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["count"] == 30  # total count
@@ -441,7 +444,7 @@ class TestCraftAnalyze:
             patch(_PATCH_PARSE, return_value=mock_build),
             patch(_PATCH_CD, return_value=cd),
         ):
-            result = invoke_cli(cli, ["sim", "analyze", "MyBuild", "--slot", "Helmet"])
+            result = invoke_cli(cli, ["sim", "analyze", "MyBuild", "--slot", "Helmet", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["slot"] == "Helmet"
@@ -462,7 +465,7 @@ class TestCraftAnalyze:
             patch(_PATCH_PARSE, return_value=mock_build),
             patch(_PATCH_CD, return_value=cd),
         ):
-            result = invoke_cli(cli, ["sim", "analyze", "MyBuild", "--slot", "Helmet"])
+            result = invoke_cli(cli, ["sim", "analyze", "MyBuild", "--slot", "Helmet", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["analysis"]["base_found"] is False
@@ -506,7 +509,7 @@ class TestCraftAnalyze:
             patch(_PATCH_CD, return_value=cd),
         ):
             result = invoke_cli(
-                cli, ["sim", "analyze", "MyBuild", "--slot", "Helmet", "--ilvl", "100"]
+                cli, ["sim", "analyze", "MyBuild", "--slot", "Helmet", "--ilvl", "100", "--json"]
             )
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -527,7 +530,7 @@ class TestCraftAnalyze:
             patch(_PATCH_PARSE, return_value=mock_build),
             patch(_PATCH_CD, return_value=cd),
         ):
-            result = invoke_cli(cli, ["sim", "analyze", "MyBuild", "--slot", "Helmet"])
+            result = invoke_cli(cli, ["sim", "analyze", "MyBuild", "--slot", "Helmet", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["analysis"]["bench_craft_count"] == 1
@@ -544,7 +547,7 @@ class TestCraftAnalyze:
             patch(_PATCH_PARSE, return_value=mock_build),
             patch(_PATCH_CD, return_value=cd),
         ):
-            result = invoke_cli(cli, ["sim", "analyze", "MyBuild", "--slot", "body"])
+            result = invoke_cli(cli, ["sim", "analyze", "MyBuild", "--slot", "body", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["slot"] == "Body Armour"
@@ -592,6 +595,7 @@ class TestCraftSimulate:
                     "chaos",
                     "--target",
                     "IncreasedLife",
+                    "--json",
                 ],
             )
         assert result.exit_code == 0
@@ -624,6 +628,7 @@ class TestCraftSimulate:
                     "IncreasedLife",
                     "--fossils",
                     "Pristine Fossil,Frigid Fossil",
+                    "--json",
                 ],
             )
         assert result.exit_code == 0
@@ -650,6 +655,7 @@ class TestCraftSimulate:
                     "alt",
                     "--target",
                     "IncreasedLife",
+                    "--json",
                 ],
             )
         assert result.exit_code == 0
@@ -679,6 +685,7 @@ class TestCraftSimulate:
                     "ColdResistance",
                     "--match",
                     "any",
+                    "--json",
                 ],
             )
         assert result.exit_code == 0
@@ -780,6 +787,7 @@ class TestCraftSimulate:
                     "IncreasedLife",
                     "--essence",
                     "Greed",
+                    "--json",
                 ],
             )
         assert result.exit_code == 0
@@ -843,7 +851,7 @@ class TestCraftPrices:
             patch(_PATCH_CD, return_value=cd),
             patch(_PATCH_NINJA, side_effect=ConnectionError("offline")),
         ):
-            result = invoke_cli(cli, ["sim", "prices"])
+            result = invoke_cli(cli, ["sim", "prices", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert "currency" in data
@@ -854,7 +862,7 @@ class TestCraftPrices:
             patch(_PATCH_CD, return_value=cd),
             patch(_PATCH_NINJA, side_effect=ConnectionError("offline")),
         ):
-            result = invoke_cli(cli, ["sim", "prices", "--league", "Settlers"])
+            result = invoke_cli(cli, ["sim", "prices", "--league", "Settlers", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["league"] == "Settlers"
@@ -875,7 +883,7 @@ class TestCraftPrices:
             patch(_PATCH_CD, return_value=cd),
             patch(_PATCH_NINJA, side_effect=ConnectionError("offline")),
         ):
-            result = invoke_cli(cli, ["sim", "prices", "--human"])
+            result = invoke_cli(cli, ["sim", "prices"])
         assert result.exit_code == 0
         assert "Settlers" in result.output
 
@@ -965,6 +973,7 @@ class TestCraftSimulateMultistep:
                     "IncreasedLife",
                     "--iterations",
                     "10",
+                    "--json",
                 ],
             )
         assert result.exit_code == 0
@@ -992,6 +1001,7 @@ class TestCraftSimulateMultistep:
                     "IncreasedLife",
                     "--iterations",
                     "10",
+                    "--json",
                 ],
             )
         assert result.exit_code == 0
@@ -1022,6 +1032,7 @@ class TestCraftSimulateMultistep:
                     "IncreasedLife",
                     "--iterations",
                     "10",
+                    "--json",
                 ],
             )
         assert result.exit_code == 0

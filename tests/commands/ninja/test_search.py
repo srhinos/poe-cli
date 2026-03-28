@@ -279,7 +279,7 @@ class TestSearchCli:
         mock_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = invoke_cli(app, ["ninja", "builds", "search"])
+        result = invoke_cli(app, ["ninja", "builds", "search", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["total"] == 124428
@@ -299,7 +299,7 @@ class TestSearchCli:
         mock_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = invoke_cli(app, ["ninja", "builds", "search", "--class", "Pathfinder"])
+        result = invoke_cli(app, ["ninja", "builds", "search", "--class", "Pathfinder", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["total"] == 124428

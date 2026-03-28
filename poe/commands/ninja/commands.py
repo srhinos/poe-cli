@@ -24,15 +24,15 @@ ninja_app.command(meta_app)
 
 
 @ninja_app.command(name="league-info")
-def league_info(game: str = "poe1", *, force: bool = False, human: bool = False) -> None:
+def league_info(game: str = "poe1", *, force: bool = False, json: bool = False) -> None:
     """Show league index state from poe.ninja.
 
     Parameters
     ----------
     game
         Game version: poe1 or poe2.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
     with NinjaClient() as client:
         svc = DiscoveryService(client)
@@ -41,17 +41,17 @@ def league_info(game: str = "poe1", *, force: bool = False, human: bool = False)
             if game == "poe2"
             else svc.get_poe1_index_state(force=force)
         )
-        render(state, human=human)
+        render(state, json_mode=json)
 
 
 @ninja_app.command(name="cache-status")
-def cache_status(*, human: bool = False) -> None:
+def cache_status(*, json: bool = False) -> None:
     """Show ninja data cache status.
 
     Parameters
     ----------
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
     base = ninja_cache.cache_dir()
     known_keys = [
@@ -77,7 +77,7 @@ def cache_status(*, human: bool = False) -> None:
         )
 
     report = CacheStatusReport(cache_dir=str(base), entries=entries)
-    render(report, human=human)
+    render(report, json_mode=json)
 
 
 @ninja_app.command(name="tooltip")
@@ -85,7 +85,7 @@ def tooltip(
     name: str,
     tooltip_type: Annotated[str, cyclopts.Parameter(name="--type")] = "anointed",
     *,
-    human: bool = False,
+    json: bool = False,
 ) -> None:
     """Look up a tooltip by name and type.
 
@@ -95,14 +95,14 @@ def tooltip(
         Item or passive name.
     tooltip_type
         Type: anointed, bandit, pantheon, etc.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
     with NinjaClient() as client:
         discovery = DiscoveryService(client)
         svc = BuildsService(client, discovery)
         result = svc.get_generic_tooltip(name, tooltip_type)
         if result is None:
-            render({"error": f"No tooltip for '{name}'"}, human=human)
+            render({"error": f"No tooltip for '{name}'"}, json_mode=json)
             return
-        render(result, human=human)
+        render(result, json_mode=json)

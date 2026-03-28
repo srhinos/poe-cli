@@ -13,35 +13,35 @@ def _svc() -> ConfigService:
 
 
 @config_app.command(name="get")
-def config_get(name: str, *, human: bool = False) -> None:
+def config_get(name: str, *, json: bool = False) -> None:
     """Show build configuration (charges, conditions, enemy stats).
 
     Parameters
     ----------
     name
         Build name or unique prefix.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
-    _output(_svc().get(name), human=human)
+    _output(_svc().get(name), json_mode=json)
 
 
 @config_app.command(name="options")
-def config_options(_name: str = "", *, query: str | None = None, human: bool = False) -> None:
+def config_options(_name: str = "", *, query: str | None = None, json: bool = False) -> None:
     """List available PoB config keys.
 
     Parameters
     ----------
     query
         Search query.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
-    _output(_svc().list_options(query=query), human=human)
+    _output(_svc().list_options(query=query), json_mode=json)
 
 
 @config_app.command(name="sets")
-def config_sets(name: str, *, file: str | None = None, human: bool = False) -> None:
+def config_sets(name: str, *, file: str | None = None, json: bool = False) -> None:
     """List config sets.
 
     Parameters
@@ -50,10 +50,10 @@ def config_sets(name: str, *, file: str | None = None, human: bool = False) -> N
         Build name or unique prefix.
     file
         Explicit file path.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
-    _output(_svc().list_sets(name, file_path=file), human=human)
+    _output(_svc().list_sets(name, file_path=file), json_mode=json)
 
 
 @config_app.command(name="add-set")
@@ -155,4 +155,4 @@ def config_set_values(
         remove=remove,
         file_path=file,
     )
-    _output(result)
+    _output(result, json_mode=True)

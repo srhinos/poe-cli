@@ -29,7 +29,7 @@ def atlas_search(
     blockers: str | None = None,
     scarab_specializations: str | None = None,
     *,
-    human: bool = False,
+    json: bool = False,
 ) -> None:
     """Search atlas tree nodes with filters.
 
@@ -41,8 +41,8 @@ def atlas_search(
         Beacon filter.
     keystones
         Keystone filter.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
     with NinjaClient() as client:
         discovery = DiscoveryService(client)
@@ -56,37 +56,37 @@ def atlas_search(
             scarab_specializations=scarab_specializations,
         )
         if result is None:
-            render({"error": "No atlas data"}, human=human)
+            render({"error": "No atlas data"}, json_mode=json)
             return
-        render(result, human=human)
+        render(result, json_mode=json)
 
 
 @atlas_app.command(name="recommend")
-def atlas_recommend(*, top_n: int = 20, human: bool = False) -> None:
+def atlas_recommend(*, top_n: int = 20, json: bool = False) -> None:
     """Get popular atlas nodes.
 
     Parameters
     ----------
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
     with NinjaClient() as client:
         discovery = DiscoveryService(client)
         svc = AtlasService(client, discovery)
         nodes = svc.get_popular_nodes(top_n=top_n)
-        render(nodes, human=human)
+        render(nodes, json_mode=json)
 
 
 @atlas_app.command(name="profit")
-def atlas_profit(league: str | None = None, *, human: bool = False) -> None:
+def atlas_profit(league: str | None = None, *, json: bool = False) -> None:
     """Estimate atlas profit by mechanic.
 
     Parameters
     ----------
     league
         League name.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
     with NinjaClient() as client:
         discovery = DiscoveryService(client)
@@ -94,4 +94,4 @@ def atlas_profit(league: str | None = None, *, human: bool = False) -> None:
         economy = EconomyService(client)
         svc = AtlasService(client, discovery)
         profits = svc.estimate_profit(economy, resolved_league)
-        render(profits, human=human)
+        render(profits, json_mode=json)

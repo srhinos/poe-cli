@@ -158,7 +158,7 @@ class TestToolsCli:
         mock_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = invoke_cli(app, ["ninja", "tooltip", "Whispers of Doom"])
+        result = invoke_cli(app, ["ninja", "tooltip", "Whispers of Doom", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["name"] == "Whispers of Doom"

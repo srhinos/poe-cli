@@ -424,7 +424,9 @@ class TestBuildsCli:
         mock_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = invoke_cli(app, ["ninja", "builds", "inspect", "TestAccount", "TestChar"])
+        result = invoke_cli(
+            app, ["ninja", "builds", "inspect", "TestAccount", "TestChar", "--json"]
+        )
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["name"] == "TestChar"
@@ -446,7 +448,7 @@ class TestMetaCli:
         mock_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = invoke_cli(app, ["ninja", "meta", "summary"])
+        result = invoke_cli(app, ["ninja", "meta", "summary", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["total_builds"] == 124437
@@ -466,7 +468,7 @@ class TestMetaCli:
         mock_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = invoke_cli(app, ["ninja", "meta", "trend"])
+        result = invoke_cli(app, ["ninja", "meta", "trend", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert isinstance(data, list)

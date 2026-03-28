@@ -40,15 +40,15 @@ def _svc() -> BuildService:
 
 
 @build_app.command(name="list")
-def builds_list(*, human: bool = False) -> None:
+def builds_list(*, json: bool = False) -> None:
     """List all .xml build files with class/level metadata.
 
     Parameters
     ----------
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
-    _output(_svc().list_builds(), human=human)
+    _output(_svc().list_builds(), json_mode=json)
 
 
 @build_app.command(name="create")
@@ -86,7 +86,7 @@ def builds_create(
         tree_version=tree_version,
         file_path=file,
     )
-    _output(result)
+    _output(result, json_mode=True)
 
 
 @build_app.command(name="delete")
@@ -106,21 +106,21 @@ def builds_delete(name: str, *, confirm: bool = False, file: str | None = None) 
 
 
 @build_app.command(name="analyze")
-def builds_analyze(name: str, *, human: bool = False) -> None:
+def builds_analyze(name: str, *, json: bool = False) -> None:
     """Full build analysis.
 
     Parameters
     ----------
     name
         Build name or unique prefix.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
-    _output(_svc().analyze(name), human=human)
+    _output(_svc().analyze(name), json_mode=json)
 
 
 @build_app.command(name="stats")
-def builds_stats(name: str, *, category: str = "all", human: bool = False) -> None:
+def builds_stats(name: str, *, category: str = "all", json: bool = False) -> None:
     """Extract stats from a build.
 
     Parameters
@@ -129,14 +129,14 @@ def builds_stats(name: str, *, category: str = "all", human: bool = False) -> No
         Build name or unique prefix.
     category
         Stat category (off/def/all).
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
-    _output(_svc().stats(name, category=category), human=human)
+    _output(_svc().stats(name, category=category), json_mode=json)
 
 
 @build_app.command(name="compare")
-def builds_compare(name1: str, name2: str, *, human: bool = False) -> None:
+def builds_compare(name1: str, name2: str, *, json: bool = False) -> None:
     """Compare two builds side by side.
 
     Parameters
@@ -145,10 +145,10 @@ def builds_compare(name1: str, name2: str, *, human: bool = False) -> None:
         First build name.
     name2
         Second build name.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
-    _output(_svc().compare(name1, name2), human=human)
+    _output(_svc().compare(name1, name2), json_mode=json)
 
 
 @build_app.command(name="notes")
@@ -157,7 +157,7 @@ def builds_notes(
     *,
     set_notes: Annotated[str | None, cyclopts.Parameter(name="--set")] = None,
     file: str | None = None,
-    human: bool = False,
+    json: bool = False,
 ) -> None:
     """Get or set build notes.
 
@@ -169,27 +169,27 @@ def builds_notes(
         Set notes text.
     file
         Explicit file path.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
     if set_notes is not None:
-        _output(_svc().notes_set(name, set_notes, file_path=file), human=human)
+        _output(_svc().notes_set(name, set_notes, file_path=file), json_mode=json)
     else:
-        _output(_svc().notes_get(name, file_path=file), human=human)
+        _output(_svc().notes_get(name, file_path=file), json_mode=json)
 
 
 @build_app.command(name="validate")
-def builds_validate(name: str, *, human: bool = False) -> None:
+def builds_validate(name: str, *, json: bool = False) -> None:
     """Validate build for common issues.
 
     Parameters
     ----------
     name
         Build name or unique prefix.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
-    _output(_svc().validate(name), human=human)
+    _output(_svc().validate(name), json_mode=json)
 
 
 @build_app.command(name="export")
@@ -223,7 +223,7 @@ def set_main_skill(name: str, *, index: int, file: str | None = None) -> None:
 
 
 @build_app.command(name="decode")
-def builds_decode(code: str, *, save: str | None = None, human: bool = False) -> None:
+def builds_decode(code: str, *, save: str | None = None, json: bool = False) -> None:
     """Decode a PoB build sharing code to XML.
 
     Parameters
@@ -232,8 +232,8 @@ def builds_decode(code: str, *, save: str | None = None, human: bool = False) ->
         Build sharing code.
     save
         Save decoded build.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
     try:
         xml_str = decode_build(code)
@@ -251,7 +251,7 @@ def builds_decode(code: str, *, save: str | None = None, human: bool = False) ->
         save_path = claude_dir / filename
         save_path.write_text(xml_str, encoding="utf-8")
         result["saved_to"] = str(save_path)
-    _output(result, human=human)
+    _output(result, json_mode=json)
 
 
 @build_app.command(name="encode")
@@ -293,7 +293,7 @@ def builds_open(name: str, *, file: str | None = None) -> None:
         raise BuildNotFoundError(f"Build file not found: {file or name}") from None
     code = encode_build(xml_str)
     os.startfile(f"pob://{code}")
-    _output({"status": "ok", "code": code})
+    _output({"status": "ok", "code": code}, json_mode=True)
 
 
 @build_app.command(name="rename")
@@ -407,7 +407,7 @@ def builds_set_pantheon(
 
 
 @build_app.command(name="summary")
-def builds_summary(name: str, *, file: str | None = None, human: bool = False) -> None:
+def builds_summary(name: str, *, file: str | None = None, json: bool = False) -> None:
     """Concise build dashboard (class/level/DPS/life/resists).
 
     Parameters
@@ -416,10 +416,10 @@ def builds_summary(name: str, *, file: str | None = None, human: bool = False) -
         Build name or unique prefix.
     file
         Explicit file path.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
-    _output(_svc().summary(name, file_path=file), human=human)
+    _output(_svc().summary(name, file_path=file), json_mode=json)
 
 
 @build_app.command(name="share")
@@ -436,7 +436,9 @@ def builds_share(name: str, *, file: str | None = None) -> None:
     path = Path(file) if file else resolve_build_file(name)
     xml_str = path.read_text(encoding="utf-8")
     code = encode_build(xml_str)
-    _output({"status": "ok", "code": code, "pobb_url": f"https://pobb.in/{code[:12]}"})
+    _output(
+        {"status": "ok", "code": code, "pobb_url": f"https://pobb.in/{code[:12]}"}, json_mode=True
+    )
 
 
 @build_app.command(name="batch-set-level")
@@ -462,7 +464,7 @@ def builds_batch_set_level(
             results.append({"build": name, "status": "ok"})
         except PoeError as e:
             results.append({"build": name, "status": "error", "error": str(e)})
-    _output(results)
+    _output(results, json_mode=True)
 
 
 @build_app.command(name="import")

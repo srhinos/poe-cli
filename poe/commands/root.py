@@ -48,7 +48,7 @@ def install_skill(*, force: bool = False, symlink: bool = False, uninstall: bool
             raise PoeError("No skill installation found")
         result["action"] = "uninstalled"
         result["removed"] = str(target)
-        _output(result)
+        _output(result, json_mode=True)
         return
 
     source = _find_skill_source()
@@ -84,4 +84,4 @@ def install_skill(*, force: bool = False, symlink: bool = False, uninstall: bool
 
     result["source"] = str(source)
     result["target"] = str(target)
-    _output(result)
+    _output(result, json_mode=True)

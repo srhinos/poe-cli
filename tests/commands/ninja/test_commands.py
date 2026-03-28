@@ -38,7 +38,7 @@ class TestLeagueInfo:
         mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
         mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = invoke_cli(app, ["ninja", "league-info"])
+        result = invoke_cli(app, ["ninja", "league-info", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert "economy_leagues" in data
@@ -51,7 +51,7 @@ class TestLeagueInfo:
         mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
         mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = invoke_cli(app, ["ninja", "league-info"])
+        result = invoke_cli(app, ["ninja", "league-info", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert len(data["snapshot_versions"]) == 1
@@ -61,7 +61,7 @@ class TestLeagueInfo:
 class TestCacheStatus:
     def test_cache_status_empty(self, tmp_path, monkeypatch):
         monkeypatch.setattr("poe.commands.ninja.commands.ninja_cache.cache_dir", lambda: tmp_path)
-        result = invoke_cli(app, ["ninja", "cache-status"])
+        result = invoke_cli(app, ["ninja", "cache-status", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert "entries" in data
@@ -73,7 +73,7 @@ class TestCacheStatus:
         monkeypatch.setattr("poe.commands.ninja.commands.ninja_cache.cache_dir", lambda: tmp_path)
         ninja_cache.write_cache(tmp_path, "poe1_index_state", {"test": True})
 
-        result = invoke_cli(app, ["ninja", "cache-status"])
+        result = invoke_cli(app, ["ninja", "cache-status", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         poe1_entry = next(e for e in data["entries"] if e["name"] == "poe1_index_state")

@@ -69,7 +69,7 @@ class TestPriceCheck:
         mock_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = invoke_cli(app, ["ninja", "price", "check", "Exalted Orb", "Currency"])
+        result = invoke_cli(app, ["ninja", "price", "check", "Exalted Orb", "Currency", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["name"] == "Exalted Orb"
@@ -92,7 +92,7 @@ class TestPriceCheck:
 
         result = invoke_cli(
             app,
-            ["ninja", "price", "check", "Exalted Orb", "Currency", "--league", "Mirage"],
+            ["ninja", "price", "check", "Exalted Orb", "Currency", "--league", "Mirage", "--json"],
         )
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -106,7 +106,7 @@ class TestPriceList:
         mock_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = invoke_cli(app, ["ninja", "price", "list", "Currency"])
+        result = invoke_cli(app, ["ninja", "price", "list", "Currency", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert isinstance(data, list)
@@ -123,7 +123,7 @@ class TestPriceConvert:
 
         result = invoke_cli(
             app,
-            ["ninja", "price", "convert", "10", "Exalted Orb", "Chaos Orb"],
+            ["ninja", "price", "convert", "10", "Exalted Orb", "Chaos Orb", "--json"],
         )
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -156,7 +156,7 @@ class TestFossilRecommend:
         mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = invoke_cli(app, ["ninja", "price", "fossil-recommend", "physical"])
+        result = invoke_cli(app, ["ninja", "price", "fossil-recommend", "physical", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert len(data) > 0

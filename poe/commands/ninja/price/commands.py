@@ -32,7 +32,7 @@ def price_check(
     league: str | None = None,
     language: str = "en",
     *,
-    human: bool = False,
+    json: bool = False,
 ) -> None:
     """Look up a single item price.
 
@@ -48,8 +48,8 @@ def price_check(
         League name.
     language
         Language code.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
     with NinjaClient() as client:
         discovery = DiscoveryService(client)
@@ -58,7 +58,7 @@ def price_check(
         result = economy.price_check(resolved_league, item, item_type, game=game, language=language)
         if result is None:
             raise NinjaError(f"'{item}' not found in {item_type}")
-        render(result, human=human)
+        render(result, json_mode=json)
 
 
 @price_app.command(name="list")
@@ -74,7 +74,7 @@ def price_list(
     gem_level: int | None = None,
     gem_quality: int | None = None,
     map_tier: int | None = None,
-    human: bool = False,
+    json: bool = False,
 ) -> None:
     """List prices for an item type with optional filters.
 
@@ -100,8 +100,8 @@ def price_list(
         Gem quality filter.
     map_tier
         Map tier filter.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
     with NinjaClient() as client:
         discovery = DiscoveryService(client)
@@ -119,7 +119,7 @@ def price_list(
             gem_quality=gem_quality,
             map_tier=map_tier,
         )
-        render(results, human=human)
+        render(results, json_mode=json)
 
 
 @price_app.command(name="convert")
@@ -130,7 +130,7 @@ def price_convert(
     game: str = "poe1",
     league: str | None = None,
     *,
-    human: bool = False,
+    json: bool = False,
 ) -> None:
     """Convert between currencies at current rates.
 
@@ -146,8 +146,8 @@ def price_convert(
         poe1 or poe2.
     league
         League name.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
     with NinjaClient() as client:
         discovery = DiscoveryService(client)
@@ -164,7 +164,7 @@ def price_convert(
                 "result": round(result, 4),
                 "league": resolved_league,
             },
-            human=human,
+            json_mode=json,
         )
 
 
@@ -176,7 +176,7 @@ def price_history(
     league: str | None = None,
     language: str = "en",
     *,
-    human: bool = False,
+    json: bool = False,
 ) -> None:
     """Get price history for an item.
 
@@ -192,8 +192,8 @@ def price_history(
         League name.
     language
         Language code.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
     with NinjaClient() as client:
         discovery = DiscoveryService(client)
@@ -202,9 +202,9 @@ def price_history(
         history = HistoryService(client, economy)
         result = history.get_price_history(resolved_league, item, item_type, language=language)
         if result is None:
-            render({"error": f"No history for '{item}' in {item_type}"}, human=human)
+            render({"error": f"No history for '{item}' in {item_type}"}, json_mode=json)
             return
-        render(result, human=human)
+        render(result, json_mode=json)
 
 
 @price_app.command(name="build")
@@ -215,7 +215,7 @@ def price_build(
     league: str | None = None,
     snapshot_type: str = "exp",
     *,
-    human: bool = False,
+    json: bool = False,
 ) -> None:
     """Price a character's gear from poe.ninja.
 
@@ -229,8 +229,8 @@ def price_build(
         poe1 or poe2.
     league
         League name.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
     with NinjaClient() as client:
         discovery = DiscoveryService(client)
@@ -238,16 +238,16 @@ def price_build(
         builds = BuildsService(client, discovery)
         char = builds.get_character(account, character, game=game, snapshot_type=snapshot_type)
         if char is None:
-            render({"error": f"Character '{character}' not found"}, human=human)
+            render({"error": f"Character '{character}' not found"}, json_mode=json)
             return
         economy = EconomyService(client)
         result = cost_build(char, economy, resolved_league, game=game)
-        render(result, human=human)
+        render(result, json_mode=json)
 
 
 @price_app.command(name="craft")
 def price_craft(
-    game: str = "poe1", league: str | None = None, language: str = "en", *, human: bool = False
+    game: str = "poe1", league: str | None = None, language: str = "en", *, json: bool = False
 ) -> None:
     """Get current crafting material prices.
 
@@ -257,20 +257,20 @@ def price_craft(
         poe1 or poe2.
     league
         League name.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
     with NinjaClient() as client:
         discovery = DiscoveryService(client)
         resolved_league = _resolve_league(discovery, league, game)
         economy = EconomyService(client)
         result = economy.get_crafting_prices(resolved_league, language=language)
-        render(result, human=human)
+        render(result, json_mode=json)
 
 
 @price_app.command(name="fossil-recommend")
 def price_fossil_recommend(
-    mod: str, game: str = "poe1", league: str | None = None, *, human: bool = False
+    mod: str, game: str = "poe1", league: str | None = None, *, json: bool = False
 ) -> None:
     """Find fossils that boost a specific mod tag.
 
@@ -282,8 +282,8 @@ def price_fossil_recommend(
         poe1 or poe2.
     league
         League name.
-    human
-        Human-readable output.
+    json
+        Output raw JSON.
     """
     sim = SimService()
     optimizer_results = sim.fossil_optimizer(mod)
@@ -312,4 +312,4 @@ def price_fossil_recommend(
             )
 
     results.sort(key=lambda f: f["multiplier"], reverse=True)
-    render(results, human=human)
+    render(results, json_mode=json)

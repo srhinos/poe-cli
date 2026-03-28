@@ -692,6 +692,7 @@ class TestBuildsNotes:
                 "test",
                 "--file",
                 str(build_file),
+                "--json",
             ],
         )
         assert result.exit_code == 0
@@ -828,8 +829,7 @@ class TestFlasksAddExplicit:
             ],
         )
         assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert data["status"] == "ok"
+        assert "status: ok" in result.output
 
 
 # ── flasks edit explicit ─────────────────────────────────────────────────────
@@ -932,8 +932,7 @@ class TestJewelsAddExplicit:
             ],
         )
         assert result.exit_code == 0
-        data = json.loads(result.output)
-        assert data["status"] == "ok"
+        assert "status: ok" in result.output
 
 
 # ── gems edit quality_id ─────────────────────────────────────────────────────
@@ -1074,6 +1073,7 @@ class TestTreeSearch:
                 "100",
                 "--file",
                 str(build_file),
+                "--json",
             ],
         )
         assert result.exit_code == 0

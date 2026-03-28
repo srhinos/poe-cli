@@ -344,7 +344,7 @@ class TestPriceHistoryCli:
         mock_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = invoke_cli(app, ["ninja", "price", "history", "Exalted Orb", "Currency"])
+        result = invoke_cli(app, ["ninja", "price", "history", "Exalted Orb", "Currency", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["item_name"] == "Exalted Orb"
@@ -366,7 +366,7 @@ class TestPriceHistoryCli:
         mock_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = invoke_cli(app, ["ninja", "price", "history", "Fake Orb", "Currency"])
+        result = invoke_cli(app, ["ninja", "price", "history", "Fake Orb", "Currency", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert "error" in data
