@@ -432,7 +432,20 @@ def _parse_metadata_line(item: Item, line: str) -> bool:
     if line.startswith("Foil Unique"):
         item.foil_type = line.strip()
         return True
-    return line.startswith(("Variant: ", "League: ")) or "BasePercentile:" in line
+    return (
+        line.startswith(
+            (
+                "Variant: ",
+                "League: ",
+                "Has Variant: ",
+                "Has Alt Variant",
+                "Selected Alt Variant",
+                "AltVariant: ",
+                "Source: ",
+            )
+        )
+        or "BasePercentile:" in line
+    )
 
 
 def _is_content_line(line: str) -> bool:
@@ -448,6 +461,8 @@ def _parse_header_line(item: Item, line: str, lines: list[str], index: int) -> b
             item.name = lines[index + 1]
         if index + 2 < len(lines) and _is_content_line(lines[index + 2]):
             item.base_type = lines[index + 2]
+        elif item.rarity in ("MAGIC", "NORMAL") and item.name:
+            item.base_type = item.name
         return True
     if line in INFLUENCE_LINES:
         item.influences.append(INFLUENCE_LINES[line])

@@ -222,6 +222,10 @@ METADATA_PREFIXES = (
     "WardBasePercentile:",
     "Variant:",
     "Selected Variant:",
+    "Has Variant:",
+    "Has Alt Variant",
+    "Selected Alt Variant",
+    "AltVariant:",
     "League:",
     "{variant:",
     "Catalyst:",
@@ -239,6 +243,7 @@ METADATA_PREFIXES = (
     "Mirrored",
     "Split",
     "Has Veiled",
+    "Source:",
 )
 
 PREFIX_RE = re.compile(r"^Prefix:\s*(.*)")
