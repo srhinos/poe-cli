@@ -355,6 +355,9 @@ def _item_to_text(item: Item) -> str:
     if item.is_synthesised:
         lines.append("Synthesised Item")
 
+    if item.is_fractured:
+        lines.append("Fractured Item")
+
     if item.is_crafted:
         lines.append("Crafted: true")
 

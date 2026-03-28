@@ -3,6 +3,32 @@ from __future__ import annotations
 from poe.exceptions import EngineNotAvailableError
 from poe.services.build.engine.runtime import get_engine, get_pob_info
 
+_OFF_TERMS = frozenset({"DPS", "Damage", "Hit", "Crit", "Speed", "AverageHit", "AverageBurst"})
+_DEF_TERMS = frozenset(
+    {
+        "Life",
+        "Mana",
+        "EnergyShield",
+        "Armour",
+        "Evasion",
+        "Resist",
+        "Block",
+        "Dodge",
+        "Suppress",
+        "EHP",
+        "DamageReduction",
+        "Regen",
+        "Ward",
+    }
+)
+
+_CATEGORY_ALIASES: dict[str, str] = {
+    "offence": "off",
+    "offense": "off",
+    "defence": "def",
+    "defense": "def",
+}
+
 
 class EngineService:
     """Owns PoB engine business logic."""
@@ -35,6 +61,11 @@ class EngineService:
             all_stats = eng.get_stats()
             if category == "all" or not isinstance(all_stats, dict):
                 return all_stats
-            return {k: v for k, v in all_stats.items() if category.casefold() in k.casefold()}
+            cat = category.casefold()
+            if cat in ("off", "offence", "offense"):
+                return {k: v for k, v in all_stats.items() if any(t in k for t in _OFF_TERMS)}
+            if cat in ("def", "defence", "defense"):
+                return {k: v for k, v in all_stats.items() if any(t in k for t in _DEF_TERMS)}
+            return {k: v for k, v in all_stats.items() if cat in k.casefold()}
         except (RuntimeError, ImportError, FileNotFoundError, OSError) as e:
             raise EngineNotAvailableError(str(e)) from e

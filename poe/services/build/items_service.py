@@ -48,6 +48,9 @@ def _parse_item_text(text: str) -> dict:
 
 
 def _slot_matches_type(slot_name: str, slot_type: str) -> bool:
+    canonical = normalize_slot(slot_type)
+    if canonical and slot_name == canonical:
+        return True
     normalized = slot_type.casefold()
     if slot_name.casefold() == normalized:
         return True
@@ -130,6 +133,9 @@ class ItemsService:
         synthesised: bool = False,
         file_path: str | None = None,
     ) -> dict:
+        canonical_slot = normalize_slot(slot)
+        if not canonical_slot:
+            raise SlotError(f"Unknown slot: {slot!r}")
         path, build_obj, cloned_from = self._build.load_for_write(name, file_path)
         next_id = max((i.id for i in build_obj.items), default=0) + 1
         item = Item(
@@ -154,13 +160,12 @@ class ItemsService:
         build_obj.items.append(item)
         if build_obj.item_sets:
             target_set = _find_active_item_set(build_obj) or build_obj.item_sets[0]
-            canonical_slot = normalize_slot(slot) or slot
             target_set.slots = [s for s in target_set.slots if s.name != canonical_slot]
             target_set.slots.append(ItemSlot(name=canonical_slot, item_id=next_id))
         self._build.save(build_obj, path)
         return MutationResult(
             item_id=next_id,
-            slot=slot,
+            slot=canonical_slot,
             warning=STALE_STATS_WARNING,
             cloned_from=cloned_from,
             working_copy=str(path) if cloned_from else None,

@@ -56,10 +56,14 @@ class TreeService:
             active_spec = build_obj.get_active_spec()
         if not active_spec:
             raise BuildValidationError("No tree spec found")
+        idx_for_title = (spec_index or build_obj.active_spec) - 1
+        spec_data = active_spec.model_dump()
+        if not spec_data.get("title"):
+            spec_data["title"] = f"Spec {idx_for_title + 1}"
         return TreeDetail(
             spec_index=spec_index or build_obj.active_spec,
             node_count=len(active_spec.nodes),
-            **active_spec.model_dump(),
+            **spec_data,
         )
 
     def compare_trees(self, name1: str, name2: str) -> TreeComparison:

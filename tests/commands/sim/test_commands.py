@@ -98,7 +98,7 @@ class TestCraftMods:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["ilvl"] == 86
-        assert data["influences"] == ["shaper"]
+        assert data["influences"] == ["Shaper"]
         assert data["filter"] == "prefix"
 
     def test_base_not_found(self):

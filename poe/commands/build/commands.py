@@ -452,7 +452,7 @@ def builds_share(name: str, *, file: str | None = None) -> None:
     except FileNotFoundError:
         raise BuildNotFoundError(f"Build file not found: {file or name}") from None
     code = encode_build(xml_str)
-    _output({"status": "ok", "code": code}, json_mode=True)
+    _output({"status": "ok", "code": code})
 
 
 @build_app.command(name="batch-set-level")

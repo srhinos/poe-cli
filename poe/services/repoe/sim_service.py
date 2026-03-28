@@ -22,7 +22,7 @@ from poe.services.ninja.economy import EconomyService
 from poe.services.repoe.constants import DEFAULT_ILVL, DEFAULT_ITERATIONS, DEFAULT_MAX_ATTEMPTS
 from poe.services.repoe.data import RepoEData
 from poe.services.repoe.sim import CraftingEngine
-from poe.types import CraftMethod
+from poe.types import CraftMethod, Influence
 
 _RARITY_PRODUCED: dict[str, str] = {
     CraftMethod.CHAOS: "rare",
@@ -56,6 +56,15 @@ class SimService:
         affix_type: str | None = None,
         limit: int = 30,
     ) -> ModPoolResult:
+        if influences:
+            valid_map = {i.value.casefold(): i.value for i in Influence}
+            for idx, inf in enumerate(influences):
+                matched = valid_map.get(inf.casefold())
+                if not matched:
+                    raise SimDataError(
+                        f"Unknown influence: {inf!r}. Valid: {sorted(valid_map.values())}"
+                    )
+                influences[idx] = matched
         mods = self._data.get_mod_pool(
             base_name,
             ilvl=ilvl,
@@ -187,6 +196,9 @@ class SimService:
         max_attempts: int = DEFAULT_MAX_ATTEMPTS,
         workers: int | None = None,
     ) -> SimulationResult:
+        valid_methods = {m.value for m in CraftMethod}
+        if method not in valid_methods:
+            raise SimDataError(f"Unknown craft method: {method!r}. Valid: {sorted(valid_methods)}")
         if method == CraftMethod.ESSENCE and not essence:
             raise SimDataError("--essence is required when method is 'essence'")
         resolved_targets = []

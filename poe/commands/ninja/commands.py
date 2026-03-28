@@ -8,6 +8,7 @@ from poe.commands.ninja.atlas import atlas_app
 from poe.commands.ninja.builds import builds_app
 from poe.commands.ninja.meta import meta_app
 from poe.commands.ninja.price import price_app
+from poe.exceptions import PoeError
 from poe.models.ninja.discovery import CacheStatusEntry, CacheStatusReport
 from poe.output import render
 from poe.services.ninja import cache as ninja_cache
@@ -103,6 +104,5 @@ def tooltip(
         svc = BuildsService(client, discovery)
         result = svc.get_generic_tooltip(name, tooltip_type)
         if result is None:
-            render({"error": f"No tooltip for '{name}'"}, json_mode=json)
-            return
+            raise PoeError(f"No tooltip for '{name}'")
         render(result, json_mode=json)

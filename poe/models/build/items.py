@@ -55,6 +55,7 @@ class Item(BaseModel):
     influences: list[str] = []
     is_crafted: bool = False
     is_synthesised: bool = False
+    is_fractured: bool = False
     is_corrupted: bool = False
     is_mirrored: bool = False
     is_split: bool = False

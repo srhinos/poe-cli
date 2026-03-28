@@ -27,7 +27,7 @@ class TestBuildService:
 
     def test_create_exists(self, build_file):
         svc = BuildService()
-        with pytest.raises(FileExistsError):
+        with pytest.raises(BuildValidationError):
             svc.create("test", file_path=str(build_file))
 
     def test_analyze(self, builds_dir):

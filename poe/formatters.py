@@ -49,7 +49,10 @@ def _fmt_mutation(m: MutationResult) -> str:
 @human_formatter(PriceResult)
 def _fmt_price(p: PriceResult) -> str:
     lines = [p.name]
-    lines.append(f"  Chaos: {p.chaos_value:,.1f}")
+    if p.chaos_value >= 1:
+        lines.append(f"  Chaos: {p.chaos_value:,.1f}")
+    else:
+        lines.append(f"  Chaos: {p.chaos_value:,.4f}")
     if p.divine_value:
         lines.append(f"  Divine: {p.divine_value:,.2f}")
     return "\n".join(lines)

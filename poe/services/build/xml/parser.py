@@ -469,6 +469,7 @@ def _parse_header_line(item: Item, line: str, lines: list[str], index: int) -> b
         return True
     state_lines = {
         "Synthesised Item": "is_synthesised",
+        "Fractured Item": "is_fractured",
         "Crafted: true": "is_crafted",
         "Corrupted": "is_corrupted",
         "Mirrored": "is_mirrored",

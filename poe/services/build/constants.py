@@ -239,6 +239,7 @@ METADATA_PREFIXES = (
     "Limited to:",
     "Item Class:",
     "Foil Unique",
+    "Fractured Item",
     "Corrupted",
     "Mirrored",
     "Split",

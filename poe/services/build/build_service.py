@@ -116,7 +116,7 @@ class BuildService:
             path = builds_path / (name if name.endswith(".xml") else name + ".xml")
 
         if path.exists():
-            raise FileExistsError(f"File already exists: {path}")
+            raise BuildValidationError(f"File already exists: {path}")
 
         class_id = CLASS_IDS.get(class_name, 0)
         ascend_class_id = 0
@@ -285,12 +285,15 @@ class BuildService:
         return MutationResult(exported_to=str(dest_path))
 
     def rename(self, name: str, new_name: str) -> MutationResult:
-        src = resolve_build_file(name)
+        try:
+            src = resolve_build_file(name)
+        except FileNotFoundError as e:
+            raise BuildNotFoundError(str(e)) from e
         if not is_inside_claude_folder(src):
             raise BuildValidationError("Cannot rename builds outside the Claude/ folder")
         dest = src.parent / (new_name if new_name.endswith(".xml") else new_name + ".xml")
         if dest.exists():
-            raise FileExistsError(f"File already exists: {dest}")
+            raise BuildValidationError(f"File already exists: {dest}")
         src.rename(dest)
         return MutationResult(old_name=name, new_name=new_name, path=str(dest))
 
@@ -301,14 +304,17 @@ class BuildService:
         *,
         file_path: str | None = None,
     ) -> MutationResult:
-        src = Path(file_path) if file_path else resolve_build_file(name)
+        try:
+            src = Path(file_path) if file_path else resolve_build_file(name)
+        except FileNotFoundError as e:
+            raise BuildNotFoundError(str(e)) from e
         if not src.exists():
             raise BuildNotFoundError(f"File not found: {src}")
         dest_dir = get_claude_builds_path()
         filename = new_name if new_name.endswith(".xml") else new_name + ".xml"
         dest = dest_dir / filename
         if dest.exists():
-            raise FileExistsError(f"File already exists: {dest}")
+            raise BuildValidationError(f"File already exists: {dest}")
         shutil.copy2(src, dest)
         return MutationResult(original=str(src), path=str(dest))
 
