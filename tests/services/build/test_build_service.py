@@ -52,6 +52,12 @@ class TestBuildService:
         with pytest.raises(BuildValidationError, match="Unknown stat category"):
             svc.stats("TestBuild", category="invalid")
 
+    def test_stats_accepts_full_category_names(self, builds_dir):
+        svc = BuildService()
+        for alias in ("defence", "defense", "offence", "offense"):
+            result = svc.stats("TestBuild", category=alias)
+            assert result is not None
+
     def test_notes_get(self, build_file):
         svc = BuildService()
         result = svc.notes_get("ignored", file_path=str(build_file))
@@ -62,6 +68,22 @@ class TestBuildService:
         result = svc.notes_set("ignored", "new notes", file_path=str(build_file))
         assert result.status == "ok"
         assert result.notes == "new notes"
+
+    def test_notes_get_strips_pob_color_codes(self, tmp_path):
+        from tests.conftest import PoBXmlBuilder
+
+        builder = PoBXmlBuilder(tmp_path)
+        builder.with_class("Witch", "Necromancer", level=90)
+        builder.with_notes("^xE05030Red text^7 and ^1numbered color")
+        build_file = builder.write()
+        svc = BuildService()
+        result = svc.notes_get("ignored", file_path=str(build_file))
+        assert "^x" not in result.notes
+        assert "^7" not in result.notes
+        assert "^1" not in result.notes
+        assert "Red text" in result.notes
+        assert "and" in result.notes
+        assert "numbered color" in result.notes
 
     def test_validate(self, builds_dir):
         svc = BuildService()

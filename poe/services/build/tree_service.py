@@ -191,9 +191,23 @@ class TreeService:
             raise BuildValidationError("Spec index out of range")
         spec = build_obj.specs[idx]
         q = query.casefold()
-        return [
-            {"node_id": node_id, "allocated": True} for node_id in spec.nodes if q in str(node_id)
-        ]
+
+        override_map = {o.node_id: o for o in spec.overrides}
+        results = []
+        for node_id in spec.nodes:
+            override = override_map.get(node_id)
+            if override and (q in override.name.casefold() or q in override.text.casefold()):
+                results.append(
+                    {
+                        "node_id": node_id,
+                        "name": override.name,
+                        "text": override.text,
+                        "allocated": True,
+                    }
+                )
+            elif q in str(node_id):
+                results.append({"node_id": node_id, "allocated": True})
+        return results
 
     def set_active(self, name: str, spec: int, *, file_path: str | None = None) -> MutationResult:
         path, build_obj, cloned_from = self._build.load_for_write(name, file_path)

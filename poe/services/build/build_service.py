@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import re
 import shutil
 from pathlib import Path
 from xml.etree.ElementTree import ParseError as XMLParseError
@@ -37,6 +38,15 @@ from poe.services.build.validation import validate_build
 from poe.services.build.xml.parser import parse_build_file
 from poe.services.build.xml.writer import write_build_file
 from poe.types import StatCategory
+
+_CATEGORY_ALIASES: dict[str, str] = {
+    "defence": "def",
+    "defense": "def",
+    "offence": "off",
+    "offense": "off",
+}
+
+_POB_COLOR_RE = re.compile(r"\^x[0-9A-Fa-f]{6}|\^[0-9]")
 
 
 class BuildService:
@@ -169,6 +179,7 @@ class BuildService:
         return build_obj
 
     def stats(self, name: str, *, category: str = StatCategory.ALL) -> StatBlock:
+        category = _CATEGORY_ALIASES.get(category, category)
         valid = {c.value for c in StatCategory}
         if category not in valid:
             raise BuildValidationError(
@@ -244,7 +255,8 @@ class BuildService:
 
     def notes_get(self, name: str, *, file_path: str | None = None) -> BuildNotes:
         _, build_obj = self.load(name, file_path)
-        return BuildNotes(build_name=name, notes=build_obj.notes.strip())
+        clean = _POB_COLOR_RE.sub("", build_obj.notes.strip())
+        return BuildNotes(build_name=name, notes=clean)
 
     def notes_set(self, name: str, notes: str, *, file_path: str | None = None) -> MutationResult:
         path, build_obj, cloned_from = self.load_for_write(name, file_path)

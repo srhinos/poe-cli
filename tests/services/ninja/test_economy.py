@@ -461,6 +461,11 @@ class TestCurrencyConvert:
         with pytest.raises(NinjaError, match="positive"):
             svc.currency_convert("Mirage", 0, "Divine Orb", "Chaos Orb")
 
+    def test_short_name_aliases(self, tmp_path):
+        svc = _make_service(tmp_path, {"currency/overview": CURRENCY_RESPONSE})
+        result = svc.currency_convert("Mirage", 10, "exalted", "divine")
+        assert result == pytest.approx(10 * 17.5 / 150.0, rel=0.01)
+
 
 class TestCraftingPrices:
     def test_returns_crafting_prices(self, tmp_path):

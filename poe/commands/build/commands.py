@@ -55,7 +55,7 @@ def builds_list(*, json: bool = False) -> None:
 def builds_create(
     name: str,
     *,
-    class_name: str = "Scion",
+    cls: Annotated[str, cyclopts.Parameter(name="--class")] = "Scion",
     ascendancy: str = "",
     level: int = 1,
     tree_version: str | None = None,
@@ -67,7 +67,7 @@ def builds_create(
     ----------
     name
         Build name.
-    class_name
+    cls
         Character class.
     ascendancy
         Ascendancy class.
@@ -78,9 +78,10 @@ def builds_create(
     file
         Explicit output file path.
     """
+    validate_build_name(name)
     result = _svc().create(
         name,
-        class_name=class_name,
+        class_name=cls,
         ascendancy=ascendancy,
         level=level,
         tree_version=tree_version,
@@ -223,18 +224,30 @@ def set_main_skill(name: str, *, index: int, file: str | None = None) -> None:
 
 
 @build_app.command(name="decode")
-def builds_decode(code: str, *, save: str | None = None, json: bool = False) -> None:
+def builds_decode(
+    code: str = "",
+    *,
+    file: str | None = None,
+    save: str | None = None,
+    json: bool = False,
+) -> None:
     """Decode a PoB build sharing code to XML.
 
     Parameters
     ----------
     code
-        Build sharing code.
+        Build sharing code (positional or use --file).
+    file
+        Read build code from a file instead of CLI argument.
     save
         Save decoded build.
     json
         Output raw JSON.
     """
+    if file:
+        code = Path(file).read_text(encoding="utf-8").strip()
+    if not code:
+        raise CodecError("Provide a build code as argument or via --file")
     try:
         xml_str = decode_build(code)
     except (ValueError, zlib.error) as e:
@@ -433,12 +446,13 @@ def builds_share(name: str, *, file: str | None = None) -> None:
     file
         Explicit file path.
     """
-    path = Path(file) if file else resolve_build_file(name)
-    xml_str = path.read_text(encoding="utf-8")
+    try:
+        path = Path(file) if file else resolve_build_file(name)
+        xml_str = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        raise BuildNotFoundError(f"Build file not found: {file or name}") from None
     code = encode_build(xml_str)
-    _output(
-        {"status": "ok", "code": code, "pobb_url": f"https://pobb.in/{code[:12]}"}, json_mode=True
-    )
+    _output({"status": "ok", "code": code}, json_mode=True)
 
 
 @build_app.command(name="batch-set-level")

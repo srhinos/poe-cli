@@ -24,6 +24,32 @@ if TYPE_CHECKING:
 
 NINJA_DETAILS_BASE = "https://poe.ninja"
 
+_CURRENCY_ALIASES: dict[str, str] = {
+    "chaos": "chaos orb",
+    "exalted": "exalted orb",
+    "exalt": "exalted orb",
+    "divine": "divine orb",
+    "mirror": "mirror of kalandra",
+    "vaal": "vaal orb",
+    "alchemy": "orb of alchemy",
+    "alch": "orb of alchemy",
+    "alteration": "orb of alteration",
+    "alt": "orb of alteration",
+    "fusing": "orb of fusing",
+    "jeweller": "jeweller's orb",
+    "chromatic": "chromatic orb",
+    "regret": "orb of regret",
+    "scouring": "orb of scouring",
+    "blessed": "blessed orb",
+    "regal": "regal orb",
+    "annul": "orb of annulment",
+    "annulment": "orb of annulment",
+    "ancient": "ancient orb",
+    "transmute": "orb of transmutation",
+    "augment": "orb of augmentation",
+    "chance": "orb of chance",
+}
+
 CRAFTING_TYPE_MAP: dict[str, list[tuple[str, str]]] = {
     "currency": [("Currency", "poe1_exchange")],
     "fossils": [("Fossil", "poe1_exchange")],
@@ -291,10 +317,12 @@ class EconomyService:
         price_map = {p.name.lower(): p.chaos_value for p in prices}
         price_map["chaos orb"] = 1.0
 
-        from_chaos = price_map.get(from_currency.lower())
+        from_key = _CURRENCY_ALIASES.get(from_currency.lower(), from_currency.lower())
+        to_key = _CURRENCY_ALIASES.get(to_currency.lower(), to_currency.lower())
+        from_chaos = price_map.get(from_key)
         if from_chaos is None:
             raise NinjaError(f"Currency not found: {from_currency!r}")
-        to_chaos = price_map.get(to_currency.lower())
+        to_chaos = price_map.get(to_key)
         if to_chaos is None or to_chaos <= 0:
             raise NinjaError(f"Currency not found: {to_currency!r}")
         return amount * from_chaos / to_chaos

@@ -28,7 +28,7 @@ class TestBuildsCreate:
                 "build",
                 "create",
                 "witch",
-                "--class-name",
+                "--class",
                 "Witch",
                 "--ascendancy",
                 "Necromancer",
