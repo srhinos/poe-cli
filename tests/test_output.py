@@ -91,26 +91,52 @@ class TestHumanFormatter:
 
 
 class TestRender:
+    def test_render_defaults_to_human(self, capsys):
+        from poe.models.build.build import MutationResult
+
+        data = MutationResult(status="ok")
+        render(data)
+        out = capsys.readouterr().out
+        assert "status: ok" in out
+
+    def test_render_json_mode_outputs_json(self, capsys):
+        from poe.models.build.build import MutationResult
+
+        data = MutationResult(status="ok")
+        render(data, json_mode=True)
+        out = capsys.readouterr().out
+        assert '"status"' in out
+
     def test_render_json_dict(self, capsys):
-        render({"x": 1}, human=False)
+        render({"x": 1}, json_mode=True)
         captured = capsys.readouterr()
         assert json.loads(captured.out) == {"x": 1}
 
     def test_render_json_model(self, capsys):
-        render(SampleModel(name="test", value=99), human=False)
+        render(SampleModel(name="test", value=99), json_mode=True)
         captured = capsys.readouterr()
         parsed = json.loads(captured.out)
         assert parsed["name"] == "test"
 
     def test_render_human_dict(self, capsys):
-        render({"key": "val"}, human=True)
+        render({"key": "val"})
         captured = capsys.readouterr()
         assert "key: val" in captured.out
 
     def test_render_human_model(self, capsys):
-        render(SampleModel(name="hi", value=7), human=True)
+        render(SampleModel(name="hi", value=7))
         captured = capsys.readouterr()
         assert "hi" in captured.out
+
+    def test_render_unregistered_model_uses_dict_fallback(self, capsys):
+        class Unregistered(BaseModel):
+            foo: str = "bar"
+            count: int = 42
+
+        render(Unregistered())
+        out = capsys.readouterr().out
+        assert "foo: bar" in out
+        assert "count: 42" in out
 
     def test_render_unicode_characters(self, capsys):
         render({"name": "Black Mórrigan", "league": "Cola küsst Orange"})

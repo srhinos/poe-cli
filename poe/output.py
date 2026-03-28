@@ -27,17 +27,17 @@ def human_formatter(model_cls: type):
     return decorator
 
 
-def render(data: Any, *, human: bool = False) -> None:
+def render(data: Any, *, json_mode: bool = False) -> None:
     """Render data to stdout as JSON or human-readable text.
 
     Parameters
     ----------
     data
         A pydantic BaseModel, list of BaseModels, or dict.
-    human
-        If True, use registered human formatters (fallback to JSON).
+    json_mode
+        If True, output raw JSON instead of human-readable text.
     """
-    text = _format_human(data) if human else _format_json(data)
+    text = _format_json(data) if json_mode else _format_human(data)
     if hasattr(sys.stdout, "buffer"):
         sys.stdout.buffer.write(text.encode("utf-8"))
         sys.stdout.buffer.write(b"\n")
@@ -63,13 +63,15 @@ def _format_human(data: Any) -> str:
         formatter = _human_formatters.get(type(data))
         if formatter:
             return formatter(data)
-        return _format_json(data)
+        return _format_dict_human(data.model_dump(exclude_none=True))
 
     if isinstance(data, list) and data and isinstance(data[0], BaseModel):
         formatter = _human_formatters.get(type(data[0]))
         if formatter:
             return "\n\n".join(formatter(item) for item in data)
-        return _format_json(data)
+        return "\n\n".join(
+            _format_dict_human(item.model_dump(exclude_none=True)) for item in data
+        )
 
     return _format_dict_human(data)
 
