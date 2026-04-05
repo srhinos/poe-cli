@@ -437,7 +437,7 @@ class TestFullBuild:
             class_name="Witch",
             ascend_class_name="Necromancer",
             level=90,
-            bandit="None",
+            bandit=None,
             pantheon_major="TheBrineKing",
             notes="Full test build",
             import_link="https://pobb.in/test",

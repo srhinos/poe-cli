@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import contextlib
+import re
 import xml.etree.ElementTree as ET
 from typing import TYPE_CHECKING
 
@@ -21,7 +22,6 @@ from poe.services.build.constants import (
 )
 
 if TYPE_CHECKING:
-    import re
     from pathlib import Path
     from xml.etree.ElementTree import Element
 
@@ -66,7 +66,8 @@ def _parse_build_section(root: Element, build: BuildDocument) -> None:
     build.class_name = el.get("className", "")
     build.ascend_class_name = el.get("ascendClassName", "")
     build.level = int(el.get("level", "1"))
-    build.bandit = el.get("bandit", "None")
+    raw_bandit = el.get("bandit", "")
+    build.bandit = raw_bandit if raw_bandit and raw_bandit != "None" else None
     build.view_mode = el.get("viewMode", "TREE")
     build.target_version = el.get("targetVersion", "3_0")
     build.main_socket_group = int(el.get("mainSocketGroup", "1"))
@@ -455,6 +456,14 @@ def _is_content_line(line: str) -> bool:
     return not any(line.startswith(p) for p in METADATA_PREFIXES) and line not in INFLUENCE_LINES
 
 
+_MAGIC_SUFFIX_RE = re.compile(r"\s+of\s+(?:the\s+)?\S[\w\s]*$", re.IGNORECASE)
+
+
+def _strip_magic_suffix(name: str) -> str:
+    """Strip 'of ...' suffix from a magic item name to get the base type."""
+    return _MAGIC_SUFFIX_RE.sub("", name)
+
+
 def _parse_header_line(item: Item, line: str, lines: list[str], index: int) -> bool:
     """Parse rarity, influence, synthesised, and crafted lines. Returns True if handled."""
     if line.startswith("Rarity: "):
@@ -463,7 +472,9 @@ def _parse_header_line(item: Item, line: str, lines: list[str], index: int) -> b
             item.name = lines[index + 1]
         if index + 2 < len(lines) and _is_content_line(lines[index + 2]):
             item.base_type = lines[index + 2]
-        elif item.rarity in ("MAGIC", "NORMAL") and item.name:
+        elif item.rarity == "MAGIC" and item.name:
+            item.base_type = _strip_magic_suffix(item.name)
+        elif item.rarity == "NORMAL" and item.name:
             item.base_type = item.name
         return True
     if line in INFLUENCE_LINES:
@@ -517,6 +528,9 @@ def _parse_item_text(item: Item) -> None:
 
         mod = _parse_mod_line(line)
         if mod is None:
+            continue
+
+        if mod.variant and mod.text in (item.name, item.base_type):
             continue
 
         if in_implicits and implicits_seen < implicit_count:
@@ -687,7 +701,7 @@ def _parse_notes(root: Element, build: BuildDocument) -> None:
     """Parse the <Notes> section."""
     notes_el = root.find("Notes")
     if notes_el is not None:
-        build.notes = notes_el.text or ""
+        build.notes = (notes_el.text or "").strip()
 
 
 def _parse_import(root: Element, build: BuildDocument) -> None:

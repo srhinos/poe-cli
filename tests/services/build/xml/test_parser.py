@@ -31,7 +31,7 @@ class TestParseBuildSection:
 
     def test_bandit_and_view_mode(self, minimal_build_xml):
         build = parse_build_file(minimal_build_xml)
-        assert build.bandit == "None"
+        assert build.bandit is None
         assert build.view_mode == "TREE"
         assert build.target_version == "3_0"
 
@@ -763,7 +763,7 @@ class TestMagicItemBaseType:
             </PathOfBuilding>
         """)
 
-    def test_magic_flask_base_type_populated(self, tmp_path):
+    def test_magic_flask_base_type_strips_suffix(self, tmp_path):
         xml = self._make_xml(
             "Rarity: MAGIC\nChemist's Silver Flask of the Owl\n"
             "Crafted: true\nPrefix: FlaskChargesUsed4\nSuffix: FlaskBuff\n"
@@ -774,9 +774,9 @@ class TestMagicItemBaseType:
         item = build.items[0]
         assert item.rarity == "MAGIC"
         assert item.name == "Chemist's Silver Flask of the Owl"
-        assert item.base_type == "Chemist's Silver Flask of the Owl"
+        assert item.base_type == "Chemist's Silver Flask"
 
-    def test_magic_flask_no_prefix_suffix(self, tmp_path):
+    def test_magic_flask_suffix_only_strips(self, tmp_path):
         xml = self._make_xml(
             "Rarity: MAGIC\nJade Flask of the Deer\n"
             "Quality: 0\nLevelReq: 27\nImplicits: 0\n"
@@ -784,7 +784,7 @@ class TestMagicItemBaseType:
         )
         build = parse_build_file(_write_xml(tmp_path, xml))
         item = build.items[0]
-        assert item.base_type == "Jade Flask of the Deer"
+        assert item.base_type == "Jade Flask"
 
     def test_normal_item_base_type_equals_name(self, tmp_path):
         xml = self._make_xml("Rarity: NORMAL\nSilver Flask\nQuality: 0\nLevelReq: 22\nImplicits: 0")

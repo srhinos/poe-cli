@@ -125,14 +125,18 @@ def tree_search(
     file: str | None = None,
     json: bool = False,
 ) -> None:
-    """Search allocated tree nodes by ID substring.
+    """Search allocated tree nodes by node ID or override name.
+
+    Matches node IDs as substrings and cluster/timeless jewel override
+    names and descriptions. Normal passive nodes cannot be searched by
+    name (PoB builds only store node IDs, not names).
 
     Parameters
     ----------
     name
         Build name or unique prefix.
     query
-        Search query (node ID substring).
+        Search query (node ID substring or override name).
     spec
         Tree spec index (1-based).
     file

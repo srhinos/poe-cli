@@ -133,10 +133,10 @@ class TestRender:
             foo: str = "bar"
             count: int = 42
 
-        render(Unregistered())
+        render(Unregistered(foo="baz", count=99))
         out = capsys.readouterr().out
-        assert "foo: bar" in out
-        assert "count: 42" in out
+        assert "foo: baz" in out
+        assert "count: 99" in out
 
     def test_render_unicode_characters(self, capsys):
         render({"name": "Black Mórrigan", "league": "Cola küsst Orange"})

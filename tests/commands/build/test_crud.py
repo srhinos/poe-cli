@@ -12,7 +12,7 @@ from tests.conftest import invoke_cli
 class TestBuildsCreate:
     def test_create_default(self, tmp_path):
         out = tmp_path / "new.xml"
-        result = invoke_cli(cli, ["build", "create", "new", "--file", str(out)])
+        result = invoke_cli(cli, ["build", "create", "new", "--file", str(out), "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["status"] == "ok"

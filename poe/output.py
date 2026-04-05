@@ -63,13 +63,15 @@ def _format_human(data: Any) -> str:
         formatter = _human_formatters.get(type(data))
         if formatter:
             return formatter(data)
-        return _format_dict_human(data.model_dump(exclude_none=True))
+        return _format_dict_human(data.model_dump(exclude_defaults=True))
 
     if isinstance(data, list) and data and isinstance(data[0], BaseModel):
         formatter = _human_formatters.get(type(data[0]))
         if formatter:
             return "\n\n".join(formatter(item) for item in data)
-        return "\n\n".join(_format_dict_human(item.model_dump(exclude_none=True)) for item in data)
+        return "\n\n".join(
+            _format_dict_human(item.model_dump(exclude_defaults=True)) for item in data
+        )
 
     return _format_dict_human(data)
 

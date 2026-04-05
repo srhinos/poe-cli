@@ -151,7 +151,7 @@ class SimService:
         if not target_item or not target_slot:
             raise SlotError(f"No item found in slot matching '{slot}'")
 
-        item_ilvl = ilvl or DEFAULT_ILVL
+        item_ilvl = ilvl or target_item.item_level or DEFAULT_ILVL
         bitem = self._data.get_base_item(target_item.base_type)
         base_found = bitem is not None
         analysis: dict = {"base_found": base_found, "ilvl_used": item_ilvl}
@@ -429,7 +429,7 @@ class SimService:
         influence: list[str] | None = None,
         iterations: int = DEFAULT_ITERATIONS,
     ) -> list[dict]:
-        methods_to_try = ["chaos"]
+        methods_to_try = ["chaos", "alt"]
         if fossils:
             methods_to_try.append("fossil")
         if essence:

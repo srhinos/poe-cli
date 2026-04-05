@@ -60,6 +60,7 @@ def builds_create(
     level: int = 1,
     tree_version: str | None = None,
     file: str | None = None,
+    json: bool = False,
 ) -> None:
     """Create a new minimal build file.
 
@@ -77,6 +78,8 @@ def builds_create(
         Tree version.
     file
         Explicit output file path.
+    json
+        Output raw JSON.
     """
     validate_build_name(name)
     result = _svc().create(
@@ -87,7 +90,7 @@ def builds_create(
         tree_version=tree_version,
         file_path=file,
     )
-    _output(result, json_mode=True)
+    _output(result, json_mode=json)
 
 
 @build_app.command(name="delete")
@@ -194,7 +197,7 @@ def builds_validate(name: str, *, json: bool = False) -> None:
 
 
 @build_app.command(name="export")
-def builds_export(name: str, dest: str) -> None:
+def builds_export(name: str, dest: str, *, json: bool = False) -> None:
     """Export a copy of a build file.
 
     Parameters
@@ -203,12 +206,14 @@ def builds_export(name: str, dest: str) -> None:
         Build name or unique prefix.
     dest
         Destination path.
+    json
+        Output raw JSON.
     """
-    _output(_svc().export(name, dest))
+    _output(_svc().export(name, dest), json_mode=json)
 
 
 @build_app.command(name="set-main-skill")
-def set_main_skill(name: str, *, index: int, file: str | None = None) -> None:
+def set_main_skill(name: str, *, index: int, file: str | None = None, json: bool = False) -> None:
     """Set the main skill group for a build.
 
     Parameters
@@ -219,8 +224,10 @@ def set_main_skill(name: str, *, index: int, file: str | None = None) -> None:
         Main socket group index (1-based).
     file
         Explicit file path.
+    json
+        Output raw JSON.
     """
-    _output(_svc().set_main_skill(name, index, file_path=file))
+    _output(_svc().set_main_skill(name, index, file_path=file), json_mode=json)
 
 
 @build_app.command(name="decode")
@@ -342,7 +349,7 @@ def builds_duplicate(name: str, new_name: str, *, file: str | None = None) -> No
 
 
 @build_app.command(name="set-level")
-def builds_set_level(name: str, *, level: int, file: str | None = None) -> None:
+def builds_set_level(name: str, *, level: int, file: str | None = None, json: bool = False) -> None:
     """Set the character level.
 
     Parameters
@@ -353,8 +360,10 @@ def builds_set_level(name: str, *, level: int, file: str | None = None) -> None:
         Character level (1-100).
     file
         Explicit file path.
+    json
+        Output raw JSON.
     """
-    _output(_svc().set_level(name, level, file_path=file))
+    _output(_svc().set_level(name, level, file_path=file), json_mode=json)
 
 
 @build_app.command(name="set-class")
@@ -364,6 +373,7 @@ def builds_set_class(
     class_name: Annotated[str | None, cyclopts.Parameter(name="--class")] = None,
     ascendancy: str | None = None,
     file: str | None = None,
+    json: bool = False,
 ) -> None:
     """Set class and/or ascendancy by name.
 
@@ -377,12 +387,19 @@ def builds_set_class(
         Ascendancy name.
     file
         Explicit file path.
+    json
+        Output raw JSON.
     """
-    _output(_svc().set_class(name, class_name=class_name, ascendancy=ascendancy, file_path=file))
+    _output(
+        _svc().set_class(name, class_name=class_name, ascendancy=ascendancy, file_path=file),
+        json_mode=json,
+    )
 
 
 @build_app.command(name="set-bandit")
-def builds_set_bandit(name: str, *, bandit: str, file: str | None = None) -> None:
+def builds_set_bandit(
+    name: str, *, bandit: str, file: str | None = None, json: bool = False
+) -> None:
     """Set the bandit choice.
 
     Parameters
@@ -393,8 +410,10 @@ def builds_set_bandit(name: str, *, bandit: str, file: str | None = None) -> Non
         Bandit choice (None, Alira, Kraityn, Oak).
     file
         Explicit file path.
+    json
+        Output raw JSON.
     """
-    _output(_svc().set_bandit(name, bandit, file_path=file))
+    _output(_svc().set_bandit(name, bandit, file_path=file), json_mode=json)
 
 
 @build_app.command(name="set-pantheon")
@@ -404,6 +423,7 @@ def builds_set_pantheon(
     major: str | None = None,
     minor: str | None = None,
     file: str | None = None,
+    json: bool = False,
 ) -> None:
     """Set pantheon choices.
 
@@ -417,8 +437,10 @@ def builds_set_pantheon(
         Minor pantheon god.
     file
         Explicit file path.
+    json
+        Output raw JSON.
     """
-    _output(_svc().set_pantheon(name, major=major, minor=minor, file_path=file))
+    _output(_svc().set_pantheon(name, major=major, minor=minor, file_path=file), json_mode=json)
 
 
 @build_app.command(name="summary")
@@ -464,6 +486,7 @@ def builds_batch_set_level(
     *,
     level: int,
     builds: Annotated[list[str], cyclopts.Parameter(name="--build")],
+    json: bool = False,
 ) -> None:
     """Set level on multiple builds at once.
 
@@ -473,6 +496,8 @@ def builds_batch_set_level(
         Level to set on all builds.
     builds
         Build name(s).
+    json
+        Output raw JSON.
     """
     svc = _svc()
     results = []
@@ -482,7 +507,7 @@ def builds_batch_set_level(
             results.append({"build": name, "status": "ok"})
         except PoeError as e:
             results.append({"build": name, "status": "error", "error": str(e)})
-    _output(results, json_mode=True)
+    _output(results, json_mode=json)
 
 
 @build_app.command(name="import")

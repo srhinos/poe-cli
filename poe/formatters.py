@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from poe.models.build.build import BuildMetadata, MutationResult
+from poe.models.build.items import EquippedItem
 from poe.models.build.stats import StatBlock
 from poe.models.ninja.economy import PriceResult
 from poe.output import human_formatter
@@ -44,6 +45,31 @@ def _fmt_mutation(m: MutationResult) -> str:
     if m.warning:
         parts.append(f"[{m.warning}]")
     return "\n".join(parts)
+
+
+@human_formatter(EquippedItem)
+def _fmt_equipped_item(item: EquippedItem) -> str:
+    header = f"[{item.slot}] {item.name}"
+    if item.base_type and item.base_type != item.name:
+        header += f" ({item.base_type})"
+    lines = [header]
+    if item.rarity:
+        lines.append(f"  rarity: {item.rarity}")
+    if item.influences:
+        lines.append(f"  influences: {', '.join(item.influences)}")
+    if item.sockets:
+        lines.append(f"  sockets: {item.sockets}")
+    if item.quality:
+        lines.append(f"  quality: {item.quality}")
+    if item.implicits:
+        lines.append("  implicits:")
+        lines.extend(f"    {m.text}" for m in item.implicits)
+    if item.explicits:
+        lines.append("  explicits:")
+        for m in item.explicits:
+            prefix = "(crafted) " if m.is_crafted else "(fractured) " if m.is_fractured else ""
+            lines.append(f"    {prefix}{m.text}")
+    return "\n".join(lines)
 
 
 @human_formatter(PriceResult)

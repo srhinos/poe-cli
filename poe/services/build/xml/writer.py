@@ -80,7 +80,7 @@ def _write_build_section(root: ET.Element, build: BuildDocument) -> None:
     el.set("level", str(build.level))
     el.set("className", build.class_name)
     el.set("ascendClassName", build.ascend_class_name)
-    el.set("bandit", build.bandit)
+    el.set("bandit", build.bandit or "None")
     el.set("viewMode", build.view_mode)
     el.set("targetVersion", build.target_version)
     el.set("mainSocketGroup", str(build.main_socket_group))

@@ -218,7 +218,7 @@ class BuildService:
         stats2 = {s.stat: s.value for s in build2.player_stats}
         comparison = {}
         for key in sorted(set(stats1) | set(stats2)):
-            v1, v2 = stats1.get(key, 0), stats2.get(key, 0)
+            v1, v2 = stats1.get(key, 0.0), stats2.get(key, 0.0)
             diff = v2 - v1
             comparison[key] = {
                 name1: v1,
@@ -389,7 +389,7 @@ class BuildService:
                 f"Unknown bandit: {bandit!r}. Valid: {sorted(VALID_BANDITS)}"
             )
         path, build_obj, cloned_from = self.load_for_write(name, file_path)
-        build_obj.bandit = bandit
+        build_obj.bandit = bandit if bandit != "None" else None
         self.save(build_obj, path)
         return MutationResult(
             bandit=bandit,
