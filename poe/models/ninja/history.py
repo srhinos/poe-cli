@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class HistoryPoint(BaseModel):
     """A single daily price data point."""
 
-    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
 
     count: int = 0
     value: float = 0.0
@@ -16,7 +16,7 @@ class HistoryPoint(BaseModel):
 class CurrencyHistoryResponse(BaseModel):
     """Response from the currency history endpoint (pay + receive directions)."""
 
-    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
 
     pay_currency_graph_data: list[HistoryPoint] = Field([], alias="payCurrencyGraphData")
     receive_currency_graph_data: list[HistoryPoint] = Field([], alias="receiveCurrencyGraphData")

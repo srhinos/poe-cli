@@ -8,8 +8,6 @@ from poe.models.ninja.builds import (
     CharacterResponse,
     DefensiveStats,
     MetaSummary,
-    PopularAnoint,
-    PopularSkill,
     TooltipResponse,
 )
 from poe.services.ninja.builds import BuildsService
@@ -73,8 +71,9 @@ POE1_CHARACTER = {
     "league": "Mirage",
     "level": 98,
     "class": "Pathfinder",
-    "baseClass": 2,
-    "ascendancyClassId": 3,
+    "baseClass": "Ranger",
+    "ascendancyClassId": "Pathfinder",
+    "ascendancyClassName": "Pathfinder",
     "secondaryAscendancyClassId": None,
     "secondaryAscendancyClassName": None,
     "defensiveStats": {
@@ -97,41 +96,50 @@ POE1_CHARACTER = {
     },
     "skills": [
         {
-            "name": "Lightning Arrow",
             "allGems": [
-                {"name": "Lightning Arrow", "level": 21, "quality": 20, "isSupport": False},
+                {"name": "Lightning Arrow", "level": 21, "quality": 20, "isBuiltInSupport": False},
                 {
                     "name": "Greater Multiple Projectiles",
                     "level": 21,
                     "quality": 20,
-                    "isSupport": True,
+                    "isBuiltInSupport": True,
                 },
             ],
-            "isSelected": True,
+            "dps": [{"name": "Lightning Arrow", "dps": 500000, "dotDps": 0}],
+            "itemSlot": 1,
         },
     ],
     "items": [
         {
-            "name": "Headhunter",
-            "typeLine": "Leather Belt",
-            "inventoryId": "Belt",
-            "rarity": "unique",
-            "implicitMods": ["+40 to maximum Life"],
-            "explicitMods": ["Adds 1 to 4 Physical Damage to Attacks"],
+            "itemSlot": 10,
+            "itemData": {
+                "name": "Headhunter",
+                "typeLine": "Leather Belt",
+                "inventoryId": "Belt",
+                "rarity": "unique",
+                "implicitMods": ["+40 to maximum Life"],
+                "explicitMods": ["Adds 1 to 4 Physical Damage to Attacks"],
+            },
         },
     ],
     "flasks": [
         {
-            "name": "Divine Life Flask",
-            "typeLine": "Divine Life Flask",
-            "explicitMods": ["Instant Recovery"],
+            "itemSlot": 1,
+            "itemData": {
+                "name": "Divine Life Flask",
+                "typeLine": "Divine Life Flask",
+                "explicitMods": ["Instant Recovery"],
+            },
         },
     ],
     "jewels": [
         {
-            "name": "Watcher's Eye",
-            "typeLine": "Prismatic Jewel",
-            "explicitMods": ["+50 to maximum Life"],
+            "itemSlot": 1,
+            "itemData": {
+                "name": "Watcher's Eye",
+                "typeLine": "Prismatic Jewel",
+                "explicitMods": ["+50 to maximum Life"],
+            },
         },
     ],
     "clusterJewels": [],
@@ -139,7 +147,7 @@ POE1_CHARACTER = {
     "passiveTreeName": "PassiveTree-3.28",
     "atlasTreeName": "AtlasTree-3.28",
     "keyStones": [{"name": "Acrobatics"}, {"name": "Phase Acrobatics"}],
-    "masteries": [{"name": "Life Mastery", "effect": "+50 to Life"}],
+    "masteries": [{"name": "Life Mastery", "group": "Life Mastery"}],
     "banditChoice": "Eramir",
     "pantheonMajor": "The Brine King",
     "pantheonMinor": "Shakari",
@@ -196,17 +204,6 @@ TOOLTIP_RESPONSE = {
     "mutatedMods": [],
 }
 
-POPULAR_SKILLS = [
-    {"name": "Walking Calamity"},
-    {"name": "Orb of Storms"},
-    {"name": "Bone Offering"},
-]
-
-POPULAR_ANOINTS = [
-    {"name": "Fast Metabolism", "percentage": 17.41},
-    {"name": "Heart of Oak", "percentage": 12.3},
-]
-
 
 def _make_service(tmp_path, fixture_map=None):
     client = MagicMock()
@@ -234,8 +231,11 @@ class TestCharacterParsing:
         assert resp.defensive_stats.evasion_rating == 45000
         assert len(resp.skills) == 1
         assert resp.skills[0].all_gems[0].name == "Lightning Arrow"
+        assert resp.skills[0].dps[0].name == "Lightning Arrow"
+        assert resp.skills[0].item_slot == 1
         assert len(resp.items) == 1
-        assert resp.items[0].name == "Headhunter"
+        assert resp.items[0].item_data["name"] == "Headhunter"
+        assert resp.items[0].item_slot == 10
         assert len(resp.keystones) == 2
         assert resp.bandit_choice == "Eramir"
         assert resp.pob_export == "eNp9UVEK"
@@ -255,8 +255,8 @@ class TestCharacterParsing:
         assert resp.pantheon_major is None
         assert resp.atlas_tree_name == ""
 
-    def test_extra_fields_ignored(self):
-        data = {**POE1_CHARACTER, "newField": "extra", "hashesEx": {"a": 1}}
+    def test_extra_fields_allowed(self):
+        data = {**POE1_CHARACTER, "newField": "extra", "futureField": {"a": 1}}
         resp = CharacterResponse.model_validate(data)
         assert resp.name == "TestChar"
 
@@ -285,17 +285,6 @@ class TestTooltipParsing:
         assert len(resp.explicit_mods) == 1
         assert resp.mutated_mods == []
 
-
-class TestPopularSkills:
-    def test_popular_skills(self):
-        skills = [PopularSkill.model_validate(s) for s in POPULAR_SKILLS]
-        assert len(skills) == 3
-        assert skills[0].name == "Walking Calamity"
-
-    def test_popular_anoints(self):
-        anoints = [PopularAnoint.model_validate(a) for a in POPULAR_ANOINTS]
-        assert len(anoints) == 2
-        assert anoints[0].percentage == 17.41
 
 
 class TestBuildsService:
@@ -339,56 +328,6 @@ class TestBuildsService:
         )
         result = svc.get_generic_tooltip("Headhunter", "anointed")
         assert result is not None
-
-    def test_get_popular_skills(self, tmp_path):
-        poe2_state = {
-            **INDEX_STATE,
-            "snapshotVersions": [
-                {
-                    "url": "vaal",
-                    "name": "Fate of the Vaal",
-                    "timeMachineLabels": [],
-                    "version": "0448-20260316-21307",
-                    "snapshotName": "fate-of-the-vaal",
-                    "overviewType": 0,
-                    "passiveTree": "PassiveTree-0.4",
-                }
-            ],
-        }
-        svc = _make_service(
-            tmp_path,
-            {
-                "index-state": poe2_state,
-                "popular-skills": POPULAR_SKILLS,
-            },
-        )
-        result = svc.get_popular_skills(game="poe2")
-        assert len(result) == 3
-
-    def test_get_popular_anoints(self, tmp_path):
-        poe2_state = {
-            **INDEX_STATE,
-            "snapshotVersions": [
-                {
-                    "url": "vaal",
-                    "name": "Fate of the Vaal",
-                    "timeMachineLabels": [],
-                    "version": "0448-20260316-21307",
-                    "snapshotName": "fate-of-the-vaal",
-                    "overviewType": 0,
-                    "passiveTree": "PassiveTree-0.4",
-                }
-            ],
-        }
-        svc = _make_service(
-            tmp_path,
-            {
-                "index-state": poe2_state,
-                "popular-anoints": POPULAR_ANOINTS,
-            },
-        )
-        result = svc.get_popular_anoints(game="poe2")
-        assert len(result) == 2
 
     def test_get_meta_summary(self, tmp_path):
         svc = _make_service(

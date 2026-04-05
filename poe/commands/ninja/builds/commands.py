@@ -4,9 +4,11 @@ from typing import Annotated
 
 import cyclopts
 
+from poe.exceptions import CodecError
 from poe.output import render
-from poe.services.build.build_service import BuildService
+from poe.safety import get_claude_builds_path
 from poe.services.build.constants import ASCENDANCY_IDS, CLASS_IDS
+from poe.services.build.xml.codec import decode_build
 from poe.services.ninja.atlas import AtlasService
 from poe.services.ninja.builds import BuildsService
 from poe.services.ninja.client import NinjaClient
@@ -85,10 +87,16 @@ def builds_import(
             render({"error": f"No PoB export for '{character}'"}, json_mode=json)
             return
 
-        bs = BuildService()
         build_name = f"{result.name} ({result.class_name})"
-        mutation = bs.import_build(result.pob_export, build_name)
-        render(mutation, json_mode=json)
+        try:
+            xml_str = decode_build(result.pob_export)
+        except (ValueError, Exception) as e:
+            raise CodecError(f"Failed to decode PoB export: {e}") from e
+        claude_dir = get_claude_builds_path()
+        filename = build_name + ".xml"
+        save_path = claude_dir / filename
+        save_path.write_text(xml_str, encoding="utf-8")
+        render({"status": "ok", "name": build_name, "saved_to": str(save_path)}, json_mode=json)
 
 
 @builds_app.command(name="search")
