@@ -1024,9 +1024,15 @@ class CraftingEngine:
             item.max_prefixes, item.max_suffixes = 1, 1
             self._roll_item(item, self._rng.randint(1, 2))
             item.max_prefixes, item.max_suffixes = orig_p, orig_s
-        elif method == CraftMethod.CHAOS:
+        elif method in (CraftMethod.CHAOS, CraftMethod.ALCHEMY, CraftMethod.HARVEST):
             item.rarity = Rarity.RARE
             self._roll_item(item, self._rare_mod_count(), require_both_affixes=True)
+        elif method == CraftMethod.TRANSMUTATION:
+            item.rarity = Rarity.MAGIC
+            orig_p, orig_s = item.max_prefixes, item.max_suffixes
+            item.max_prefixes, item.max_suffixes = 1, 1
+            self._roll_item(item, self._rng.randint(1, 2))
+            item.max_prefixes, item.max_suffixes = orig_p, orig_s
         else:
             valid = ", ".join(m.value for m in CraftMethod)
             raise ValueError(f"Unknown craft method: {method!r} (valid: {valid})")

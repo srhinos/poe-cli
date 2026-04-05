@@ -268,7 +268,7 @@ def builds_decode(
 
 
 @build_app.command(name="encode")
-def builds_encode(name: str, *, file: str | None = None) -> None:
+def builds_encode(name: str, *, file: str | None = None, json: bool = False) -> None:
     """Encode a build to a PoB sharing code.
 
     Parameters
@@ -277,13 +277,15 @@ def builds_encode(name: str, *, file: str | None = None) -> None:
         Build name or unique prefix.
     file
         Explicit file path.
+    json
+        Output raw JSON.
     """
     try:
         path = Path(file) if file else resolve_build_file(name)
         xml_str = path.read_text(encoding="utf-8")
-    except FileNotFoundError:
+    except (FileNotFoundError, BuildNotFoundError):
         raise BuildNotFoundError(f"Build file not found: {file or name}") from None
-    _output({"status": "ok", "code": encode_build(xml_str)})
+    _output({"status": "ok", "code": encode_build(xml_str)}, json_mode=json)
 
 
 @build_app.command(name="open")
@@ -302,7 +304,7 @@ def builds_open(name: str, *, file: str | None = None) -> None:
     try:
         path = Path(file) if file else resolve_build_file(name)
         xml_str = path.read_text(encoding="utf-8")
-    except FileNotFoundError:
+    except (FileNotFoundError, BuildNotFoundError):
         raise BuildNotFoundError(f"Build file not found: {file or name}") from None
     code = encode_build(xml_str)
     os.startfile(f"pob://{code}")
@@ -436,7 +438,7 @@ def builds_summary(name: str, *, file: str | None = None, json: bool = False) ->
 
 
 @build_app.command(name="share")
-def builds_share(name: str, *, file: str | None = None) -> None:
+def builds_share(name: str, *, file: str | None = None, json: bool = False) -> None:
     """Export build as a PoB sharing code.
 
     Parameters
@@ -445,14 +447,16 @@ def builds_share(name: str, *, file: str | None = None) -> None:
         Build name or unique prefix.
     file
         Explicit file path.
+    json
+        Output raw JSON.
     """
     try:
         path = Path(file) if file else resolve_build_file(name)
         xml_str = path.read_text(encoding="utf-8")
-    except FileNotFoundError:
+    except (FileNotFoundError, BuildNotFoundError):
         raise BuildNotFoundError(f"Build file not found: {file or name}") from None
     code = encode_build(xml_str)
-    _output({"status": "ok", "code": code})
+    _output({"status": "ok", "code": code}, json_mode=json)
 
 
 @build_app.command(name="batch-set-level")

@@ -44,7 +44,7 @@ def get_pob_path() -> Path:
         if p.exists():
             return p
 
-    raise FileNotFoundError(
+    raise BuildNotFoundError(
         "Could not find Path of Building Community installation. "
         "Set the POB_PATH environment variable to the installation directory."
     )
@@ -65,7 +65,7 @@ def get_builds_path() -> Path:
     if onedrive.exists():
         return onedrive
 
-    raise FileNotFoundError(
+    raise BuildNotFoundError(
         "Could not find builds directory. Set the POB_BUILDS_PATH environment variable."
     )
 
@@ -112,7 +112,7 @@ def resolve_build_file(name: str) -> Path:
         names = [f.stem for f in prefix_matches]
         raise BuildNotFoundError(f"Ambiguous prefix {name!r}: matches {names}")
 
-    raise FileNotFoundError(f"Build file not found: {name}")
+    raise BuildNotFoundError(f"Build file not found: {name}")
 
 
 def resolve_or_file(name: str, file_path: str | None) -> Path:

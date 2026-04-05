@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import dataclasses
+import re
 
-from poe.exceptions import SimDataError, SlotError
+from poe.constants import MIN_SEARCH_TERM_LENGTH
+from poe.exceptions import BuildNotFoundError, SimDataError, SlotError
 from poe.models.build.items import EquippedItem
 from poe.models.sim import (
     BaseItemSearchResult,
@@ -110,6 +112,9 @@ class SimService:
         return EssenceListResult(base=base_name or "all", count=len(essences), essences=essences)
 
     def get_bench_crafts(self, base_name: str) -> BenchCraftListResult:
+        bitem = self._data.get_base_item(base_name)
+        if not bitem:
+            raise SimDataError(f"Base item '{base_name}' not found. Use 'poe sim search <query>'.")
         crafts = self._data.get_bench_crafts(base_name)
         return BenchCraftListResult(base=base_name, count=len(crafts), crafts=crafts)
 
@@ -129,7 +134,10 @@ class SimService:
         self, build_name: str, *, slot: str, ilvl: int | None = None
     ) -> ItemAnalysisResult:
         """Analyze an equipped item's mods, tiers, and open affix slots."""
-        path = resolve_build_file(build_name)
+        try:
+            path = resolve_build_file(build_name)
+        except (FileNotFoundError, BuildNotFoundError) as e:
+            raise BuildNotFoundError(str(e)) from e
         build_obj = parse_build_file(path)
 
         equipped = build_obj.get_equipped_items()
@@ -201,25 +209,30 @@ class SimService:
             raise SimDataError(f"Unknown craft method: {method!r}. Valid: {sorted(valid_methods)}")
         if method == CraftMethod.ESSENCE and not essence:
             raise SimDataError("--essence is required when method is 'essence'")
+        if method == CraftMethod.FOSSIL and not fossils:
+            raise SimDataError("--fossils is required when method is 'fossil'")
         resolved_targets = []
         for t in target:
             resolved = self.resolve_mod_name(t, base_name)
             resolved_targets.append(resolved or t)
         eng = CraftingEngine(self._data.snapshot())
-        sim_result = await eng.simulate(
-            base=base_name,
-            ilvl=ilvl,
-            method=method,
-            target_mods=resolved_targets,
-            iterations=iterations,
-            influences=influence or [],
-            fossils=fossils,
-            match_mode=match,
-            essence_name=essence,
-            existing_mods=existing_mods,
-            max_attempts=max_attempts,
-            workers=workers,
-        )
+        try:
+            sim_result = await eng.simulate(
+                base=base_name,
+                ilvl=ilvl,
+                method=method,
+                target_mods=resolved_targets,
+                iterations=iterations,
+                influences=influence or [],
+                fossils=fossils,
+                match_mode=match,
+                essence_name=essence,
+                existing_mods=existing_mods,
+                max_attempts=max_attempts,
+                workers=workers,
+            )
+        except ValueError as e:
+            raise SimDataError(str(e)) from e
         return SimulationResult(
             base=base_name,
             ilvl=ilvl,
@@ -265,20 +278,23 @@ class SimService:
         target_set = {t.casefold() for t in resolved_targets}
         hits = 0
         attempts_on_hit: list[int] = []
-        for _ in range(iterations):
-            item = eng.create_item(base_name, ilvl, influence)
-            for step in steps:
-                method = step.get("method", "chaos")
-                self._apply_multistep_method(eng, item, method, step)
-            rolled_groups = {m.group.casefold() for m in item.all_mods}
-            hit = (
-                target_set.issubset(rolled_groups)
-                if match == "all"
-                else bool(target_set & rolled_groups)
-            )
-            if hit:
-                hits += 1
-                attempts_on_hit.append(1)
+        try:
+            for _ in range(iterations):
+                item = eng.create_item(base_name, ilvl, influence)
+                for step in steps:
+                    method = step.get("method", "chaos")
+                    self._apply_multistep_method(eng, item, method, step)
+                rolled_groups = {m.group.casefold() for m in item.all_mods}
+                hit = (
+                    target_set.issubset(rolled_groups)
+                    if match == "all"
+                    else bool(target_set & rolled_groups)
+                )
+                if hit:
+                    hits += 1
+                    attempts_on_hit.append(1)
+        except ValueError as e:
+            raise SimDataError(str(e)) from e
         hit_rate = hits / iterations if iterations > 0 else 0
         return {
             "base": base_name,
@@ -333,9 +349,15 @@ class SimService:
         seen: set[tuple[str, str]] = set()
         results = []
         mod_cf = mod_name.casefold()
+        search_terms = self._expand_mod_search_terms(mod_cf)
+
+        def _matches(tag: str) -> bool:
+            tag_cf = tag.casefold()
+            return any(term in tag_cf or tag_cf in term for term in search_terms)
+
         for fossil in fossils:
             for tag, multiplier in fossil.get("positive_weights", {}).items():
-                if mod_cf in tag.casefold():
+                if _matches(tag):
                     key = (fossil["name"], tag)
                     if key not in seen:
                         seen.add(key)
@@ -354,7 +376,7 @@ class SimService:
                             }
                         )
             for tag, multiplier in fossil.get("negative_weights", {}).items():
-                if mod_cf in tag.casefold():
+                if _matches(tag):
                     key = (fossil["name"], tag)
                     if key not in seen:
                         seen.add(key)
@@ -367,7 +389,7 @@ class SimService:
                             }
                         )
             for tag in fossil.get("blocked", []):
-                if mod_cf in tag.casefold():
+                if _matches(tag):
                     key = (fossil["name"], tag)
                     if key not in seen:
                         seen.add(key)
@@ -381,6 +403,20 @@ class SimService:
                         )
         results.sort(key=lambda x: x["multiplier"], reverse=True)
         return results
+
+    @staticmethod
+    def _expand_mod_search_terms(mod_cf: str) -> list[str]:
+        """Expand a mod name into search terms for fossil tag matching.
+
+        Splits camelCase/PascalCase names into components so "ColdResistance"
+        matches fossil tags like "cold" and "resistance".
+        """
+        terms = [mod_cf]
+        parts = re.findall(r"[A-Z]?[a-z]+|[A-Z]+(?=[A-Z][a-z]|\b)", mod_cf, re.IGNORECASE)
+        terms.extend(p.casefold() for p in parts if len(p) > MIN_SEARCH_TERM_LENGTH)
+        if "_" in mod_cf:
+            terms.extend(p.casefold() for p in mod_cf.split("_") if len(p) > MIN_SEARCH_TERM_LENGTH)
+        return list(dict.fromkeys(terms))
 
     async def compare_methods(
         self,

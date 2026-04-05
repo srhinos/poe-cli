@@ -159,7 +159,9 @@ def _parse_tree_section(root: Element, build: BuildDocument) -> None:
                         node_id=int(ov_el.get("nodeId", "0")),
                         name=ov_el.get("dn", ""),
                         icon=ov_el.get("icon", ""),
-                        text=(ov_el.text or "").strip(),
+                        text=" / ".join(
+                            part.strip() for part in (ov_el.text or "").split("\t") if part.strip()
+                        ),
                         effect_image=ov_el.get("activeEffectImage", ""),
                     )
                 )
@@ -528,6 +530,57 @@ def _parse_item_text(item: Item) -> None:
 
     if item.name == "New Item" and item.base_type:
         item.name = item.base_type
+
+    _assign_affix_metadata(item)
+    _filter_variant_mods(item)
+
+
+def _assign_affix_metadata(item: Item) -> None:
+    """Tag explicits as prefix/suffix and assign mod_ids from slot data.
+
+    PoB item text lists Prefix:/Suffix: slots in order, then explicit mod
+    lines in the same order: filled-prefix mods first, filled-suffix mods
+    next. Crafted/fractured/special mods are excluded from the slot mapping.
+    """
+    filled_prefixes = [s for s in item.prefix_slots if s != "None"]
+    filled_suffixes = [s for s in item.suffix_slots if s != "None"]
+    if not filled_prefixes and not filled_suffixes:
+        return
+
+    regular = [m for m in item.explicits if not m.is_crafted and not m.is_fractured]
+    prefix_count = len(filled_prefixes)
+    for i, mod in enumerate(regular):
+        if i < prefix_count:
+            mod.is_prefix = True
+            mod.mod_id = filled_prefixes[i]
+        elif i - prefix_count < len(filled_suffixes):
+            mod.is_suffix = True
+            mod.mod_id = filled_suffixes[i - prefix_count]
+
+
+def _filter_variant_mods(item: Item) -> None:
+    """Remove explicit mods that belong to a non-selected variant.
+
+    PoB unique items with variants store all variant mods in the item text,
+    tagged with {variant:N}. Only mods matching the selected variant (or
+    the variantAlt fields for that slot position) should be kept.
+    """
+    if not item.variant and not item.selected_variant:
+        return
+    selected = str(item.selected_variant) if item.selected_variant else item.variant
+    alt_variants = {
+        item.variant_alt,
+        item.variant_alt2,
+        item.variant_alt3,
+        item.variant_alt4,
+        item.variant_alt5,
+    }
+    active_variants = {selected} | {v for v in alt_variants if v}
+    active_variants.discard("")
+    if not active_variants:
+        return
+    item.explicits = [m for m in item.explicits if not m.variant or m.variant in active_variants]
+    item.implicits = [m for m in item.implicits if not m.variant or m.variant in active_variants]
 
 
 _BOOL_MARKERS = frozenset(

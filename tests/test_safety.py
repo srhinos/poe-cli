@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import pytest
 
-from poe.exceptions import BuildValidationError
+from poe.exceptions import BuildNotFoundError, BuildValidationError
 from poe.paths import resolve_build_file
 from poe.safety import (
     get_claude_builds_path,
@@ -103,7 +103,7 @@ class TestClaudeBuildsPaths:
 
     def test_resolve_for_write_not_found(self, tmp_builds_dir, monkeypatch):
         monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_builds_dir))
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises((FileNotFoundError, BuildNotFoundError)):
             resolve_for_write("NonExistent")
 
     def test_resolve_prefers_claude_copy(self, tmp_builds_dir, monkeypatch):

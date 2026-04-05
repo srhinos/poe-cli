@@ -34,13 +34,13 @@ class TestGetPobPath:
     def test_not_found(self, tmp_path, monkeypatch):
         monkeypatch.delenv("POB_PATH", raising=False)
         monkeypatch.setenv("APPDATA", str(tmp_path / "nonexistent"))
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises((FileNotFoundError, BuildNotFoundError)):
             get_pob_path()
 
     def test_env_path_not_exists(self, monkeypatch):
         monkeypatch.setenv("POB_PATH", "/nonexistent/path/that/does/not/exist")
         monkeypatch.setenv("APPDATA", "/also/nonexistent")
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises((FileNotFoundError, BuildNotFoundError)):
             get_pob_path()
 
 
@@ -58,7 +58,7 @@ class TestGetBuildsPath:
         monkeypatch.delenv("POB_BUILDS_PATH", raising=False)
         monkeypatch.setenv("HOME", str(tmp_path))
         monkeypatch.setenv("USERPROFILE", str(tmp_path))
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises((FileNotFoundError, BuildNotFoundError)):
             get_builds_path()
 
 
@@ -105,7 +105,7 @@ class TestResolveBuildFile:
 
     def test_not_found(self, tmp_builds_dir, monkeypatch):
         monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_builds_dir))
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises((FileNotFoundError, BuildNotFoundError)):
             resolve_build_file("DoesNotExist")
 
 

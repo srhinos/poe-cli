@@ -81,7 +81,7 @@ class BuildService:
         try:
             path = resolve_or_file(name, file_path)
             return path, parse_build_file(path, **kwargs)
-        except FileNotFoundError as e:
+        except (FileNotFoundError, BuildNotFoundError) as e:
             raise BuildNotFoundError(str(e)) from e
 
     def load_for_write(
@@ -93,7 +93,7 @@ class BuildService:
             else:
                 path, cloned_from = resolve_for_write(name)
             return path, parse_build_file(path), cloned_from
-        except FileNotFoundError as e:
+        except (FileNotFoundError, BuildNotFoundError) as e:
             raise BuildNotFoundError(str(e)) from e
 
     def save(self, build_obj: BuildDocument, path: Path) -> None:
@@ -152,7 +152,7 @@ class BuildService:
         else:
             try:
                 claude_dir = get_claude_builds_path()
-            except FileNotFoundError:
+            except (FileNotFoundError, BuildNotFoundError):
                 claude_dir = None
             filename = name if name.endswith(".xml") else name + ".xml"
             if claude_dir and (claude_dir / filename).exists():
@@ -160,7 +160,7 @@ class BuildService:
             else:
                 try:
                     path = resolve_build_file(name)
-                except FileNotFoundError as e:
+                except (FileNotFoundError, BuildNotFoundError) as e:
                     raise BuildNotFoundError(str(e)) from e
 
         if not path.exists():
@@ -233,7 +233,8 @@ class BuildService:
             inputs1 = {inp.name: inp.value for inp in (cfg1.inputs if cfg1 else [])}
             inputs2 = {inp.name: inp.value for inp in (cfg2.inputs if cfg2 else [])}
             for k in sorted(set(inputs1) | set(inputs2)):
-                v1, v2 = inputs1.get(k), inputs2.get(k)
+                v1 = inputs1.get(k, "(not set)")
+                v2 = inputs2.get(k, "(not set)")
                 if v1 != v2:
                     config_diff[k] = {name1: v1, name2: v2}
         return BuildComparison(
@@ -242,12 +243,14 @@ class BuildService:
                 class_name=build1.class_name,
                 ascendancy=build1.ascend_class_name,
                 level=build1.level,
+                version=build1.target_version,
             ),
             build2=BuildMetadata(
                 name=name2,
                 class_name=build2.class_name,
                 ascendancy=build2.ascend_class_name,
                 level=build2.level,
+                version=build2.target_version,
             ),
             stat_comparison=comparison,
             config_diff=config_diff,
@@ -276,7 +279,7 @@ class BuildService:
     def export(self, name: str, dest: str) -> MutationResult:
         try:
             src = resolve_build_file(name)
-        except FileNotFoundError as e:
+        except (FileNotFoundError, BuildNotFoundError) as e:
             raise BuildNotFoundError(str(e)) from e
         dest_path = Path(dest)
         if dest_path.is_dir():
@@ -287,7 +290,7 @@ class BuildService:
     def rename(self, name: str, new_name: str) -> MutationResult:
         try:
             src = resolve_build_file(name)
-        except FileNotFoundError as e:
+        except (FileNotFoundError, BuildNotFoundError) as e:
             raise BuildNotFoundError(str(e)) from e
         if not is_inside_claude_folder(src):
             raise BuildValidationError("Cannot rename builds outside the Claude/ folder")
@@ -306,7 +309,7 @@ class BuildService:
     ) -> MutationResult:
         try:
             src = Path(file_path) if file_path else resolve_build_file(name)
-        except FileNotFoundError as e:
+        except (FileNotFoundError, BuildNotFoundError) as e:
             raise BuildNotFoundError(str(e)) from e
         if not src.exists():
             raise BuildNotFoundError(f"File not found: {src}")

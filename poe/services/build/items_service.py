@@ -338,8 +338,11 @@ class ItemsService:
     ) -> list[EquippedItem]:
         _, build_obj = self._build.load(name, file_path)
         equipped = build_obj.get_equipped_items()
+        flask_slots = set(SLOT_TYPE_MAP["flask"])
         result = []
         for slot_name, item in equipped:
+            if slot_name in flask_slots:
+                continue
             if slot and not _slot_matches_type(slot_name, slot):
                 continue
             if influence and influence not in item.influences:

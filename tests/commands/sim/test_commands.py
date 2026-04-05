@@ -303,7 +303,10 @@ SAMPLE_BENCH_CRAFTS = [
 
 class TestCraftBench:
     def test_success(self):
-        cd = _mock_repoe_data(get_bench_crafts=SAMPLE_BENCH_CRAFTS)
+        cd = _mock_repoe_data(
+            get_bench_crafts=SAMPLE_BENCH_CRAFTS,
+            get_base_item={"name": "Hubris Circlet"},
+        )
         with patch(_PATCH_CD, return_value=cd):
             result = invoke_cli(cli, ["sim", "bench", "Hubris Circlet", "--json"])
         assert result.exit_code == 0

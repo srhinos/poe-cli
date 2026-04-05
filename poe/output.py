@@ -74,6 +74,13 @@ def _format_human(data: Any) -> str:
     return _format_dict_human(data)
 
 
+def _format_value(v: Any) -> str:
+    """Format a scalar value for human output, converting tuples to lists."""
+    if isinstance(v, tuple):
+        return str(list(v))
+    return str(v)
+
+
 def _format_dict_human(data: Any, indent: int = 0) -> str:
     lines: list[str] = []
     prefix = "  " * indent
@@ -82,15 +89,20 @@ def _format_dict_human(data: Any, indent: int = 0) -> str:
             if isinstance(v, (dict, list)):
                 lines.append(f"{prefix}{k}:")
                 lines.append(_format_dict_human(v, indent + 1))
+            elif isinstance(v, tuple):
+                lines.append(f"{prefix}{k}:")
+                lines.append(_format_dict_human(list(v), indent + 1))
             else:
-                lines.append(f"{prefix}{k}: {v}")
-    elif isinstance(data, list):
+                lines.append(f"{prefix}{k}: {_format_value(v)}")
+    elif isinstance(data, (list, tuple)):
         for item in data:
             if isinstance(item, dict):
                 lines.append(_format_dict_human(item, indent))
                 lines.append("")
+            elif isinstance(item, (list, tuple)):
+                lines.append(f"{prefix}- {list(item)}")
             else:
                 lines.append(f"{prefix}- {item}")
     else:
-        lines.append(f"{prefix}{data}")
+        lines.append(f"{prefix}{_format_value(data)}")
     return "\n".join(lines)
