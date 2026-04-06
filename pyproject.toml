@@ -1,6 +1,6 @@
 [project]
 name = "poe-tools"
-version = "0.1.0"
+version = "0.2.0"
 description = "Interact with all your favorite PoE tools through the command line"
 readme = "README.md"
 requires-python = ">=3.12"
