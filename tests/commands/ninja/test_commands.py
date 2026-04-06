@@ -93,6 +93,26 @@ class TestLeagueInfoForce:
         assert result.exit_code == 0
 
 
+class TestTooltipNotFound:
+    @patch("poe.commands.ninja.commands.NinjaClient")
+    def test_tooltip_not_found(self, mock_cls):
+        from poe.exceptions import PoeError
+
+        mock_client = MagicMock()
+        mock_client.get_json.return_value = None
+        mock_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
+        mock_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        with patch("poe.commands.ninja.commands.BuildsService") as mock_builds_cls:
+            mock_svc = MagicMock()
+            mock_svc.get_generic_tooltip.return_value = None
+            mock_builds_cls.return_value = mock_svc
+
+            result = invoke_cli(app, ["ninja", "tooltip", "FakeItem", "--json"])
+        assert result.exit_code == 1
+        assert isinstance(result.exception, PoeError)
+
+
 class TestNinjaHelp:
     def test_ninja_help(self):
         result = invoke_cli(app, ["ninja", "--help"])

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from unittest.mock import MagicMock, patch
 
 from poe.app import app as cli
 from poe.services.build.xml.parser import parse_build_file
@@ -1079,3 +1080,612 @@ class TestTreeSearch:
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert any(str(n["node_id"]).startswith("100") for n in data)
+
+
+# ── config get --file ────────────────────────────────────────────────────────
+
+
+class TestConfigGetFile:
+    def test_config_get_with_file(self, build_file):
+        result = invoke_cli(
+            cli,
+            ["build", "config", "get", "test", "--file", str(build_file), "--json"],
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert isinstance(data, dict)
+
+
+# ── config sets ──────────────────────────────────────────────────────────────
+
+
+class TestConfigSets:
+    def test_config_sets(self, build_file):
+        result = invoke_cli(
+            cli,
+            ["build", "config", "sets", "test", "--file", str(build_file), "--json"],
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert isinstance(data, list)
+        assert len(data) >= 1
+
+
+# ── config add-set ───────────────────────────────────────────────────────────
+
+
+class TestConfigAddSet:
+    def test_config_add_set(self, build_file):
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "config",
+                "add-set",
+                "test",
+                "--title",
+                "Bossing",
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+
+
+# ── config remove-set ────────────────────────────────────────────────────────
+
+
+class TestConfigRemoveSet:
+    def test_config_remove_set(self, build_file):
+        invoke_cli(
+            cli,
+            ["build", "config", "add-set", "test", "--title", "Temp", "--file", str(build_file)],
+        )
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "config",
+                "remove-set",
+                "test",
+                "--config-set",
+                "2",
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+
+
+# ── config switch-set ────────────────────────────────────────────────────────
+
+
+class TestConfigSwitchSet:
+    def test_config_switch_set(self, build_file):
+        invoke_cli(
+            cli,
+            ["build", "config", "add-set", "test", "--title", "Alt", "--file", str(build_file)],
+        )
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "config",
+                "switch-set",
+                "test",
+                "--config-set",
+                "2",
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+
+
+# ── gems sets ────────────────────────────────────────────────────────────────
+
+
+class TestGemsSets:
+    def test_gems_sets(self):
+        from poe.models.build.gems import SkillSetList, SkillSetSummary
+
+        mock_svc = MagicMock()
+        mock_svc.list_sets.return_value = SkillSetList(
+            active_skill_set=1,
+            sets=[SkillSetSummary(id=1, active=True)],
+        )
+        with patch("poe.commands.build.gems.commands._svc", return_value=mock_svc):
+            result = invoke_cli(cli, ["build", "gems", "sets", "test", "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "sets" in data
+
+
+# ── gems set-active ──────────────────────────────────────────────────────────
+
+
+class TestGemsSetActive:
+    def test_gems_set_active(self, build_file):
+        result = invoke_cli(
+            cli,
+            ["build", "gems", "set-active", "test", "--skill-set", "1", "--file", str(build_file)],
+        )
+        assert result.exit_code == 0
+
+
+# ── gems add-set ─────────────────────────────────────────────────────────────
+
+
+class TestGemsAddSet:
+    def test_gems_add_set(self, build_file):
+        result = invoke_cli(
+            cli,
+            ["build", "gems", "add-set", "test", "--file", str(build_file)],
+        )
+        assert result.exit_code == 0
+
+
+# ── gems remove-set ──────────────────────────────────────────────────────────
+
+
+class TestGemsRemoveSet:
+    def test_gems_remove_set(self, build_file):
+        invoke_cli(cli, ["build", "gems", "add-set", "test", "--file", str(build_file)])
+        result = invoke_cli(
+            cli,
+            ["build", "gems", "remove-set", "test", "--skill-set", "2", "--file", str(build_file)],
+        )
+        assert result.exit_code == 0
+
+
+# ── items list --file ────────────────────────────────────────────────────────
+
+
+class TestItemsListFile:
+    def test_items_list_with_file(self, build_file):
+        result = invoke_cli(
+            cli,
+            ["build", "items", "list", "test", "--file", str(build_file), "--json"],
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert isinstance(data, (list, dict))
+
+
+# ── items sets ───────────────────────────────────────────────────────────────
+
+
+class TestItemsSets:
+    def test_items_sets(self):
+        from poe.models.build.items import ItemSetList, ItemSetSummary
+
+        mock_svc = MagicMock()
+        mock_svc.list_sets.return_value = ItemSetList(
+            active_item_set="1",
+            sets=[ItemSetSummary(id="1", title="Default", active=True, slot_count=1)],
+        )
+        with patch("poe.commands.build.items.commands._svc", return_value=mock_svc):
+            result = invoke_cli(cli, ["build", "items", "sets", "test", "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "sets" in data
+
+
+# ── items set-active ─────────────────────────────────────────────────────────
+
+
+class TestItemsSetActive:
+    def test_items_set_active(self, build_file):
+        result = invoke_cli(
+            cli,
+            ["build", "items", "set-active", "test", "--item-set", "1", "--file", str(build_file)],
+        )
+        assert result.exit_code == 0
+
+
+# ── items add-set ────────────────────────────────────────────────────────────
+
+
+class TestItemsAddSet:
+    def test_items_add_set(self, build_file):
+        result = invoke_cli(
+            cli,
+            ["build", "items", "add-set", "test", "--file", str(build_file)],
+        )
+        assert result.exit_code == 0
+
+
+# ── items remove-set ─────────────────────────────────────────────────────────
+
+
+class TestItemsRemoveSet:
+    def test_items_remove_set(self, build_file):
+        invoke_cli(cli, ["build", "items", "add-set", "test", "--file", str(build_file)])
+        result = invoke_cli(
+            cli,
+            ["build", "items", "remove-set", "test", "--item-set", "2", "--file", str(build_file)],
+        )
+        assert result.exit_code == 0
+
+
+# ── items import ─────────────────────────────────────────────────────────────
+
+
+class TestItemsImport:
+    def test_items_import(self, build_file):
+        item_text = "Rarity: RARE\nTest Ring\nDiamond Ring\nImplicits: 0\n+90 to maximum Life\n"
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "items",
+                "import",
+                "test",
+                "--slot",
+                "Ring 1",
+                "--text",
+                item_text,
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+
+
+# ── items move ───────────────────────────────────────────────────────────────
+
+
+class TestItemsMove:
+    def test_items_move(self, build_file):
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "items",
+                "move",
+                "test",
+                "--from",
+                "Helmet",
+                "--to",
+                "Body Armour",
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+
+
+# ── items swap ───────────────────────────────────────────────────────────────
+
+
+class TestItemsSwap:
+    def test_items_swap(self, build_file):
+        invoke_cli(
+            cli,
+            [
+                "build",
+                "items",
+                "add",
+                "test",
+                "--slot",
+                "Body Armour",
+                "--base",
+                "Vaal Regalia",
+                "--file",
+                str(build_file),
+            ],
+        )
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "items",
+                "swap",
+                "test",
+                "--slot1",
+                "Helmet",
+                "--slot2",
+                "Body Armour",
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+
+
+# ── items search ─────────────────────────────────────────────────────────────
+
+
+class TestItemsSearch:
+    def test_items_search(self, build_file):
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "items",
+                "search",
+                "test",
+                "--mod",
+                "Life",
+                "--file",
+                str(build_file),
+                "--json",
+            ],
+        )
+        assert result.exit_code == 0
+
+
+# ── items compare ────────────────────────────────────────────────────────────
+
+
+class TestItemsCompare:
+    def test_items_compare_json(self, build_file):
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "items",
+                "compare",
+                "test",
+                "--slot",
+                "Helmet",
+                "--file",
+                str(build_file),
+                "--json",
+            ],
+        )
+        assert result.exit_code == 0
+
+
+# ── jewels socket ────────────────────────────────────────────────────────────
+
+
+class TestJewelsSocket:
+    def test_jewels_socket(self, build_file):
+        invoke_cli(
+            cli,
+            [
+                "build",
+                "jewels",
+                "add",
+                "test",
+                "--base",
+                "Cobalt Jewel",
+                "--slot",
+                "Jewel 1",
+                "--file",
+                str(build_file),
+            ],
+        )
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "jewels",
+                "socket",
+                "test",
+                "--id",
+                "2",
+                "--node",
+                "26725",
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+
+
+# ── jewels unsocket ──────────────────────────────────────────────────────────
+
+
+class TestJewelsUnsocket:
+    def test_jewels_unsocket(self, build_file):
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "jewels",
+                "unsocket",
+                "test",
+                "--id",
+                "1",
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+
+
+# ── jewels remove ────────────────────────────────────────────────────────────
+
+
+class TestJewelsRemove:
+    def test_jewels_remove_by_slot(self, build_file):
+        invoke_cli(
+            cli,
+            [
+                "build",
+                "jewels",
+                "add",
+                "test",
+                "--base",
+                "Cobalt Jewel",
+                "--slot",
+                "Jewel 1",
+                "--file",
+                str(build_file),
+            ],
+        )
+        result = invoke_cli(
+            cli,
+            [
+                "build",
+                "jewels",
+                "remove",
+                "test",
+                "--slot",
+                "Jewel 1",
+                "--file",
+                str(build_file),
+            ],
+        )
+        assert result.exit_code == 0
+
+
+# ── tree specs ───────────────────────────────────────────────────────────────
+
+
+class TestTreeSpecs:
+    def test_tree_specs(self):
+        mock_svc = MagicMock()
+        mock_svc.get_specs.return_value = [{"index": 1, "title": "Main", "active": True}]
+        with patch("poe.commands.build.tree.commands._svc", return_value=mock_svc):
+            result = invoke_cli(cli, ["build", "tree", "specs", "test", "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert isinstance(data, list)
+
+
+# ── tree get ─────────────────────────────────────────────────────────────────
+
+
+class TestTreeGet:
+    def test_tree_get(self):
+        mock_svc = MagicMock()
+        mock_svc.get_tree.return_value = {"nodes": [100, 200], "class_id": 5}
+        with patch("poe.commands.build.tree.commands._svc", return_value=mock_svc):
+            result = invoke_cli(cli, ["build", "tree", "get", "test", "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert isinstance(data, dict)
+
+
+# ── tree compare ─────────────────────────────────────────────────────────────
+
+
+class TestTreeCompare:
+    def test_tree_compare(self):
+        mock_svc = MagicMock()
+        mock_svc.compare_trees.return_value = {"shared": [100], "only_a": [200], "only_b": [300]}
+        with patch("poe.commands.build.tree.commands._svc", return_value=mock_svc):
+            result = invoke_cli(cli, ["build", "tree", "compare", "a", "b", "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "shared" in data
+
+
+# ── tree set-active ──────────────────────────────────────────────────────────
+
+
+class TestTreeSetActive:
+    def test_tree_set_active(self, build_file):
+        result = invoke_cli(
+            cli,
+            ["build", "tree", "set-active", "test", "--spec", "1", "--file", str(build_file)],
+        )
+        assert result.exit_code == 0
+
+
+# ── tree add-spec ────────────────────────────────────────────────────────────
+
+
+class TestTreeAddSpec:
+    def test_tree_add_spec(self, build_file):
+        result = invoke_cli(
+            cli,
+            ["build", "tree", "add-spec", "test", "--title", "Alt", "--file", str(build_file)],
+        )
+        assert result.exit_code == 0
+
+
+# ── tree remove-spec ─────────────────────────────────────────────────────────
+
+
+class TestTreeRemoveSpec:
+    def test_tree_remove_spec(self, build_file):
+        invoke_cli(
+            cli,
+            ["build", "tree", "add-spec", "test", "--title", "TempSpec", "--file", str(build_file)],
+        )
+        result = invoke_cli(
+            cli,
+            ["build", "tree", "remove-spec", "test", "--spec", "2", "--file", str(build_file)],
+        )
+        assert result.exit_code == 0
+
+
+# ── flasks list ─────────────────────────────────────────────────────────────
+
+
+class TestFlasksList:
+    def test_flasks_list(self, build_file):
+        result = invoke_cli(
+            cli,
+            ["build", "flasks", "list", "test", "--file", str(build_file)],
+        )
+        assert result.exit_code == 0
+
+
+# ── flasks remove ───────────────────────────────────────────────────────────
+
+
+class TestFlasksRemove:
+    def test_flasks_remove(self, build_file):
+        invoke_cli(
+            cli,
+            [
+                "build",
+                "flasks",
+                "add",
+                "test",
+                "--base",
+                "Granite Flask",
+                "--slot",
+                "Flask 1",
+                "--file",
+                str(build_file),
+            ],
+        )
+        result = invoke_cli(
+            cli,
+            ["build", "flasks", "remove", "test", "--slot", "Flask 1", "--file", str(build_file)],
+        )
+        assert result.exit_code == 0
+
+
+# ── gems list with skill_set ────────────────────────────────────────────────
+
+
+class TestGemsListCoverage:
+    def test_gems_list(self):
+        from unittest.mock import patch
+
+        mock_svc = MagicMock()
+        mock_svc.list_gems.return_value = []
+        with patch("poe.commands.build.gems.commands._svc", return_value=mock_svc):
+            result = invoke_cli(cli, ["build", "gems", "list", "test", "--json"])
+        assert result.exit_code == 0
+
+
+# ── jewels list ─────────────────────────────────────────────────────────────
+
+
+class TestJewelsList:
+    def test_jewels_list(self, build_file):
+        result = invoke_cli(
+            cli,
+            ["build", "jewels", "list", "test", "--file", str(build_file)],
+        )
+        assert result.exit_code == 0
+
+
+# ── config preset ───────────────────────────────────────────────────────────
+
+
+class TestConfigPreset:
+    def test_config_preset(self, build_file):
+        result = invoke_cli(
+            cli,
+            ["build", "config", "preset", "test", "--preset", "boss", "--file", str(build_file)],
+        )
+        assert result.exit_code == 0

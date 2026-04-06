@@ -1046,6 +1046,86 @@ class TestCraftSimulateMultistep:
 # ── get_tiers ilvl default ──────────────────────────────────────────────────
 
 
+_PATCH_SVC = "poe.commands.sim.commands._svc"
+
+
+class TestFossilOptimizer:
+    def test_fossil_optimizer(self):
+        mock_svc = MagicMock()
+        mock_svc.fossil_optimizer.return_value = [
+            {"fossil": "Jagged Fossil", "tag": "physical", "multiplier": 10.0, "effect": "boost"},
+        ]
+        with patch(_PATCH_SVC, return_value=mock_svc):
+            result = invoke_cli(cli, ["sim", "fossil-optimizer", "physical", "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert len(data) == 1
+        assert data[0]["fossil"] == "Jagged Fossil"
+
+
+class TestCompareCommand:
+    def test_compare(self):
+        mock_svc = MagicMock()
+        mock_svc.compare_methods = AsyncMock(return_value={"chaos": 10, "fossil": 5})
+        with patch(_PATCH_SVC, return_value=mock_svc):
+            result = invoke_cli(
+                cli,
+                [
+                    "sim",
+                    "compare",
+                    "Hubris Circlet",
+                    "--target",
+                    "IncreasedLife",
+                    "--fossils",
+                    "Pristine Fossil,Dense Fossil",
+                    "--json",
+                ],
+            )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["chaos"] == 10
+
+    def test_compare_no_fossils(self):
+        mock_svc = MagicMock()
+        mock_svc.compare_methods = AsyncMock(return_value={"chaos": 10})
+        with patch(_PATCH_SVC, return_value=mock_svc):
+            result = invoke_cli(
+                cli,
+                [
+                    "sim",
+                    "compare",
+                    "Hubris Circlet",
+                    "--target",
+                    "IncreasedLife",
+                    "--json",
+                ],
+            )
+        assert result.exit_code == 0
+
+
+class TestSuggestCommand:
+    def test_suggest(self):
+        mock_svc = MagicMock()
+        mock_svc.suggest_craft.return_value = [{"mod": "Life", "method": "fossil"}]
+        with patch(_PATCH_SVC, return_value=mock_svc):
+            result = invoke_cli(cli, ["sim", "suggest", "--mod", "Life", "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert len(data) == 1
+
+
+class TestWeightsCommand:
+    def test_weights(self):
+        mock_svc = MagicMock()
+        mock_svc.mod_weights.return_value = {"mods": []}
+        with patch(_PATCH_SVC, return_value=mock_svc):
+            result = invoke_cli(
+                cli,
+                ["sim", "weights", "Hubris Circlet", "--json"],
+            )
+        assert result.exit_code == 0
+
+
 class TestGetTiersDefault:
     def test_default_ilvl_is_84(self):
         cd = _mock_repoe_data(get_mod_tiers=[{"tier": 1, "ilvl": 82, "weight": 200}])

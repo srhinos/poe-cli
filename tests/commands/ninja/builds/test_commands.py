@@ -444,3 +444,322 @@ class TestBuildsSearchClassValidation:
 
         result = invoke_cli(app, ["ninja", "builds", "search", "--class", "NonExistentClass123"])
         assert result.exit_code == 1
+
+
+def _make_ninja_context_manager(client):
+    mock_cls = MagicMock()
+    mock_cls.return_value.__enter__ = MagicMock(return_value=client)
+    mock_cls.return_value.__exit__ = MagicMock(return_value=False)
+    return mock_cls
+
+
+def _builds_client(fixture_map=None):
+    client = MagicMock()
+
+    def get_json(path, **_kwargs):
+        if fixture_map:
+            for pattern, data in fixture_map.items():
+                if pattern in path:
+                    return data
+        msg = f"Unmocked: {path}"
+        raise ValueError(msg)
+
+    client.get_json.side_effect = get_json
+    return client
+
+
+class TestBuildsInspectNotFound:
+    @patch("poe.commands.ninja.builds.commands.NinjaClient")
+    def test_inspect_not_found(self, mock_cls):
+        empty_state = {**INDEX_STATE, "snapshotVersions": []}
+        client = _builds_client({"index-state": empty_state})
+        mock_cls.return_value.__enter__ = MagicMock(return_value=client)
+        mock_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = invoke_cli(app, ["ninja", "builds", "inspect", "Account", "NoChar", "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "error" in data
+
+
+class TestBuildsImportCli:
+    @patch("poe.commands.ninja.builds.commands.decode_build")
+    @patch("poe.commands.ninja.builds.commands.get_claude_builds_path")
+    @patch("poe.commands.ninja.builds.commands.NinjaClient")
+    def test_import_success(self, mock_cls, mock_claude_dir, mock_decode, tmp_path):
+        mock_claude_dir.return_value = tmp_path
+        mock_decode.return_value = "<PathOfBuilding/>"
+        client = _builds_client(
+            {
+                "index-state": INDEX_STATE,
+                "/character": POE1_CHARACTER,
+            }
+        )
+        mock_cls.return_value.__enter__ = MagicMock(return_value=client)
+        mock_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = invoke_cli(
+            app,
+            ["ninja", "builds", "import", "TestAccount", "TestChar", "--json"],
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["status"] == "ok"
+
+    @patch("poe.commands.ninja.builds.commands.NinjaClient")
+    def test_import_not_found(self, mock_cls):
+        empty_state = {**INDEX_STATE, "snapshotVersions": []}
+        client = _builds_client({"index-state": empty_state})
+        mock_cls.return_value.__enter__ = MagicMock(return_value=client)
+        mock_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = invoke_cli(
+            app,
+            ["ninja", "builds", "import", "Account", "NoChar", "--json"],
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "error" in data
+
+
+class TestBuildsSearchCli:
+    @patch("poe.commands.ninja.builds.commands.BuildsService")
+    @patch("poe.commands.ninja.builds.commands.NinjaClient")
+    def test_search_success(self, mock_ninja_cls, mock_builds_cls):
+        from poe.models.ninja.builds import DimensionEntry, ResolvedDimension, SearchResults
+
+        mock_svc = MagicMock()
+        mock_svc.search.return_value = SearchResults(
+            total=100,
+            dimensions=[
+                ResolvedDimension(
+                    id="class",
+                    entries=[DimensionEntry(name="Necromancer", count=50, percentage=50.0)],
+                ),
+            ],
+        )
+        mock_builds_cls.return_value = mock_svc
+
+        client = MagicMock()
+        mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
+        mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = invoke_cli(app, ["ninja", "builds", "search", "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert data["total"] == 100
+
+    @patch("poe.commands.ninja.builds.commands.BuildsService")
+    @patch("poe.commands.ninja.builds.commands.NinjaClient")
+    def test_search_no_results(self, mock_ninja_cls, mock_builds_cls):
+        mock_svc = MagicMock()
+        mock_svc.search.return_value = None
+        mock_builds_cls.return_value = mock_svc
+
+        client = MagicMock()
+        mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
+        mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = invoke_cli(app, ["ninja", "builds", "search", "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "error" in data
+
+
+class TestBuildsCompareCli:
+    @patch("poe.commands.ninja.builds.commands.compare_to_meta")
+    @patch("poe.commands.ninja.builds.commands.BuildsService")
+    @patch("poe.commands.ninja.builds.commands.NinjaClient")
+    def test_compare_success(self, mock_ninja_cls, mock_builds_cls, mock_compare):
+        from poe.models.ninja.builds import DimensionEntry, ResolvedDimension, SearchResults
+
+        char = CharacterResponse.model_validate(POE1_CHARACTER)
+        mock_svc = MagicMock()
+        mock_svc.get_character.return_value = char
+        mock_svc.search.return_value = SearchResults(
+            total=100,
+            dimensions=[
+                ResolvedDimension(
+                    id="class",
+                    entries=[DimensionEntry(name="Pathfinder", count=50, percentage=50.0)],
+                ),
+            ],
+        )
+        mock_builds_cls.return_value = mock_svc
+        mock_compare.return_value = {"character": "TestChar", "diff": {}}
+
+        client = MagicMock()
+        mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
+        mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = invoke_cli(
+            app, ["ninja", "builds", "compare", "TestAccount", "TestChar", "--json"]
+        )
+        assert result.exit_code == 0
+
+    @patch("poe.commands.ninja.builds.commands.BuildsService")
+    @patch("poe.commands.ninja.builds.commands.NinjaClient")
+    def test_compare_char_not_found(self, mock_ninja_cls, mock_builds_cls):
+        mock_svc = MagicMock()
+        mock_svc.get_character.return_value = None
+        mock_builds_cls.return_value = mock_svc
+
+        client = MagicMock()
+        mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
+        mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = invoke_cli(app, ["ninja", "builds", "compare", "Account", "NoChar", "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "error" in data
+
+    @patch("poe.commands.ninja.builds.commands.BuildsService")
+    @patch("poe.commands.ninja.builds.commands.NinjaClient")
+    def test_compare_no_meta_data(self, mock_ninja_cls, mock_builds_cls):
+        char = CharacterResponse.model_validate(POE1_CHARACTER)
+        mock_svc = MagicMock()
+        mock_svc.get_character.return_value = char
+        mock_svc.search.return_value = None
+        mock_builds_cls.return_value = mock_svc
+
+        client = MagicMock()
+        mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
+        mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = invoke_cli(
+            app, ["ninja", "builds", "compare", "TestAccount", "TestChar", "--json"]
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "error" in data
+
+
+class TestBuildsSuggestUpgradeCli:
+    @patch("poe.commands.ninja.builds.commands.BuildsService")
+    @patch("poe.commands.ninja.builds.commands.DiscoveryService")
+    @patch("poe.commands.ninja.builds.commands.NinjaClient")
+    def test_suggest_upgrade_char_not_found(self, mock_ninja_cls, mock_disc_cls, mock_builds_cls):
+        mock_disc = MagicMock()
+        mock_disc.get_current_league.return_value = MagicMock(name="Mirage")
+        mock_disc_cls.return_value = mock_disc
+
+        mock_svc = MagicMock()
+        mock_svc.get_character.return_value = None
+        mock_builds_cls.return_value = mock_svc
+
+        client = MagicMock()
+        mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
+        mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = invoke_cli(
+            app, ["ninja", "builds", "suggest-upgrade", "Account", "NoChar", "--json"]
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "error" in data
+
+    @patch("poe.commands.ninja.builds.commands.DiscoveryService")
+    @patch("poe.commands.ninja.builds.commands.NinjaClient")
+    def test_suggest_upgrade_no_league(self, mock_ninja_cls, mock_disc_cls):
+        mock_disc = MagicMock()
+        mock_disc.get_current_league.return_value = None
+        mock_disc_cls.return_value = mock_disc
+
+        client = MagicMock()
+        mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
+        mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = invoke_cli(
+            app, ["ninja", "builds", "suggest-upgrade", "Account", "Char", "--json"]
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "error" in data
+
+
+class TestBuildsHeatmapCli:
+    @patch("poe.commands.ninja.builds.commands.AtlasService")
+    @patch("poe.commands.ninja.builds.commands.BuildsService")
+    @patch("poe.commands.ninja.builds.commands.NinjaClient")
+    def test_heatmap(self, mock_ninja_cls, mock_builds_cls, mock_atlas_cls):
+        mock_atlas = MagicMock()
+        mock_atlas.get_heatmap.return_value = [
+            {"name": "Life Node", "count": 80, "percentage": 80.0, "zone": "mandatory"},
+        ]
+        mock_atlas_cls.return_value = mock_atlas
+
+        client = MagicMock()
+        mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
+        mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = invoke_cli(app, ["ninja", "builds", "heatmap", "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert isinstance(data, list)
+
+
+class TestBuildsImportDecodeError:
+    @patch("poe.commands.ninja.builds.commands.decode_build")
+    @patch("poe.commands.ninja.builds.commands.get_claude_builds_path")
+    @patch("poe.commands.ninja.builds.commands.NinjaClient")
+    def test_import_decode_error(self, mock_cls, mock_claude_dir, mock_decode, tmp_path):
+        from poe.exceptions import CodecError
+
+        mock_claude_dir.return_value = tmp_path
+        mock_decode.side_effect = ValueError("bad decode")
+        client = _builds_client(
+            {
+                "index-state": INDEX_STATE,
+                "/character": POE1_CHARACTER,
+            }
+        )
+        mock_cls.return_value.__enter__ = MagicMock(return_value=client)
+        mock_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = invoke_cli(
+            app,
+            ["ninja", "builds", "import", "TestAccount", "TestChar", "--json"],
+        )
+        assert result.exit_code == 1
+        assert isinstance(result.exception, CodecError)
+
+
+class TestBuildsSuggestUpgradeSuccess:
+    @patch("poe.commands.ninja.builds.commands.find_budget_alternatives")
+    @patch("poe.commands.ninja.builds.commands.cost_build")
+    @patch("poe.commands.ninja.builds.commands.EconomyService")
+    @patch("poe.commands.ninja.builds.commands.BuildsService")
+    @patch("poe.commands.ninja.builds.commands.DiscoveryService")
+    @patch("poe.commands.ninja.builds.commands.NinjaClient")
+    def test_suggest_upgrade_success(
+        self,
+        mock_ninja_cls,
+        mock_disc_cls,
+        mock_builds_cls,
+        mock_econ_cls,
+        mock_cost,
+        mock_find,
+    ):
+        mock_disc = MagicMock()
+        mock_disc.get_current_league.return_value = MagicMock(name="Mirage")
+        mock_disc_cls.return_value = mock_disc
+
+        char = CharacterResponse.model_validate(POE1_CHARACTER)
+        mock_svc = MagicMock()
+        mock_svc.get_character.return_value = char
+        mock_builds_cls.return_value = mock_svc
+
+        mock_cost.return_value = {"total": 100}
+        mock_find.return_value = [{"slot": "Belt", "upgrade": "Mageblood"}]
+
+        client = MagicMock()
+        mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
+        mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = invoke_cli(
+            app,
+            ["ninja", "builds", "suggest-upgrade", "TestAccount", "TestChar", "--json"],
+        )
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert isinstance(data, list)

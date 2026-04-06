@@ -279,3 +279,107 @@ class TestPopularNodesTopN:
         nodes_10 = svc.get_popular_nodes(top_n=10)
         assert len(nodes_3) <= 3
         assert len(nodes_10) <= 10
+
+
+class TestAtlasProfitCli:
+    @patch("poe.commands.ninja.atlas.commands.NinjaClient")
+    def test_atlas_profit_cli(self, mock_cls):
+        client = MagicMock()
+
+        def get_json(path, **_kwargs):
+            if "atlas-tree-index-state" in path:
+                return ATLAS_TREE_INDEX_STATE
+            if "index-state" in path:
+                return {
+                    "economyLeagues": [{"name": "Mirage", "url": "mirage"}],
+                    "oldEconomyLeagues": [],
+                    "snapshotVersions": [],
+                    "buildLeagues": [],
+                    "oldBuildLeagues": [],
+                }
+            msg = f"Unmocked: {path}"
+            raise ValueError(msg)
+
+        client.get_json.side_effect = get_json
+        client.get_protobuf.return_value = (FIXTURES / "search_result.bin").read_bytes()
+        mock_cls.return_value.__enter__ = MagicMock(return_value=client)
+        mock_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = invoke_cli(app, ["ninja", "atlas", "profit", "Mirage", "--json"])
+        assert result.exit_code == 0
+
+
+class TestAtlasResolveLeague:
+    @patch("poe.commands.ninja.atlas.commands.NinjaClient")
+    def test_atlas_profit_with_league(self, mock_cls):
+        client = MagicMock()
+
+        def get_json(path, **_kwargs):
+            if "atlas-tree-index-state" in path:
+                return ATLAS_TREE_INDEX_STATE
+            if "index-state" in path:
+                return {
+                    "economyLeagues": [{"name": "Mirage", "url": "mirage"}],
+                    "oldEconomyLeagues": [],
+                    "snapshotVersions": [],
+                    "buildLeagues": [],
+                    "oldBuildLeagues": [],
+                }
+            msg = f"Unmocked: {path}"
+            raise ValueError(msg)
+
+        client.get_json.side_effect = get_json
+        client.get_protobuf.return_value = (FIXTURES / "search_result.bin").read_bytes()
+        mock_cls.return_value.__enter__ = MagicMock(return_value=client)
+        mock_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = invoke_cli(app, ["ninja", "atlas", "profit", "--json"])
+        assert result.exit_code == 0
+
+    @patch("poe.commands.ninja.atlas.commands.NinjaClient")
+    def test_atlas_profit_no_league(self, mock_cls):
+        client = MagicMock()
+
+        def get_json(path, **_kwargs):
+            if "atlas-tree-index-state" in path:
+                return ATLAS_TREE_INDEX_STATE
+            if "index-state" in path:
+                return {
+                    "economyLeagues": [],
+                    "oldEconomyLeagues": [],
+                    "snapshotVersions": [],
+                    "buildLeagues": [],
+                    "oldBuildLeagues": [],
+                }
+            msg = f"Unmocked: {path}"
+            raise ValueError(msg)
+
+        client.get_json.side_effect = get_json
+        client.get_protobuf.return_value = (FIXTURES / "search_result.bin").read_bytes()
+        mock_cls.return_value.__enter__ = MagicMock(return_value=client)
+        mock_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = invoke_cli(app, ["ninja", "atlas", "profit", "--json"])
+        assert result.exit_code == 1
+
+
+class TestAtlasSearchCliNoData:
+    @patch("poe.commands.ninja.atlas.commands.NinjaClient")
+    def test_atlas_search_no_data(self, mock_cls):
+        client = MagicMock()
+        empty = {**ATLAS_TREE_INDEX_STATE, "snapshotVersions": []}
+
+        def get_json(path, **_kwargs):
+            if "atlas-tree-index-state" in path:
+                return empty
+            msg = f"Unmocked: {path}"
+            raise ValueError(msg)
+
+        client.get_json.side_effect = get_json
+        mock_cls.return_value.__enter__ = MagicMock(return_value=client)
+        mock_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        result = invoke_cli(app, ["ninja", "atlas", "search", "--json"])
+        assert result.exit_code == 0
+        data = json.loads(result.output)
+        assert "error" in data
