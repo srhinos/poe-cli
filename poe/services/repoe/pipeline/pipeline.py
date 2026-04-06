@@ -13,6 +13,7 @@ from poe.services.repoe.constants import (
     INFLUENCE_TAG_MAP,
     MAX_PREFIXES_BY_CLASS,
     MAX_SUFFIXES_BY_CLASS,
+    MOD_DOMAIN_FOR_BASE_DOMAIN,
     PLAYER_ITEM_DOMAINS,
 )
 
@@ -44,6 +45,7 @@ def _process_base_items(raw: dict) -> dict[str, dict]:
             continue
         result[name] = {
             "id": meta_path,
+            "domain": entry.get("domain", "item"),
             "item_class": item_class,
             "drop_level": entry.get("drop_level", 0),
             "tags": entry.get("tags", []),
@@ -95,9 +97,14 @@ def _build_mod_pool(base_items: dict[str, dict], mods: dict[str, dict]) -> dict[
     for base in base_items.values():
         base_tags = set(base["tags"])
         base_id = base["id"]
+        base_domain = base.get("domain", "item")
+        default_domains = frozenset({"item", "crafted"})
+        allowed_mod_domains = MOD_DOMAIN_FOR_BASE_DOMAIN.get(base_domain, default_domains)
         matching: list[str] = []
         for mod_id, mod in mods.items():
             if mod["is_essence_only"]:
+                continue
+            if mod.get("domain", "item") not in allowed_mod_domains:
                 continue
             for sw in mod["spawn_weights"]:
                 tag = sw["tag"]

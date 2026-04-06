@@ -454,6 +454,7 @@ class SimService:
                 essence=essence if method == "essence" else None,
                 influence=influence,
                 iterations=iterations,
+                workers=1,
             )
 
             def _finite(v: float) -> float | None:

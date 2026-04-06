@@ -89,6 +89,14 @@ RARITY_REQUIRED: dict[str, str] = {
     "exalt": "rare",
 }
 
+MOD_DOMAIN_FOR_BASE_DOMAIN: dict[str, frozenset[str]] = {
+    "item": frozenset({"item", "crafted", "unveiled", "delve"}),
+    "flask": frozenset({"flask"}),
+    "abyss_jewel": frozenset({"abyss_jewel"}),
+    "affliction_jewel": frozenset({"affliction_jewel", "misc"}),
+    "misc": frozenset({"misc"}),
+}
+
 RECOMBINATOR_TRANSFER_CHANCE = 0.5
 TAINTED_OUTCOME_CHANCE = 0.5
 VALUE_RANGE_LENGTH = 2
