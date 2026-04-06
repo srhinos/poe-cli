@@ -27,7 +27,65 @@ jobs:
       - name: Ruff format check
         run: uv run ruff format --check poe/ tests/
 
+  warm-cache:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: astral-sh/setup-uv@v7
+        with:
+          version: "latest"
+      - name: Set up Python
+        run: uv python install 3.14
+      - name: Install dependencies
+        run: uv sync
+      - name: Restore poe.ninja cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/poe-agent/ninja
+          key: ninja-api-cache-${{ github.run_id }}
+          restore-keys: |
+            ninja-api-cache-
+      - name: Warm poe.ninja cache
+        env:
+          POE_NINJA_CACHE_TTL: "86400"
+        run: |
+          uv run python -c "
+          from poe.services.ninja.client import NinjaClient
+          from poe.services.ninja.discovery import DiscoveryService
+          from poe.services.ninja.economy import EconomyService
+          from poe.services.ninja.history import HistoryService
+          client = NinjaClient()
+          disc = DiscoveryService(client)
+          econ = EconomyService(client)
+          # Warm index states
+          disc.get_poe1_index_state()
+          disc.get_poe2_index_state()
+          disc.get_build_index_state()
+          disc.get_atlas_tree_index_state()
+          # Warm economy data used by tests
+          league = disc.get_current_league()
+          if league:
+              econ.get_prices(league.name, 'Currency')
+              econ.get_prices(league.name, 'UniqueArmour')
+              econ.get_prices(league.name, 'DivinationCard')
+              econ.get_prices(league.name, 'Scarab')
+              econ.get_prices(league.name, 'UniqueAccessory')
+              hist = HistoryService(client, econ)
+              hist.get_price_history(league.name, 'Divine Orb', 'Currency')
+              hist.get_price_history(league.name, 'Headhunter', 'UniqueAccessory')
+          # Warm builds search
+          snap = disc.get_current_snapshot()
+          if snap:
+              raw = client.get_protobuf(
+                  f'/poe1/api/builds/{snap.version}/search',
+                  params={'overview': snap.snapshot_name, 'type': 'exp'},
+              )
+          client.close()
+          print('Cache warmed successfully')
+          "
+
   test:
+    needs: warm-cache
     runs-on: ubuntu-latest
     strategy:
       matrix:
@@ -42,6 +100,13 @@ jobs:
         run: uv python install ${{ matrix.python-version }}
       - name: Install dependencies
         run: uv sync
+      - name: Restore poe.ninja cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/poe-agent/ninja
+          key: ninja-api-cache-${{ github.run_id }}
+          restore-keys: |
+            ninja-api-cache-
       - name: Clone Path of Building for engine tests
         run: |
           if [ "${{ matrix.pob-version }}" = "latest" ]; then
@@ -49,18 +114,17 @@ jobs:
           else
             git clone --depth 1 --branch ${{ matrix.pob-version }} https://github.com/PathOfBuildingCommunity/PathOfBuilding.git /tmp/pob
           fi
-      - name: Run unit and integration tests
+      - name: Run all tests
         env:
           POB_PATH: /tmp/pob
+          POE_NINJA_CACHE_TTL: "86400"
         run: |
           if [ "${{ matrix.python-version }}" = "3.14" ] && [ "${{ matrix.pob-version }}" = "v2.62.0" ]; then
-            # Primary slot: run ALL tests (including integration/live API) with coverage
             uv run pytest tests/ \
               -v --cov=poe --cov-report=xml:coverage.xml --cov-report=json:coverage.json --cov-report=term-missing \
               --cov-fail-under=90
           else
-            # Other matrix slots: skip integration tests that hit external APIs
-            uv run pytest tests/ -v -m "not integration"
+            uv run pytest tests/ -v
           fi
       - name: Check per-module coverage thresholds
         if: matrix.python-version == '3.14' && matrix.pob-version == 'v2.62.0'
