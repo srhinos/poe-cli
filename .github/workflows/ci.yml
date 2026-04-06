@@ -56,7 +56,7 @@ jobs:
           if [ "${{ matrix.python-version }}" = "3.14" ] && [ "${{ matrix.pob-version }}" = "v2.62.0" ]; then
             # Primary slot: run ALL tests (including integration/live API) with coverage
             uv run pytest tests/ \
-              -v --cov=poe --cov-report=xml:coverage.xml --cov-report=term-missing \
+              -v --cov=poe --cov-report=xml:coverage.xml --cov-report=json:coverage.json --cov-report=term-missing \
               --cov-fail-under=90
           else
             # Other matrix slots: skip integration tests that hit external APIs
