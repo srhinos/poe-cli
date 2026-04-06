@@ -56,12 +56,20 @@ jobs:
           uv run pytest tests/ \
             -v --cov=poe --cov-report=xml:coverage.xml --cov-report=term-missing \
             --cov-fail-under=90
-      - name: Upload coverage artifact
+      - name: Check per-module coverage thresholds
+        if: matrix.python-version == '3.14' && matrix.pob-version == 'v2.62.0'
+        run: uv run coverage-threshold
+      - name: Generate coverage text report
+        if: matrix.python-version == '3.14' && matrix.pob-version == 'v2.62.0'
+        run: uv run python -m coverage report > coverage.txt
+      - name: Upload coverage artifacts
         if: matrix.python-version == '3.14' && matrix.pob-version == 'v2.62.0'
         uses: actions/upload-artifact@v7
         with:
           name: coverage-${{ github.sha }}
-          path: coverage.xml
+          path: |
+            coverage.xml
+            coverage.txt
 
   coverage:
     if: github.event_name == 'pull_request'
@@ -71,11 +79,14 @@ jobs:
       - uses: actions/download-artifact@v8
         with:
           name: coverage-${{ github.sha }}
-      - name: Coverage report
-        uses: orgoro/coverage@v3.2
+      - name: Post coverage PR comment
+        uses: MishaKav/pytest-coverage-comment@main
         with:
-          coverageFile: coverage.xml
-          token: ${{ secrets.GITHUB_TOKEN }}
-          thresholdAll: 0.60
-          thresholdNew: 0.80
-          thresholdModified: 0.50
+          pytest-coverage-path: coverage.txt
+          pytest-xml-coverage-path: coverage.xml
+          title: Coverage Report
+          badge-title: coverage
+          hide-badge: false
+          hide-report: false
+          report-only-changed-files: true
+          unique-id-for-comment: coverage-report
