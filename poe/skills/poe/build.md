@@ -35,7 +35,7 @@ poe build gems list "<name>"                   # Active set (default)
 ## Stats, Comparison, Validation
 
 ```bash
-poe build summary "<name>"                     # Quick dashboard (class/level/DPS/life/resists)
+poe build summary "<name>"                     # Quick dashboard (class/level/main skill/DPS/life/resists)
 poe build stats "<name>" --category off        # Offensive stats
 poe build stats "<name>" --category def        # Defensive stats
 poe build compare "<build1>" "<build2>"        # Side-by-side stat diff
@@ -149,7 +149,7 @@ poe build jewels socket "<name>" --id 3 --node 26725
 poe build jewels unsocket "<name>" --id 3
 ```
 
-All write commands accept `--file <path>` to specify an explicit file path instead of resolving by name. Note: `items remove --slot` searches only the active item set. `items add` replaces existing slot assignments. Config presets available: `mapping`, `boss`, `sirus`, `shaper`.
+All write commands accept `--file <path>` to specify an explicit file path instead of resolving by name. Read commands `items list`, `config get` also accept `--file`. Mutation commands `delete`, `rename`, `duplicate`, `import` support `--json` for structured output. Config presets available: `mapping`, `boss`, `sirus`, `shaper`.
 
 **Indexing**: Tree specs are 1-indexed (`--spec 1`). Gem groups are 0-indexed (`--index 0`). Main skill index is 1-based (`--index 1`).
 

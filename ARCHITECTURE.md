@@ -34,9 +34,10 @@ poe/
 │       └── pipeline/         #     Dev-only data ingestion from RePoE subtree
 │
 ├── data/repoe/               # Bundled game data (JSON, read-only at runtime)
-│   ├── base_items.json       #   Item bases with properties
-│   ├── mods.json             #   All game mods with spawn weights
+│   ├── base_items.json       #   Item bases (equipment, flasks, jewels, cluster jewels)
+│   ├── mods.json             #   All craftable mods across all item domains
 │   ├── mod_pool.json         #   Base → mod mappings
+│   ├── stat_translations.json#   Stat ID → display text templates
 │   ├── fossils.json          #   Fossil data
 │   ├── essences.json         #   Essence data
 │   └── bench_crafts.json     #   Crafting bench options
@@ -125,7 +126,7 @@ All commands output JSON by default. Human-readable formatters are registered vi
 
 ## RePoE Data Pipeline
 
-The `pipeline/` package under `poe/services/repoe/` is a **dev-only** tool. It ingests raw data from the vendored `vendor/RePoE/` subtree and produces the bundled JSON files in `poe/data/repoe/`. This pipeline never runs at runtime — users consume pre-built JSON.
+The `pipeline/` package under `poe/services/repoe/` is a **dev-only** tool. It ingests raw data from the vendored `vendor/RePoE/` subtree and produces the bundled JSON files in `poe/data/repoe/`. This pipeline never runs at runtime — users consume pre-built JSON. The pipeline processes base items, mods (across all player-relevant domains: equipment, flasks, jewels, cluster jewels, unveiled, delve), fossils, essences, bench crafts, and stat translations.
 
 The RePoE data is vendored as a git subtree, never fetched over HTTP.
 

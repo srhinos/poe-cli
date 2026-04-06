@@ -22,26 +22,16 @@ from poe.services.build.xml.parser import parse_build_file
 from poe.services.ninja.client import NinjaClient
 from poe.services.ninja.discovery import DiscoveryService
 from poe.services.ninja.economy import EconomyService
-from poe.services.repoe.constants import DEFAULT_ILVL, DEFAULT_ITERATIONS, DEFAULT_MAX_ATTEMPTS
+from poe.services.repoe.constants import (
+    DEFAULT_ILVL,
+    DEFAULT_ITERATIONS,
+    DEFAULT_MAX_ATTEMPTS,
+    RARITY_PRODUCED,
+    RARITY_REQUIRED,
+)
 from poe.services.repoe.data import RepoEData
 from poe.services.repoe.sim import CraftingEngine
 from poe.types import CraftMethod, Influence
-
-_RARITY_PRODUCED: dict[str, str] = {
-    CraftMethod.CHAOS: "rare",
-    CraftMethod.ALCHEMY: "rare",
-    CraftMethod.FOSSIL: "rare",
-    CraftMethod.HARVEST: "rare",
-    CraftMethod.ALT: "magic",
-    CraftMethod.TRANSMUTATION: "magic",
-    CraftMethod.SCOUR: "normal",
-}
-
-_RARITY_REQUIRED: dict[str, str] = {
-    CraftMethod.REGAL: "magic",
-    CraftMethod.AUGMENTATION: "magic",
-    CraftMethod.EXALT: "rare",
-}
 
 
 class SimService:
@@ -273,13 +263,13 @@ class SimService:
         produced_rarity = "normal"
         for i, step in enumerate(steps):
             method = step.get("method", "chaos")
-            required = _RARITY_REQUIRED.get(method)
+            required = RARITY_REQUIRED.get(method)
             if required and produced_rarity != required:
                 raise SimDataError(
                     f"Step {i + 1} ({method}) requires {required} rarity, "
                     f"but previous step produces {produced_rarity} items"
                 )
-            produced_rarity = _RARITY_PRODUCED.get(method, produced_rarity)
+            produced_rarity = RARITY_PRODUCED.get(method, produced_rarity)
         mod_pool = self._data.get_mod_pool(base_name)
         pool_groups = {mod.group.casefold() for mod in mod_pool}
         resolved_targets = []

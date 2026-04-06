@@ -11,6 +11,12 @@ from poe.models.build.items import ItemMod
 from poe.services.build.xml.parser import parse_build_file
 from tests.conftest import PoBXmlBuilder
 
+
+@pytest.fixture()
+def pob_builder(tmp_path: Path) -> PoBXmlBuilder:
+    return PoBXmlBuilder(tmp_path)
+
+
 # ── Generated builds ─────────────────────────────────────────────────────────
 
 

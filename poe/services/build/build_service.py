@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import contextlib
-import re
 import shutil
 from pathlib import Path
 from xml.etree.ElementTree import ParseError as XMLParseError
@@ -25,10 +24,12 @@ from poe.paths import list_build_files, resolve_build_file, resolve_or_file, val
 from poe.safety import get_claude_builds_path, is_inside_claude_folder, resolve_for_write
 from poe.services.build.constants import (
     ASCENDANCY_IDS,
+    CATEGORY_ALIASES,
     CLASS_ID_TO_NAME,
     CLASS_IDS,
     DEFAULT_TREE_VERSION,
     MAX_CHARACTER_LEVEL,
+    POB_COLOR_RE,
     STALE_STATS_WARNING,
     VALID_BANDITS,
     VALID_PANTHEON_MAJOR,
@@ -38,15 +39,6 @@ from poe.services.build.validation import validate_build
 from poe.services.build.xml.parser import parse_build_file
 from poe.services.build.xml.writer import write_build_file
 from poe.types import StatCategory
-
-_CATEGORY_ALIASES: dict[str, str] = {
-    "defence": "def",
-    "defense": "def",
-    "offence": "off",
-    "offense": "off",
-}
-
-_POB_COLOR_RE = re.compile(r"\^x[0-9A-Fa-f]{6}|\^[0-9]")
 
 
 class BuildService:
@@ -199,7 +191,7 @@ class BuildService:
         return build_obj
 
     def stats(self, name: str, *, category: str = StatCategory.ALL) -> StatBlock:
-        category = _CATEGORY_ALIASES.get(category, category)
+        category = CATEGORY_ALIASES.get(category, category)
         valid = {c.value for c in StatCategory}
         if category not in valid:
             raise BuildValidationError(
@@ -305,7 +297,7 @@ class BuildService:
 
     def notes_get(self, name: str, *, file_path: str | None = None) -> BuildNotes:
         _, build_obj = self.load(name, file_path)
-        clean = _POB_COLOR_RE.sub("", build_obj.notes.strip())
+        clean = POB_COLOR_RE.sub("", build_obj.notes.strip())
         return BuildNotes(build_name=name, notes=clean)
 
     def notes_set(self, name: str, notes: str, *, file_path: str | None = None) -> MutationResult:

@@ -122,3 +122,58 @@ NINJA_ENDPOINTS = {
     "currency_history": "/api/data/currencyhistory",
     "item_history": "/api/data/itemhistory",
 }
+
+SIGNED_INT64_MAX = 0x7FFFFFFFFFFFFFFF
+UNSIGNED_INT64_OVERFLOW = 0x10000000000000000
+
+WIRE_VARINT = 0
+WIRE_64BIT = 1
+WIRE_LENGTH_DELIMITED = 2
+WIRE_32BIT = 5
+
+NINJA_DETAILS_BASE = "https://poe.ninja"
+
+CURRENCY_ALIASES: dict[str, str] = {
+    "chaos": "chaos orb",
+    "exalted": "exalted orb",
+    "exalt": "exalted orb",
+    "divine": "divine orb",
+    "mirror": "mirror of kalandra",
+    "vaal": "vaal orb",
+    "alchemy": "orb of alchemy",
+    "alch": "orb of alchemy",
+    "alteration": "orb of alteration",
+    "alt": "orb of alteration",
+    "fusing": "orb of fusing",
+    "jeweller": "jeweller's orb",
+    "chromatic": "chromatic orb",
+    "regret": "orb of regret",
+    "scouring": "orb of scouring",
+    "blessed": "blessed orb",
+    "regal": "regal orb",
+    "annul": "orb of annulment",
+    "annulment": "orb of annulment",
+    "ancient": "ancient orb",
+    "transmute": "orb of transmutation",
+    "augment": "orb of augmentation",
+    "chance": "orb of chance",
+}
+
+CRAFTING_TYPE_MAP: dict[str, list[tuple[str, str]]] = {
+    "currency": [("Currency", "poe1_exchange")],
+    "fossils": [("Fossil", "poe1_exchange")],
+    "essences": [("Essence", "poe1_exchange")],
+    "resonators": [("Resonator", "poe1_exchange")],
+    "beasts": [("Beast", "poe1_stash_item")],
+    "fragments": [("Fragment", "poe1_exchange")],
+    "scarabs": [("Scarab", "poe1_exchange")],
+    "oils": [("Oil", "poe1_exchange")],
+}
+
+TYPE_CANONICAL: dict[str, str] = {
+    t.lower(): t
+    for t in NINJA_POE1_CURRENCY_STASH_TYPES | NINJA_POE1_STASH_TYPES | NINJA_POE1_EXCHANGE_TYPES
+}
+
+HEATMAP_MANDATORY_THRESHOLD = 0.5
+HEATMAP_FLEX_THRESHOLD = 0.1

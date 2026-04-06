@@ -73,6 +73,49 @@ CURRENCY_PATH_NAMES: dict[str, str] = {
     "Metadata/Items/Currency/CurrencyModValues": "Divine Orb",
 }
 
+RARITY_PRODUCED: dict[str, str] = {
+    "chaos": "rare",
+    "alchemy": "rare",
+    "fossil": "rare",
+    "harvest": "rare",
+    "alt": "magic",
+    "transmutation": "magic",
+    "scour": "normal",
+}
+
+RARITY_REQUIRED: dict[str, str] = {
+    "regal": "magic",
+    "augmentation": "magic",
+    "exalt": "rare",
+}
+
 RECOMBINATOR_TRANSFER_CHANCE = 0.5
 TAINTED_OUTCOME_CHANCE = 0.5
 VALUE_RANGE_LENGTH = 2
+
+PLAYER_ITEM_DOMAINS = frozenset(
+    {
+        "item",
+        "crafted",
+        "flask",
+        "abyss_jewel",
+        "affliction_jewel",
+        "misc",
+        "unveiled",
+        "delve",
+        "watchstone",
+        "heist_trinket",
+    }
+)
+
+INFLUENCE_SUFFIXES: frozenset[str] = frozenset(INFLUENCE_TAG_MAP)
+
+BASE_ITEM_DOMAINS = frozenset(
+    {
+        "item",
+        "flask",
+        "abyss_jewel",
+        "affliction_jewel",
+        "misc",
+    }
+)

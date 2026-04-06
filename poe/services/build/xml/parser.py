@@ -1,8 +1,11 @@
 from __future__ import annotations
 
 import contextlib
+import functools
+import json
 import re
 import xml.etree.ElementTree as ET
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from defusedxml import ElementTree as SafeET
@@ -14,15 +17,20 @@ from poe.models.build.items import Item, ItemMod, ItemSet, ItemSlot
 from poe.models.build.stats import StatEntry
 from poe.models.build.tree import MasteryMapping, TreeOverride, TreeSocket, TreeSpec
 from poe.services.build.constants import (
+    AFFIX_NO_MATCH,
+    FLASK_BASE_RE,
     INFLUENCE_LINES,
+    MAGIC_SUFFIX_RE,
     METADATA_PREFIXES,
+    MIN_KEYWORD_LENGTH,
+    MOD_KEYWORD_NOISE,
+    POB_COLOR_RE,
     PREFIX_RE,
     SLOT_MOD_RE,
     SUFFIX_RE,
 )
 
 if TYPE_CHECKING:
-    from pathlib import Path
     from xml.etree.ElementTree import Element
 
 
@@ -387,14 +395,11 @@ def _parse_item_element(item_el: Element) -> Item:
     return item
 
 
-_NO_MATCH = object()
-
-
 def _parse_affix_slot(line: str, pattern: re.Pattern[str]) -> str | None | object:
-    """Parse a Prefix:/Suffix: line. Returns _NO_MATCH if not a match, None for empty slot."""
+    """Parse a Prefix:/Suffix: line. Returns AFFIX_NO_MATCH if not a match, None for empty slot."""
     match = pattern.match(line)
     if not match:
-        return _NO_MATCH
+        return AFFIX_NO_MATCH
     slot_val = match.group(1).strip()
     if slot_val == "None":
         return None
@@ -462,29 +467,12 @@ def _is_content_line(line: str) -> bool:
     return not any(line.startswith(p) for p in METADATA_PREFIXES) and line not in INFLUENCE_LINES
 
 
-_MAGIC_SUFFIX_RE = re.compile(r"\s+of\s+(?:the\s+)?\S[\w\s]*$", re.IGNORECASE)
-_MAGIC_PREFIX_RE = re.compile(r"^\S+(?:'s)?\s+", re.IGNORECASE)
-_FLASK_SIZE_PREFIXES = (
-    r"(?:Divine |Eternal |Hallowed |Sanctified |Sulphur |Silver |"
-    r"Grand |Greater |Large |Medium |Small |Colossal |Giant )?"
-)
-_FLASK_TYPES = (
-    r"(?:Life|Mana|Hybrid|Utility|Bismuth|Diamond|Jade|Quartz|"
-    r"Granite|Basalt|Quicksilver|Stibnite|Amethyst|Ruby|Sapphire|"
-    r"Topaz|Aquamarine|Gold|Iron|Silver|Sulphur) Flask"
-)
-_FLASK_BASE_RE = re.compile(
-    rf"({_FLASK_SIZE_PREFIXES}{_FLASK_TYPES})",
-    re.IGNORECASE,
-)
-
-
 def _strip_magic_affixes(name: str) -> str:
     """Strip prefix and 'of ...' suffix from a magic flask name to get the base type."""
-    match = _FLASK_BASE_RE.search(name)
+    match = FLASK_BASE_RE.search(name)
     if match:
         return match.group(1)
-    return _MAGIC_SUFFIX_RE.sub("", name)
+    return MAGIC_SUFFIX_RE.sub("", name)
 
 
 def _parse_header_line(item: Item, line: str, lines: list[str], index: int) -> bool:
@@ -499,7 +487,7 @@ def _parse_header_line(item: Item, line: str, lines: list[str], index: int) -> b
             if "Flask" in item.name:
                 item.base_type = _strip_magic_affixes(item.name)
             else:
-                item.base_type = _MAGIC_SUFFIX_RE.sub("", item.name)
+                item.base_type = MAGIC_SUFFIX_RE.sub("", item.name)
         elif item.rarity == "NORMAL" and item.name:
             item.base_type = item.name
         return True
@@ -534,11 +522,11 @@ def _parse_item_text(item: Item) -> None:
             continue
 
         prefix_slot = _parse_affix_slot(line, PREFIX_RE)
-        if prefix_slot is not _NO_MATCH:
+        if prefix_slot is not AFFIX_NO_MATCH:
             item.prefix_slots.append(prefix_slot)
             continue
         suffix_slot = _parse_affix_slot(line, SUFFIX_RE)
-        if suffix_slot is not _NO_MATCH:
+        if suffix_slot is not AFFIX_NO_MATCH:
             item.suffix_slots.append(suffix_slot)
             continue
 
@@ -575,27 +563,97 @@ def _parse_item_text(item: Item) -> None:
     _filter_variant_mods(item)
 
 
+@functools.cache
+def _get_mod_keywords() -> dict[str, list[str]]:
+    data_dir = Path(__file__).resolve().parent.parent.parent.parent / "data" / "repoe"
+    mods_path = data_dir / "mods.json"
+    trans_path = data_dir / "stat_translations.json"
+    if not mods_path.exists():
+        return {}
+
+    mods = json.loads(mods_path.read_text(encoding="utf-8"))
+    translations: dict[str, str] = {}
+    if trans_path.exists():
+        translations = json.loads(trans_path.read_text(encoding="utf-8"))
+
+    cache: dict[str, list[str]] = {}
+    for mod_id, entry in mods.items():
+        keywords: list[str] = []
+        for stat in entry.get("stats", []):
+            stat_id = stat.get("id", "")
+            template = translations.get(stat_id, "")
+            if template:
+                words = re.findall(r"[a-zA-Z]{3,}", template.lower())
+                keywords.extend(words)
+            else:
+                parts = stat_id.replace("+", "").replace("%", "").split("_")
+                keywords.extend(
+                    p.lower()
+                    for p in parts
+                    if len(p) >= MIN_KEYWORD_LENGTH and p.lower() not in MOD_KEYWORD_NOISE
+                )
+        cache[mod_id] = keywords
+    return cache
+
+
+def _score_mod_match(mod_text: str, keywords: list[str]) -> int:
+    text_lower = mod_text.lower()
+    return sum(1 for kw in keywords if kw in text_lower)
+
+
 def _assign_affix_metadata(item: Item) -> None:
     """Tag explicits as prefix/suffix and assign mod_ids from slot data.
 
-    PoB item text lists Prefix:/Suffix: slots in order, then explicit mod
-    lines in the same order: filled-prefix mods first, filled-suffix mods
-    next. Crafted/fractured/special mods are excluded from the slot mapping.
+    Uses keyword matching from stat translations to correctly pair
+    slot mod_ids with their corresponding explicit text lines.
     """
     filled_prefixes = [s for s in item.prefix_slots if s is not None]
     filled_suffixes = [s for s in item.suffix_slots if s is not None]
     if not filled_prefixes and not filled_suffixes:
         return
 
-    regular = [m for m in item.explicits if not m.is_crafted and not m.is_fractured]
-    prefix_count = len(filled_prefixes)
-    for i, mod in enumerate(regular):
-        if i < prefix_count:
-            mod.is_prefix = True
-            mod.mod_id = filled_prefixes[i]
-        elif i - prefix_count < len(filled_suffixes):
-            mod.is_suffix = True
-            mod.mod_id = filled_suffixes[i - prefix_count]
+    regular = [
+        m for m in item.explicits if not m.is_crafted and not m.is_fractured and not m.is_custom
+    ]
+    if not regular:
+        return
+
+    kw_cache = _get_mod_keywords()
+    slots: list[tuple[str, bool]] = [(s, True) for s in filled_prefixes] + [
+        (s, False) for s in filled_suffixes
+    ]
+
+    has_keywords = any(kw_cache.get(mod_id) for mod_id, _ in slots)
+    if not has_keywords:
+        prefix_count = len(filled_prefixes)
+        for i, mod in enumerate(regular):
+            if i < prefix_count:
+                mod.is_prefix = True
+                mod.mod_id = filled_prefixes[i]
+            elif i - prefix_count < len(filled_suffixes):
+                mod.is_suffix = True
+                mod.mod_id = filled_suffixes[i - prefix_count]
+        return
+
+    claimed_mods: set[int] = set()
+    for mod_id, is_prefix in slots:
+        keywords = kw_cache.get(mod_id, [])
+        if not keywords:
+            continue
+        best_score = 0
+        best_idx = -1
+        for i, mod in enumerate(regular):
+            if i in claimed_mods:
+                continue
+            score = _score_mod_match(mod.text, keywords)
+            if score > best_score:
+                best_score = score
+                best_idx = i
+        if best_idx >= 0:
+            claimed_mods.add(best_idx)
+            regular[best_idx].mod_id = mod_id
+            regular[best_idx].is_prefix = is_prefix
+            regular[best_idx].is_suffix = not is_prefix
 
 
 def _filter_variant_mods(item: Item) -> None:
@@ -731,15 +789,12 @@ def _parse_config_input(el) -> ConfigEntry:
     return ConfigEntry(name=name, value="", input_type="string")
 
 
-_POB_COLOR_RE = re.compile(r"\^x[0-9A-Fa-f]{6}|\^[0-9]")
-
-
 def _parse_notes(root: Element, build: BuildDocument) -> None:
     """Parse the <Notes> section, stripping PoB color codes."""
     notes_el = root.find("Notes")
     if notes_el is not None:
         raw = (notes_el.text or "").strip()
-        build.notes = _POB_COLOR_RE.sub("", raw)
+        build.notes = POB_COLOR_RE.sub("", raw)
 
 
 def _parse_import(root: Element, build: BuildDocument) -> None:

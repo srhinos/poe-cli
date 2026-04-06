@@ -1,6 +1,6 @@
 # poe.ninja Integration
 
-The `poe ninja` CLI provides live economy data, build exploration, and meta analysis from poe.ninja. All commands output JSON by default. Add `--human` for readable output. Use Bash to run commands.
+The `poe ninja` CLI provides live economy data, build exploration, and meta analysis from poe.ninja. All commands output human-readable text by default. Add `--json` for machine-readable JSON. Use Bash to run commands.
 
 ## Quick Start
 
@@ -42,7 +42,7 @@ Advanced queries across the full build/economy dataset.
 
 | Command | Purpose |
 |---------|---------|
-| `poe ninja builds search --class X --skill Y` | Filter builds by class, skill, item, keystone, etc. |
+| `poe ninja builds search --class X --skill Y` | Filter builds by class, skill, item, keystone. Returns character listings with names, accounts, skills, keystones. Works with both PoE1 and PoE2 classes. |
 | `poe ninja builds heatmap --class X` | Passive tree allocation frequency |
 | `poe ninja price history "<item>" <type>` | 366-day trend with spike/crash detection |
 | `poe ninja price craft` | All crafting material prices |
@@ -74,7 +74,7 @@ Multi-step agent workflows that combine services. Call from Python, not CLI.
 
 ## Global Options
 
-`--game poe1|poe2` (default poe1), `--league <name>` (default current), `--language <code>` (en/de/fr/es/pt/ru/ja/zh), `--human/--no-human`
+`--game poe1|poe2` (default poe1), `--league <name>` (default current), `--language <code>` (en/de/fr/es/pt/ru/ja/zh), `--json/--no-json`
 
 ## Search Filters (PoE1)
 

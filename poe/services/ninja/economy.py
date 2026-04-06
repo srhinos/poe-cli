@@ -11,68 +11,27 @@ from poe.models.ninja.economy import (
 )
 from poe.services.ninja import cache as ninja_cache
 from poe.services.ninja.constants import (
+    CRAFTING_TYPE_MAP,
+    CURRENCY_ALIASES,
+    NINJA_DETAILS_BASE,
     NINJA_ENDPOINTS,
     NINJA_LOW_CONFIDENCE_THRESHOLD,
     NINJA_POE1_CURRENCY_STASH_TYPES,
-    NINJA_POE1_EXCHANGE_TYPES,
     NINJA_POE1_STASH_TYPES,
+    TYPE_CANONICAL,
 )
 from poe.services.ninja.errors import ApiSchemaError, NinjaError
 
 if TYPE_CHECKING:
     from poe.services.ninja.client import NinjaClient
 
-NINJA_DETAILS_BASE = "https://poe.ninja"
-
-_CURRENCY_ALIASES: dict[str, str] = {
-    "chaos": "chaos orb",
-    "exalted": "exalted orb",
-    "exalt": "exalted orb",
-    "divine": "divine orb",
-    "mirror": "mirror of kalandra",
-    "vaal": "vaal orb",
-    "alchemy": "orb of alchemy",
-    "alch": "orb of alchemy",
-    "alteration": "orb of alteration",
-    "alt": "orb of alteration",
-    "fusing": "orb of fusing",
-    "jeweller": "jeweller's orb",
-    "chromatic": "chromatic orb",
-    "regret": "orb of regret",
-    "scouring": "orb of scouring",
-    "blessed": "blessed orb",
-    "regal": "regal orb",
-    "annul": "orb of annulment",
-    "annulment": "orb of annulment",
-    "ancient": "ancient orb",
-    "transmute": "orb of transmutation",
-    "augment": "orb of augmentation",
-    "chance": "orb of chance",
-}
-
-CRAFTING_TYPE_MAP: dict[str, list[tuple[str, str]]] = {
-    "currency": [("Currency", "poe1_exchange")],
-    "fossils": [("Fossil", "poe1_exchange")],
-    "essences": [("Essence", "poe1_exchange")],
-    "resonators": [("Resonator", "poe1_exchange")],
-    "beasts": [("Beast", "poe1_stash_item")],
-    "fragments": [("Fragment", "poe1_exchange")],
-    "scarabs": [("Scarab", "poe1_exchange")],
-    "oils": [("Oil", "poe1_exchange")],
-}
-
-
-_TYPE_CANONICAL: dict[str, str] = {}
-for _t in NINJA_POE1_CURRENCY_STASH_TYPES | NINJA_POE1_STASH_TYPES | NINJA_POE1_EXCHANGE_TYPES:
-    _TYPE_CANONICAL[_t.lower()] = _t
-
 
 def _route_type(item_type: str, *, game: str) -> tuple[str, str]:
     if game == "poe2":
         return "poe2_exchange", item_type
-    canonical = _TYPE_CANONICAL.get(item_type.lower())
+    canonical = TYPE_CANONICAL.get(item_type.lower())
     if canonical is None:
-        valid = sorted(_TYPE_CANONICAL.values())
+        valid = sorted(TYPE_CANONICAL.values())
         raise ApiSchemaError(f"Unknown item type '{item_type}' for {game}. Valid types: {valid}")
     if canonical in NINJA_POE1_CURRENCY_STASH_TYPES:
         return "poe1_stash_currency", canonical
@@ -317,8 +276,8 @@ class EconomyService:
         price_map = {p.name.lower(): p.chaos_value for p in prices}
         price_map["chaos orb"] = 1.0
 
-        from_key = _CURRENCY_ALIASES.get(from_currency.lower(), from_currency.lower())
-        to_key = _CURRENCY_ALIASES.get(to_currency.lower(), to_currency.lower())
+        from_key = CURRENCY_ALIASES.get(from_currency.lower(), from_currency.lower())
+        to_key = CURRENCY_ALIASES.get(to_currency.lower(), to_currency.lower())
         from_chaos = price_map.get(from_key)
         if from_chaos is None:
             raise NinjaError(f"Currency not found: {from_currency!r}")

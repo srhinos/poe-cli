@@ -2,13 +2,14 @@ from __future__ import annotations
 
 import struct
 
-SIGNED_INT64_MAX = 0x7FFFFFFFFFFFFFFF
-UNSIGNED_INT64_OVERFLOW = 0x10000000000000000
-
-WIRE_VARINT = 0
-WIRE_64BIT = 1
-WIRE_LENGTH_DELIMITED = 2
-WIRE_32BIT = 5
+from poe.services.ninja.constants import (
+    SIGNED_INT64_MAX,
+    UNSIGNED_INT64_OVERFLOW,
+    WIRE_32BIT,
+    WIRE_64BIT,
+    WIRE_LENGTH_DELIMITED,
+    WIRE_VARINT,
+)
 
 
 def decode_varint(buf: bytes, pos: int) -> tuple[int, int]:

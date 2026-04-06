@@ -250,3 +250,55 @@ METADATA_PREFIXES = (
 PREFIX_RE = re.compile(r"^Prefix:\s*(.*)")
 SUFFIX_RE = re.compile(r"^Suffix:\s*(.*)")
 SLOT_MOD_RE = re.compile(r"^\{range:([^}]*)\}(.+)$")
+
+POB_COLOR_RE = re.compile(r"\^x[0-9A-Fa-f]{6}|\^[0-9]")
+
+MAGIC_SUFFIX_RE = re.compile(r"\s+of\s+(?:the\s+)?\S[\w\s]*$", re.IGNORECASE)
+FLASK_SIZE_PREFIXES = (
+    r"(?:Divine |Eternal |Hallowed |Sanctified |Sulphur |Silver |"
+    r"Grand |Greater |Large |Medium |Small |Colossal |Giant )?"
+)
+FLASK_TYPES = (
+    r"(?:Life|Mana|Hybrid|Utility|Bismuth|Diamond|Jade|Quartz|"
+    r"Granite|Basalt|Quicksilver|Stibnite|Amethyst|Ruby|Sapphire|"
+    r"Topaz|Aquamarine|Gold|Iron|Silver|Sulphur) Flask"
+)
+FLASK_BASE_RE = re.compile(
+    rf"({FLASK_SIZE_PREFIXES}{FLASK_TYPES})",
+    re.IGNORECASE,
+)
+
+MOD_KEYWORD_NOISE = frozenset(
+    {"base", "local", "additional", "display", "old", "new", "is", "has", "per", "while"}
+)
+MIN_KEYWORD_LENGTH = 3
+
+AFFIX_NO_MATCH = object()
+
+CATEGORY_ALIASES: dict[str, str] = {
+    "offence": "off",
+    "offense": "off",
+    "defence": "def",
+    "defense": "def",
+}
+
+ENGINE_OFF_TERMS = frozenset(
+    {"DPS", "Damage", "Hit", "Crit", "Speed", "AverageHit", "AverageBurst"}
+)
+ENGINE_DEF_TERMS = frozenset(
+    {
+        "Life",
+        "Mana",
+        "EnergyShield",
+        "Armour",
+        "Evasion",
+        "Resist",
+        "Block",
+        "Dodge",
+        "Suppress",
+        "EHP",
+        "DamageReduction",
+        "Regen",
+        "Ward",
+    }
+)

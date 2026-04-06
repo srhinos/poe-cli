@@ -10,15 +10,13 @@ from poe.models.ninja.builds import (
 )
 from poe.models.ninja.protobuf import Dictionary, NinjaSearchResult
 from poe.services.ninja import cache as ninja_cache
+from poe.services.ninja.constants import HEATMAP_FLEX_THRESHOLD, HEATMAP_MANDATORY_THRESHOLD
 from poe.services.ninja.errors import NinjaError
 
 if TYPE_CHECKING:
     from poe.services.ninja.client import NinjaClient
     from poe.services.ninja.discovery import DiscoveryService
     from poe.services.ninja.economy import EconomyService
-
-HEATMAP_MANDATORY_THRESHOLD = 0.5
-HEATMAP_FLEX_THRESHOLD = 0.1
 
 
 class AtlasService:
