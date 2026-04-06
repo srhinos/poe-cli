@@ -15,8 +15,9 @@ See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed architecture, data flows, an
 - Type check: `uv run ty check poe/`
 - Run all tests: `uv run pytest`
 - Run with coverage: `uv run pytest --cov --cov-report=term-missing`
+- Per-file coverage check: `uv run coverage-threshold`
 - Single test: `uv run pytest tests/path/to/test_file.py::test_name`
-- Full pre-commit check: `uv run ruff check . && uv run ruff format --check . && uv run ty check poe/ && uv run pytest`
+- Full pre-commit check: `uv run ruff check . && uv run ruff format --check . && uv run ty check poe/ && uv run pytest --cov && uv run coverage-threshold`
 - Always run ruff, ty, and tests before committing any changes.
 - For one-off Python snippets, use `uv run python -c "..."` — never `python3 -c`.
 
