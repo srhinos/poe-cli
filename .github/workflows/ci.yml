@@ -65,34 +65,28 @@ jobs:
       - name: Check per-module coverage thresholds
         if: matrix.python-version == '3.14' && matrix.pob-version == 'v2.62.0'
         run: uv run coverage-threshold
-      - name: Generate coverage text report
-        if: matrix.python-version == '3.14' && matrix.pob-version == 'v2.62.0'
-        run: uv run python -m coverage report > coverage.txt
-      - name: Upload coverage artifacts
+      - name: Upload coverage artifact
         if: matrix.python-version == '3.14' && matrix.pob-version == 'v2.62.0'
         uses: actions/upload-artifact@v7
         with:
           name: coverage-${{ github.sha }}
-          path: |
-            coverage.xml
-            coverage.txt
+          path: coverage.xml
 
   coverage:
     if: github.event_name == 'pull_request'
     needs: test
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v6
       - uses: actions/download-artifact@v8
         with:
           name: coverage-${{ github.sha }}
-      - name: Post coverage PR comment
-        uses: MishaKav/pytest-coverage-comment@main
+      - name: Coverage report
+        uses: orgoro/coverage@v3.2
+        continue-on-error: true
         with:
-          pytest-coverage-path: coverage.txt
-          pytest-xml-coverage-path: coverage.xml
-          title: Coverage Report
-          badge-title: coverage
-          hide-badge: false
-          hide-report: false
-          report-only-changed-files: true
-          unique-id-for-comment: coverage-report
+          coverageFile: coverage.xml
+          token: ${{ secrets.GITHUB_TOKEN }}
+          thresholdAll: 0.90
+          thresholdNew: 0.90
+          thresholdModified: 0.90
