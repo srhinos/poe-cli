@@ -74,11 +74,29 @@ def _fmt_equipped_item(item: EquippedItem) -> str:
 
 @human_formatter(PriceResult)
 def _fmt_price(p: PriceResult) -> str:
-    lines = [p.name]
+    header = p.name
+    qualifiers = []
+    if p.variant:
+        qualifiers.append(p.variant)
+    if p.gem_level:
+        qualifiers.append(f"Lv{p.gem_level}")
+    if p.gem_quality:
+        qualifiers.append(f"Q{p.gem_quality}")
+    if p.links:
+        qualifiers.append(f"{p.links}L")
+    if p.corrupted:
+        qualifiers.append("corrupted")
+    if qualifiers:
+        header += f" ({', '.join(qualifiers)})"
+    lines = [header]
     if p.chaos_value >= 1:
         lines.append(f"  Chaos: {p.chaos_value:,.1f}")
     else:
         lines.append(f"  Chaos: {p.chaos_value:,.4f}")
     if p.divine_value:
         lines.append(f"  Divine: {p.divine_value:,.2f}")
+    if p.listing_count is not None:
+        lines.append(f"  Listings: {p.listing_count}")
+    if p.low_confidence:
+        lines.append("  ⚠ Low confidence")
     return "\n".join(lines)

@@ -10,6 +10,7 @@ from poe.models.ninja.builds import (
 )
 from poe.models.ninja.protobuf import Dictionary, NinjaSearchResult
 from poe.services.ninja import cache as ninja_cache
+from poe.services.ninja.errors import NinjaError
 
 if TYPE_CHECKING:
     from poe.services.ninja.client import NinjaClient
@@ -117,11 +118,11 @@ class AtlasService:
         if not scarab_dim:
             return []
 
-        try:
-            prices = economy.get_prices(league, "Scarab")
-            price_map = {p.name.lower(): p.chaos_value for p in prices}
-        except (OSError, ValueError, KeyError):
-            return []
+        prices = economy.get_prices(league, "Scarab", game="poe1")
+        price_map = {p.name.lower(): p.chaos_value for p in prices}
+        if not price_map:
+            msg = f"No scarab prices found for league {league!r}. Check the league name."
+            raise NinjaError(msg)
 
         profits: list[dict[str, Any]] = []
         for entry in scarab_dim.entries:

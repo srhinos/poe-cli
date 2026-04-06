@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import dataclasses
+import math
 import re
 
 from poe.constants import MIN_SEARCH_TERM_LENGTH
@@ -128,7 +129,7 @@ class SimService:
             }
             for bitem in results[:20]
         ]
-        return BaseItemSearchResult(query=query, count=len(results), items=items)
+        return BaseItemSearchResult(query=query, count=len(items), items=items)
 
     def analyze_item(
         self, build_name: str, *, slot: str, ilvl: int | None = None
@@ -211,10 +212,19 @@ class SimService:
             raise SimDataError("--essence is required when method is 'essence'")
         if method == CraftMethod.FOSSIL and not fossils:
             raise SimDataError("--fossils is required when method is 'fossil'")
+        mod_pool = self._data.get_mod_pool(base_name)
+        pool_groups = {mod.group.casefold() for mod in mod_pool}
         resolved_targets = []
         for t in target:
             resolved = self.resolve_mod_name(t, base_name)
-            resolved_targets.append(resolved or t)
+            final = resolved or t
+            if final.casefold() not in pool_groups:
+                available = sorted({mod.group for mod in mod_pool})[:20]
+                raise SimDataError(
+                    f"Target mod {t!r} not found in mod pool for {base_name!r}. "
+                    f"Available groups (first 20): {available}"
+                )
+            resolved_targets.append(final)
         eng = CraftingEngine(self._data.snapshot())
         try:
             sim_result = await eng.simulate(
@@ -270,10 +280,19 @@ class SimService:
                     f"but previous step produces {produced_rarity} items"
                 )
             produced_rarity = _RARITY_PRODUCED.get(method, produced_rarity)
+        mod_pool = self._data.get_mod_pool(base_name)
+        pool_groups = {mod.group.casefold() for mod in mod_pool}
         resolved_targets = []
         for t in target:
             resolved = self.resolve_mod_name(t, base_name)
-            resolved_targets.append(resolved or t)
+            final = resolved or t
+            if final.casefold() not in pool_groups:
+                available = sorted({mod.group for mod in mod_pool})[:20]
+                raise SimDataError(
+                    f"Target mod {t!r} not found in mod pool for {base_name!r}. "
+                    f"Available groups (first 20): {available}"
+                )
+            resolved_targets.append(final)
         eng = CraftingEngine(self._data.snapshot())
         target_set = {t.casefold() for t in resolved_targets}
         hits = 0
@@ -446,12 +465,16 @@ class SimService:
                 influence=influence,
                 iterations=iterations,
             )
+
+            def _finite(v: float) -> float | None:
+                return None if not math.isfinite(v) else v
+
             results.append(
                 {
                     "method": method,
                     "hit_rate": sim.hit_rate,
-                    "avg_attempts": sim.avg_attempts,
-                    "avg_cost_chaos": sim.avg_cost_chaos,
+                    "avg_attempts": _finite(sim.avg_attempts),
+                    "avg_cost_chaos": _finite(sim.avg_cost_chaos),
                     "cost_per_attempt": sim.cost_per_attempt,
                 }
             )

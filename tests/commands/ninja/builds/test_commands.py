@@ -286,7 +286,6 @@ class TestTooltipParsing:
         assert resp.mutated_mods == []
 
 
-
 class TestBuildsService:
     def test_get_character(self, tmp_path):
         svc = _make_service(

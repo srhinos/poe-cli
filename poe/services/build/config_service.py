@@ -13,8 +13,8 @@ class ConfigService:
     def __init__(self, build_svc: BuildService | None = None) -> None:
         self._build = build_svc or BuildService()
 
-    def get(self, name: str) -> BuildConfig:
-        _, build_obj = self._build.load(name)
+    def get(self, name: str, *, file_path: str | None = None) -> BuildConfig:
+        _, build_obj = self._build.load(name, file_path)
         cfg = build_obj.get_active_config()
         if not cfg:
             raise BuildValidationError("No config found")

@@ -366,8 +366,8 @@ def _item_to_text(item: Item) -> str:
     lines.append(f"Implicits: {len(item.implicits)}")
     lines.extend(_mod_to_line(mod) for mod in item.implicits)
 
-    lines.extend(f"Prefix: {slot_val}" for slot_val in item.prefix_slots)
-    lines.extend(f"Suffix: {slot_val}" for slot_val in item.suffix_slots)
+    lines.extend(f"Prefix: {s if s is not None else 'None'}" for s in item.prefix_slots)
+    lines.extend(f"Suffix: {s if s is not None else 'None'}" for s in item.suffix_slots)
 
     lines.extend(_mod_to_line(mod) for mod in item.explicits)
 

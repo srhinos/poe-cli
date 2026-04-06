@@ -336,8 +336,8 @@ class TestItemsSection:
                 name="Slotted Helm",
                 base_type="Hubris Circlet",
                 implicits=[],
-                prefix_slots=["IncreasedLife6", "None"],
-                suffix_slots=["ColdResistance5", "None", "None"],
+                prefix_slots=["IncreasedLife6", None],
+                suffix_slots=["ColdResistance5", None, None],
                 explicits=[ItemMod(text="+90 to maximum Life")],
             )
         )
@@ -346,7 +346,7 @@ class TestItemsSection:
         item = rt.items[0]
         assert len(item.prefix_slots) == 2
         assert item.prefix_slots[0] == "IncreasedLife6"
-        assert item.prefix_slots[1] == "None"
+        assert item.prefix_slots[1] is None
         assert len(item.suffix_slots) == 3
         assert item.open_suffixes == 2
 

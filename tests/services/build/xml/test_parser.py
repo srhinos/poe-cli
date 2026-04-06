@@ -168,7 +168,7 @@ class TestParseItems:
         item = build.items[0]
         assert "IncreasedLife6" in item.prefix_slots
         assert "SpellDamage3" in item.prefix_slots
-        assert "None" in item.prefix_slots
+        assert None in item.prefix_slots
         assert item.open_prefixes == 1
         assert "ColdResistance5" in item.suffix_slots
         assert item.open_suffixes == 1
@@ -774,7 +774,7 @@ class TestMagicItemBaseType:
         item = build.items[0]
         assert item.rarity == "MAGIC"
         assert item.name == "Chemist's Silver Flask of the Owl"
-        assert item.base_type == "Chemist's Silver Flask"
+        assert item.base_type == "Silver Flask"
 
     def test_magic_flask_suffix_only_strips(self, tmp_path):
         xml = self._make_xml(

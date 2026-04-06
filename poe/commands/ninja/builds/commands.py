@@ -7,7 +7,6 @@ import cyclopts
 from poe.exceptions import CodecError
 from poe.output import render
 from poe.safety import get_claude_builds_path
-from poe.services.build.constants import ASCENDANCY_IDS, CLASS_IDS
 from poe.services.build.xml.codec import decode_build
 from poe.services.ninja.atlas import AtlasService
 from poe.services.ninja.builds import BuildsService
@@ -16,7 +15,6 @@ from poe.services.ninja.comparison import compare_to_meta
 from poe.services.ninja.costing import cost_build, find_budget_alternatives
 from poe.services.ninja.discovery import DiscoveryService
 from poe.services.ninja.economy import EconomyService
-from poe.services.ninja.errors import NinjaError
 
 builds_app = cyclopts.App(name="builds", help="Build inspection, search, and import.")
 
@@ -167,10 +165,6 @@ def builds_search(
         if result is None:
             render({"error": "No search results"}, json_mode=json)
             return
-        if class_filter:
-            valid_classes = set(CLASS_IDS) | set(ASCENDANCY_IDS)
-            if class_filter not in valid_classes:
-                raise NinjaError(f"Unknown class: {class_filter!r}. Valid: {sorted(valid_classes)}")
         render(result, json_mode=json)
 
 

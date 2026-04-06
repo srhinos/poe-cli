@@ -198,16 +198,15 @@ class RepoEData:
 
     def get_essences(self, base_name: str | None = None) -> list[dict]:
         essences = self._load("essences")
+        mods_data = self._load("mods")
         bitem = None
         item_class = None
-        mods_data = None
         if base_name:
             base_items = self._load("base_items")
             bitem = self._find_base_item(base_name, base_items)
             if not bitem:
                 raise SimDataError(f"Base item {base_name!r} not found")
             item_class = bitem["item_class"]
-            mods_data = self._load("mods")
 
         results = []
         for name, ess in essences.items():
@@ -227,7 +226,13 @@ class RepoEData:
                     }
                 )
             else:
-                mods_list = [{"slot": ic, "mod": mid} for ic, mid in list(ess["mods"].items())[:5]]
+                mods_list = [
+                    {
+                        "slot": ic,
+                        "mod": mods_data[mid]["name"] if mid in mods_data else mid,
+                    }
+                    for ic, mid in list(ess["mods"].items())[:5]
+                ]
                 results.append(
                     {
                         "name": name,

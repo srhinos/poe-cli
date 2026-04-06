@@ -20,8 +20,8 @@ class TestEquippedItem:
             base_type="Hubris Circlet",
             rarity="RARE",
             energy_shield=200,
-            prefix_slots=["IncreasedLife6", "None", "None"],
-            suffix_slots=["ColdResistance5", "None", "None"],
+            prefix_slots=["IncreasedLife6", None, None],
+            suffix_slots=["ColdResistance5", None, None],
         )
         equipped = EquippedItem(slot="Helmet", **item.model_dump())
         assert equipped.slot == "Helmet"
@@ -34,8 +34,8 @@ class TestEquippedItem:
             id=1,
             text="",
             rarity="RARE",
-            prefix_slots=["IncreasedLife6", "None", "None"],
-            suffix_slots=["ColdResistance5", "None", "None"],
+            prefix_slots=["IncreasedLife6", None, None],
+            suffix_slots=["ColdResistance5", None, None],
         )
         equipped = EquippedItem(slot="Helmet", **item.model_dump())
         assert equipped.open_prefixes == 2
@@ -76,7 +76,7 @@ class TestItemComputedFields:
         item = Item(
             id=1,
             text="",
-            prefix_slots=["None", "None", "None"],
+            prefix_slots=[None, None, None],
         )
         assert item.open_prefixes == 3
         assert item.filled_prefixes == 0

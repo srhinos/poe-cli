@@ -303,7 +303,7 @@ def _parse_search_results(
     ]
 
     vl_map = {vl.id: vl.values for vl in sr.value_lists}
-    characters = _extract_characters(vl_map)
+    characters = _extract_characters(vl_map, dictionaries)
 
     return SearchResults(
         total=sr.total,
@@ -314,8 +314,13 @@ def _parse_search_results(
     )
 
 
+def _resolve_ids(ids: list[int], vocab: list[str]) -> list[str]:
+    return [vocab[idx] if idx < len(vocab) else f"unknown-{idx}" for idx in ids]
+
+
 def _extract_characters(
     vl_map: dict[str, list],
+    dictionaries: dict[str, list[str]],
 ) -> list[SearchCharacter]:
     names = vl_map.get("name", [])
     accounts = vl_map.get("account", [])
@@ -328,6 +333,9 @@ def _extract_characters(
     skill_vals = vl_map.get("skills", [])
     keystone_vals = vl_map.get("keypassives", [])
 
+    gem_vocab = dictionaries.get("gem", [])
+    keystone_vocab = dictionaries.get("keypassive", [])
+
     count = len(names)
     characters = []
     for i in range(count):
@@ -335,6 +343,8 @@ def _extract_characters(
         account = accounts[i].str_val if i < len(accounts) else ""
         if not name or not account:
             continue
+        raw_skills = skill_vals[i].numbers if i < len(skill_vals) else []
+        raw_keystones = keystone_vals[i].numbers if i < len(keystone_vals) else []
         characters.append(
             SearchCharacter(
                 name=name,
@@ -345,8 +355,8 @@ def _extract_characters(
                 dps=dps_vals[i].str_val if i < len(dps_vals) else "",
                 ehp=ehp_vals[i].str_val if i < len(ehp_vals) else "",
                 class_id=class_vals[i].number if i < len(class_vals) else 0,
-                skills=skill_vals[i].numbers if i < len(skill_vals) else [],
-                keystone_ids=keystone_vals[i].numbers if i < len(keystone_vals) else [],
+                skills=_resolve_ids(raw_skills, gem_vocab),
+                keystones=_resolve_ids(raw_keystones, keystone_vocab),
             )
         )
     return characters

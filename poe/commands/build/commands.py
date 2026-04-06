@@ -94,7 +94,9 @@ def builds_create(
 
 
 @build_app.command(name="delete")
-def builds_delete(name: str, *, confirm: bool = False, file: str | None = None) -> None:
+def builds_delete(
+    name: str, *, confirm: bool = False, file: str | None = None, json: bool = False
+) -> None:
     """Delete a build file.
 
     Parameters
@@ -105,8 +107,10 @@ def builds_delete(name: str, *, confirm: bool = False, file: str | None = None) 
         Confirm deletion.
     file
         Explicit file path.
+    json
+        Output raw JSON.
     """
-    _output(_svc().delete(name, file_path=file, confirm=confirm))
+    _output(_svc().delete(name, file_path=file, confirm=confirm), json_mode=json)
 
 
 @build_app.command(name="analyze")
@@ -319,7 +323,7 @@ def builds_open(name: str, *, file: str | None = None) -> None:
 
 
 @build_app.command(name="rename")
-def builds_rename(name: str, new_name: str) -> None:
+def builds_rename(name: str, new_name: str, *, json: bool = False) -> None:
     """Rename a build file.
 
     Parameters
@@ -328,12 +332,16 @@ def builds_rename(name: str, new_name: str) -> None:
         Current build name.
     new_name
         New build name.
+    json
+        Output raw JSON.
     """
-    _output(_svc().rename(name, new_name))
+    _output(_svc().rename(name, new_name), json_mode=json)
 
 
 @build_app.command(name="duplicate")
-def builds_duplicate(name: str, new_name: str, *, file: str | None = None) -> None:
+def builds_duplicate(
+    name: str, new_name: str, *, file: str | None = None, json: bool = False
+) -> None:
     """Duplicate/clone a build.
 
     Parameters
@@ -344,8 +352,10 @@ def builds_duplicate(name: str, new_name: str, *, file: str | None = None) -> No
         Name for the clone.
     file
         Source file path.
+    json
+        Output raw JSON.
     """
-    _output(_svc().duplicate(name, new_name, file_path=file))
+    _output(_svc().duplicate(name, new_name, file_path=file), json_mode=json)
 
 
 @build_app.command(name="set-level")
@@ -511,7 +521,7 @@ def builds_batch_set_level(
 
 
 @build_app.command(name="import")
-def builds_import(url_or_code: str, *, name: str) -> None:
+def builds_import(url_or_code: str, *, name: str, json: bool = False) -> None:
     """Import a build from a pobb.in URL or raw build code.
 
     Parameters
@@ -520,6 +530,8 @@ def builds_import(url_or_code: str, *, name: str) -> None:
         URL or build code.
     name
         Build name to save as.
+    json
+        Output raw JSON.
     """
     validate_build_name(name)
     try:
@@ -536,4 +548,4 @@ def builds_import(url_or_code: str, *, name: str) -> None:
     filename = name if name.endswith(".xml") else name + ".xml"
     save_path = claude_dir / filename
     save_path.write_text(xml_str, encoding="utf-8")
-    _output({"status": "ok", "name": name, "saved_to": str(save_path)})
+    _output({"status": "ok", "name": name, "saved_to": str(save_path)}, json_mode=json)

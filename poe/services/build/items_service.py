@@ -101,8 +101,10 @@ class ItemsService:
             ],
         )
 
-    def list_items(self, name: str, *, item_set: str | None = None) -> list[EquippedItem]:
-        _, build_obj = self._build.load(name)
+    def list_items(
+        self, name: str, *, item_set: str | None = None, file_path: str | None = None
+    ) -> list[EquippedItem]:
+        _, build_obj = self._build.load(name, file_path)
         equipped = build_obj.get_equipped_items(item_set_id=item_set)
         flask_slots = set(SLOT_TYPE_MAP["flask"])
         return [

@@ -8,7 +8,7 @@ from xml.etree.ElementTree import ParseError as XMLParseError
 
 from defusedxml import ElementTree as SafeET
 
-from poe.exceptions import BuildNotFoundError, BuildValidationError
+from poe.exceptions import BuildNotFoundError, BuildValidationError, CodecError
 from poe.models.build.build import (
     BuildComparison,
     BuildDocument,
@@ -21,7 +21,7 @@ from poe.models.build.config import BuildConfig
 from poe.models.build.items import ItemSet
 from poe.models.build.stats import StatBlock
 from poe.models.build.tree import TreeSpec
-from poe.paths import list_build_files, resolve_build_file, resolve_or_file
+from poe.paths import list_build_files, resolve_build_file, resolve_or_file, validate_build_name
 from poe.safety import get_claude_builds_path, is_inside_claude_folder, resolve_for_write
 from poe.services.build.constants import (
     ASCENDANCY_IDS,
@@ -83,6 +83,8 @@ class BuildService:
             return path, parse_build_file(path, **kwargs)
         except (FileNotFoundError, BuildNotFoundError) as e:
             raise BuildNotFoundError(str(e)) from e
+        except (XMLParseError, ValueError) as e:
+            raise CodecError(f"Failed to parse build file: {e}") from e
 
     def load_for_write(
         self, name: str, file_path: str | None = None
@@ -95,6 +97,8 @@ class BuildService:
             return path, parse_build_file(path), cloned_from
         except (FileNotFoundError, BuildNotFoundError) as e:
             raise BuildNotFoundError(str(e)) from e
+        except (XMLParseError, ValueError) as e:
+            raise CodecError(f"Failed to parse build file: {e}") from e
 
     def save(self, build_obj: BuildDocument, path: Path) -> None:
         write_build_file(build_obj, path)
@@ -118,12 +122,28 @@ class BuildService:
         if path.exists():
             raise BuildValidationError(f"File already exists: {path}")
 
-        class_id = CLASS_IDS.get(class_name, 0)
+        if level < 1 or level > MAX_CHARACTER_LEVEL:
+            raise BuildValidationError(
+                f"Level must be between 1 and {MAX_CHARACTER_LEVEL}, got {level}"
+            )
+
+        class_id = CLASS_IDS.get(class_name)
+        if class_id is None:
+            raise BuildValidationError(f"Unknown class: {class_name!r}. Valid: {sorted(CLASS_IDS)}")
         ascend_class_id = 0
         if ascendancy:
             asc = ASCENDANCY_IDS.get(ascendancy)
-            if asc:
-                class_id, ascend_class_id = asc
+            if not asc:
+                raise BuildValidationError(
+                    f"Unknown ascendancy: {ascendancy!r}. Valid: {sorted(ASCENDANCY_IDS)}"
+                )
+            if asc[0] != class_id:
+                expected_class = CLASS_ID_TO_NAME.get(asc[0], "?")
+                raise BuildValidationError(
+                    f"Ascendancy {ascendancy!r} does not belong to class {class_name!r} "
+                    f"(belongs to {expected_class})"
+                )
+            class_id, ascend_class_id = asc
 
         build_obj = BuildDocument(
             class_name=class_name,
@@ -187,26 +207,53 @@ class BuildService:
             )
         _, build_obj = self.load(name)
         all_stats = {s.stat: s.value for s in build_obj.player_stats}
-        off_terms = ["DPS", "Damage", "Hit", "Crit", "Speed", "AverageHit", "AverageBurst"]
-        def_terms = [
-            "Life",
-            "Mana",
-            "EnergyShield",
-            "Armour",
-            "Evasion",
-            "Resist",
-            "Block",
-            "Dodge",
-            "Suppress",
-            "EHP",
-            "DamageReduction",
-            "Regen",
-            "Ward",
-        ]
+        def_keys = {
+            k
+            for k in all_stats
+            if any(
+                t in k
+                for t in [
+                    "Resist",
+                    "Block",
+                    "Dodge",
+                    "Suppress",
+                    "EHP",
+                    "DamageReduction",
+                    "Regen",
+                    "Recovery",
+                    "Ward",
+                    "Armour",
+                    "Evasion",
+                    "MaximumHitTaken",
+                    "MovementSpeed",
+                    "Devotion",
+                ]
+            )
+            or k in {"Life", "Mana", "EnergyShield", "ManaUnreserved", "NetLifeRegen"}
+        }
+        off_keys = {
+            k
+            for k in all_stats
+            if any(t in k for t in ["DPS", "Crit", "AverageHit", "AverageBurst", "Impale"])
+            or k
+            in {
+                "Speed",
+                "HitChance",
+                "TotalDot",
+                "BleedDPS",
+                "IgniteDPS",
+                "PoisonDPS",
+                "MirageDPS",
+                "CullingDPS",
+                "ManaCost",
+                "ManaPerSecondCost",
+                "LifeCost",
+            }
+        }
         if category == StatCategory.OFF:
-            filtered = {k: v for k, v in all_stats.items() if any(t in k for t in off_terms)}
+            filtered = {k: v for k, v in all_stats.items() if k in off_keys}
         elif category == StatCategory.DEF:
-            filtered = {k: v for k, v in all_stats.items() if any(t in k for t in def_terms)}
+            filtered = {k: v for k, v in all_stats.items() if k in def_keys}
         else:
             filtered = all_stats
         return StatBlock(category=category, stats=filtered)
@@ -288,6 +335,7 @@ class BuildService:
         return MutationResult(exported_to=str(dest_path))
 
     def rename(self, name: str, new_name: str) -> MutationResult:
+        validate_build_name(new_name)
         try:
             src = resolve_build_file(name)
         except (FileNotFoundError, BuildNotFoundError) as e:
@@ -307,6 +355,7 @@ class BuildService:
         *,
         file_path: str | None = None,
     ) -> MutationResult:
+        validate_build_name(new_name)
         try:
             src = Path(file_path) if file_path else resolve_build_file(name)
         except (FileNotFoundError, BuildNotFoundError) as e:
@@ -364,6 +413,10 @@ class BuildService:
             build_obj.class_name = class_name
             if spec:
                 spec.class_id = class_id
+            if not ascendancy:
+                build_obj.ascend_class_name = ""
+                if spec:
+                    spec.ascend_class_id = 0
         if ascendancy:
             asc = ASCENDANCY_IDS.get(ascendancy)
             if not asc:
@@ -431,17 +484,22 @@ class BuildService:
     def summary(self, name: str, *, file_path: str | None = None) -> dict:
         _, build_obj = self.load(name, file_path)
         get = build_obj.get_stat
-        total = get("TotalDPS") or 0
-        dot = get("TotalDot") or 0
-        bleed = get("BleedDPS") or 0
-        ignite = get("IgniteDPS") or 0
-        poison = get("PoisonDPS") or 0
-        combined = max(total, total + dot + bleed + ignite + poison)
+        total = get("TotalDPS") or 0.0
+        combined = get("CombinedDPS") or total
+        main_skill = ""
+        idx = build_obj.main_socket_group - 1
+        if 0 <= idx < len(build_obj.skill_groups):
+            group = build_obj.skill_groups[idx]
+            for gem in group.gems:
+                if gem.enabled and gem.name_spec and not gem.name_spec.endswith("Support"):
+                    main_skill = gem.name_spec
+                    break
         return {
             "name": name,
             "class": build_obj.class_name,
             "ascendancy": build_obj.ascend_class_name,
             "level": build_obj.level,
+            "main_skill": main_skill,
             "life": get("Life") or 0,
             "energy_shield": get("EnergyShield") or 0,
             "mana": get("Mana") or 0,

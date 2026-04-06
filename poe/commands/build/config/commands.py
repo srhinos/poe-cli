@@ -13,17 +13,19 @@ def _svc() -> ConfigService:
 
 
 @config_app.command(name="get")
-def config_get(name: str, *, json: bool = False) -> None:
+def config_get(name: str, *, file: str | None = None, json: bool = False) -> None:
     """Show build configuration (charges, conditions, enemy stats).
 
     Parameters
     ----------
     name
         Build name or unique prefix.
+    file
+        Explicit file path.
     json
         Output raw JSON.
     """
-    _output(_svc().get(name), json_mode=json)
+    _output(_svc().get(name, file_path=file), json_mode=json)
 
 
 @config_app.command(name="options")

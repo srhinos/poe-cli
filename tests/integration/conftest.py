@@ -52,8 +52,8 @@ def _create_necromancer_build(d: Path) -> Path:
                 ItemMod(text="+90 to maximum Life", range_value=0.5),
                 ItemMod(text="+40% to Cold Resistance", range_value=0.5),
             ],
-            prefix_slots=["IncreasedLife6", "SpellDamage3", "None"],
-            suffix_slots=["ColdResistance5", "LightningResistance4", "None"],
+            prefix_slots=["IncreasedLife6", "SpellDamage3", None],
+            suffix_slots=["ColdResistance5", "LightningResistance4", None],
         )
         .with_item(
             "Body Armour",
@@ -256,8 +256,8 @@ def _create_hierophant_build(d: Path) -> Path:
                 ItemMod(text="+120 to maximum Life"),
                 ItemMod(text="+50% to Fire Resistance"),
             ],
-            prefix_slots=["IncreasedLife7", "None", "None"],
-            suffix_slots=["FireResistance6", "None", "None"],
+            prefix_slots=["IncreasedLife7", None, None],
+            suffix_slots=["FireResistance6", None, None],
         )
         .with_item(
             "Helmet",

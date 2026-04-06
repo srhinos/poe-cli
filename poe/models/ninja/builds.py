@@ -198,7 +198,6 @@ class TooltipResponse(BaseModel):
     mutated_mods: list[TooltipMod] = Field(default_factory=list, alias="mutatedMods")
 
 
-
 class MetaSummary(BaseModel):
     """Meta overview with top builds and trends."""
 
@@ -244,8 +243,8 @@ class SearchCharacter(BaseModel):
     dps: str = ""
     ehp: str = ""
     class_id: int = 0
-    skills: list[int] = Field(default_factory=list)
-    keystone_ids: list[int] = Field(default_factory=list)
+    skills: list[str] = Field(default_factory=list)
+    keystones: list[str] = Field(default_factory=list)
 
 
 class SearchResults(BaseModel):

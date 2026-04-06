@@ -102,7 +102,7 @@ class TestCrossValidation:
         for item in necro.items:
             if item.prefix_slots:
                 for slot in item.prefix_slots:
-                    if slot != "None":
+                    if slot is not None:
                         assert len(slot) > 0
                 return
         pytest.skip("No items with prefix slots found")

@@ -79,8 +79,8 @@ class Item(BaseModel):
     limited_to: int = 0
     item_class: str = ""
     foil_type: str = ""
-    prefix_slots: list[str] = []
-    suffix_slots: list[str] = []
+    prefix_slots: list[str | None] = []
+    suffix_slots: list[str | None] = []
     implicits: list[ItemMod] = []
     explicits: list[ItemMod] = []
     mod_ranges: dict[str, float] = {}
@@ -88,22 +88,22 @@ class Item(BaseModel):
     @computed_field  # type: ignore[prop-decorator]
     @property
     def open_prefixes(self) -> int:
-        return sum(1 for s in self.prefix_slots if s == "None")
+        return sum(1 for s in self.prefix_slots if s is None)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def open_suffixes(self) -> int:
-        return sum(1 for s in self.suffix_slots if s == "None")
+        return sum(1 for s in self.suffix_slots if s is None)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def filled_prefixes(self) -> int:
-        return sum(1 for s in self.prefix_slots if s != "None")
+        return sum(1 for s in self.prefix_slots if s is not None)
 
     @computed_field  # type: ignore[prop-decorator]
     @property
     def filled_suffixes(self) -> int:
-        return sum(1 for s in self.suffix_slots if s != "None")
+        return sum(1 for s in self.suffix_slots if s is not None)
 
 
 class ItemSlot(BaseModel):

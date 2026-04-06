@@ -29,7 +29,9 @@ def items_sets(name: str, *, json: bool = False) -> None:
 
 
 @items_app.command(name="list")
-def items_list(name: str, *, item_set: str | None = None, json: bool = False) -> None:
+def items_list(
+    name: str, *, item_set: str | None = None, file: str | None = None, json: bool = False
+) -> None:
     """List equipped items in a build.
 
     Parameters
@@ -38,10 +40,12 @@ def items_list(name: str, *, item_set: str | None = None, json: bool = False) ->
         Build name or unique prefix.
     item_set
         Item set ID.
+    file
+        Explicit file path.
     json
         Output raw JSON.
     """
-    _output(_svc().list_items(name, item_set=item_set), json_mode=json)
+    _output(_svc().list_items(name, item_set=item_set, file_path=file), json_mode=json)
 
 
 @items_app.command(name="add")

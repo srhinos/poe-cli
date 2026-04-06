@@ -17,18 +17,23 @@ class JewelsService:
 
     def list_jewels(self, name: str, *, file_path: str | None = None) -> JewelListResult:
         _, build_obj = self._build.load(name, file_path)
-        equipped = build_obj.get_equipped_items()
+        item_map = {i.id: i for i in build_obj.items}
+
         spec = build_obj.get_active_spec()
         socket_map: dict[int, int] = {}
         if spec:
             for s in spec.sockets:
                 socket_map[s.item_id] = s.node_id
 
+        seen_ids: set[int] = set()
         regular_jewels = []
         cluster_jewels = []
+
+        equipped = build_obj.get_equipped_items()
         for slot_name, item in equipped:
             if item.base_type not in JEWEL_BASE_TYPES:
                 continue
+            seen_ids.add(item.id)
             jewel = EquippedJewel(
                 slot=slot_name,
                 tree_node=socket_map.get(item.id),
@@ -38,6 +43,32 @@ class JewelsService:
                 cluster_jewels.append(jewel)
             else:
                 regular_jewels.append(jewel)
+
+        target_set = None
+        target_id = build_obj.active_item_set
+        for s in build_obj.item_sets:
+            if s.id == target_id:
+                target_set = s
+                break
+        if not target_set and build_obj.item_sets:
+            target_set = build_obj.item_sets[0]
+        if target_set:
+            for sock in target_set.socket_id_urls:
+                if sock.item_id in seen_ids or sock.item_id not in item_map:
+                    continue
+                item = item_map[sock.item_id]
+                if item.base_type not in JEWEL_BASE_TYPES:
+                    continue
+                seen_ids.add(item.id)
+                jewel = EquippedJewel(
+                    slot=f"TreeSocket:{sock.node_id}",
+                    tree_node=sock.node_id,
+                    **item.model_dump(),
+                )
+                if "Cluster" in item.base_type:
+                    cluster_jewels.append(jewel)
+                else:
+                    regular_jewels.append(jewel)
 
         return JewelListResult(jewels=regular_jewels, cluster_jewels=cluster_jewels)
 

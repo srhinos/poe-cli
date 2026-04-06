@@ -89,6 +89,9 @@ def _parse_build_section(root: Element, build: BuildDocument) -> None:
     for dps_el in el.findall("FullDPSSkill"):
         entry = dict(dps_el.attrib.items())
         if entry:
+            if "value" in entry:
+                with contextlib.suppress(ValueError):
+                    entry["value"] = float(entry["value"])
             build.full_dps_skills.append(entry)
 
     timeless_el = el.find("TimelessData")
@@ -384,14 +387,17 @@ def _parse_item_element(item_el: Element) -> Item:
     return item
 
 
-def _parse_affix_slot(line: str, pattern: re.Pattern[str]) -> str | None:
-    """Parse a Prefix:/Suffix: line, returning the slot name or None if no match."""
+_NO_MATCH = object()
+
+
+def _parse_affix_slot(line: str, pattern: re.Pattern[str]) -> str | None | object:
+    """Parse a Prefix:/Suffix: line. Returns _NO_MATCH if not a match, None for empty slot."""
     match = pattern.match(line)
     if not match:
-        return None
+        return _NO_MATCH
     slot_val = match.group(1).strip()
     if slot_val == "None":
-        return "None"
+        return None
     slot_mod = SLOT_MOD_RE.match(slot_val)
     return slot_mod.group(2) if slot_mod else slot_val
 
@@ -457,10 +463,27 @@ def _is_content_line(line: str) -> bool:
 
 
 _MAGIC_SUFFIX_RE = re.compile(r"\s+of\s+(?:the\s+)?\S[\w\s]*$", re.IGNORECASE)
+_MAGIC_PREFIX_RE = re.compile(r"^\S+(?:'s)?\s+", re.IGNORECASE)
+_FLASK_SIZE_PREFIXES = (
+    r"(?:Divine |Eternal |Hallowed |Sanctified |Sulphur |Silver |"
+    r"Grand |Greater |Large |Medium |Small |Colossal |Giant )?"
+)
+_FLASK_TYPES = (
+    r"(?:Life|Mana|Hybrid|Utility|Bismuth|Diamond|Jade|Quartz|"
+    r"Granite|Basalt|Quicksilver|Stibnite|Amethyst|Ruby|Sapphire|"
+    r"Topaz|Aquamarine|Gold|Iron|Silver|Sulphur) Flask"
+)
+_FLASK_BASE_RE = re.compile(
+    rf"({_FLASK_SIZE_PREFIXES}{_FLASK_TYPES})",
+    re.IGNORECASE,
+)
 
 
-def _strip_magic_suffix(name: str) -> str:
-    """Strip 'of ...' suffix from a magic item name to get the base type."""
+def _strip_magic_affixes(name: str) -> str:
+    """Strip prefix and 'of ...' suffix from a magic flask name to get the base type."""
+    match = _FLASK_BASE_RE.search(name)
+    if match:
+        return match.group(1)
     return _MAGIC_SUFFIX_RE.sub("", name)
 
 
@@ -473,7 +496,10 @@ def _parse_header_line(item: Item, line: str, lines: list[str], index: int) -> b
         if index + 2 < len(lines) and _is_content_line(lines[index + 2]):
             item.base_type = lines[index + 2]
         elif item.rarity == "MAGIC" and item.name:
-            item.base_type = _strip_magic_suffix(item.name)
+            if "Flask" in item.name:
+                item.base_type = _strip_magic_affixes(item.name)
+            else:
+                item.base_type = _MAGIC_SUFFIX_RE.sub("", item.name)
         elif item.rarity == "NORMAL" and item.name:
             item.base_type = item.name
         return True
@@ -508,11 +534,11 @@ def _parse_item_text(item: Item) -> None:
             continue
 
         prefix_slot = _parse_affix_slot(line, PREFIX_RE)
-        if prefix_slot is not None:
+        if prefix_slot is not _NO_MATCH:
             item.prefix_slots.append(prefix_slot)
             continue
         suffix_slot = _parse_affix_slot(line, SUFFIX_RE)
-        if suffix_slot is not None:
+        if suffix_slot is not _NO_MATCH:
             item.suffix_slots.append(suffix_slot)
             continue
 
@@ -556,8 +582,8 @@ def _assign_affix_metadata(item: Item) -> None:
     lines in the same order: filled-prefix mods first, filled-suffix mods
     next. Crafted/fractured/special mods are excluded from the slot mapping.
     """
-    filled_prefixes = [s for s in item.prefix_slots if s != "None"]
-    filled_suffixes = [s for s in item.suffix_slots if s != "None"]
+    filled_prefixes = [s for s in item.prefix_slots if s is not None]
+    filled_suffixes = [s for s in item.suffix_slots if s is not None]
     if not filled_prefixes and not filled_suffixes:
         return
 
@@ -593,8 +619,16 @@ def _filter_variant_mods(item: Item) -> None:
     active_variants.discard("")
     if not active_variants:
         return
-    item.explicits = [m for m in item.explicits if not m.variant or m.variant in active_variants]
-    item.implicits = [m for m in item.implicits if not m.variant or m.variant in active_variants]
+    item.explicits = [
+        m
+        for m in item.explicits
+        if not m.variant or any(v.strip() in active_variants for v in m.variant.split(","))
+    ]
+    item.implicits = [
+        m
+        for m in item.implicits
+        if not m.variant or any(v.strip() in active_variants for v in m.variant.split(","))
+    ]
 
 
 _BOOL_MARKERS = frozenset(
@@ -697,11 +731,15 @@ def _parse_config_input(el) -> ConfigEntry:
     return ConfigEntry(name=name, value="", input_type="string")
 
 
+_POB_COLOR_RE = re.compile(r"\^x[0-9A-Fa-f]{6}|\^[0-9]")
+
+
 def _parse_notes(root: Element, build: BuildDocument) -> None:
-    """Parse the <Notes> section."""
+    """Parse the <Notes> section, stripping PoB color codes."""
     notes_el = root.find("Notes")
     if notes_el is not None:
-        build.notes = (notes_el.text or "").strip()
+        raw = (notes_el.text or "").strip()
+        build.notes = _POB_COLOR_RE.sub("", raw)
 
 
 def _parse_import(root: Element, build: BuildDocument) -> None:

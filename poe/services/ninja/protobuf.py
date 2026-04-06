@@ -2,6 +2,9 @@ from __future__ import annotations
 
 import struct
 
+SIGNED_INT64_MAX = 0x7FFFFFFFFFFFFFFF
+UNSIGNED_INT64_OVERFLOW = 0x10000000000000000
+
 WIRE_VARINT = 0
 WIRE_64BIT = 1
 WIRE_LENGTH_DELIMITED = 2
@@ -16,6 +19,8 @@ def decode_varint(buf: bytes, pos: int) -> tuple[int, int]:
         pos += 1
         result |= (b & 0x7F) << shift
         if not (b & 0x80):
+            if result > SIGNED_INT64_MAX:
+                result -= UNSIGNED_INT64_OVERFLOW
             return result, pos
         shift += 7
     return result, pos

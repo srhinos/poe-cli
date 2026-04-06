@@ -386,8 +386,8 @@ class TestCraftSearch:
             result = invoke_cli(cli, ["sim", "search", "item", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
-        assert data["count"] == 30  # total count
-        assert len(data["items"]) == 20  # truncated
+        assert data["count"] == 20
+        assert len(data["items"]) == 20
 
 
 # ── craft analyze ────────────────────────────────────────────────────────────
@@ -580,7 +580,7 @@ def _make_sim_result(**overrides):
 
 class TestCraftSimulate:
     def test_success_chaos(self):
-        cd = _mock_repoe_data()
+        cd = _mock_repoe_data(get_mod_pool=SAMPLE_MODS)
         eng = MagicMock()
         eng.simulate = AsyncMock(return_value=_make_sim_result())
 
@@ -609,7 +609,7 @@ class TestCraftSimulate:
         assert data.get("fossils") is None
 
     def test_success_fossil(self):
-        cd = _mock_repoe_data()
+        cd = _mock_repoe_data(get_mod_pool=SAMPLE_MODS)
         eng = MagicMock()
         eng.simulate = AsyncMock(
             return_value=_make_sim_result(method="fossil", cost_per_attempt=5.0),
@@ -640,7 +640,7 @@ class TestCraftSimulate:
         assert data["fossils"] == ["Pristine Fossil", "Frigid Fossil"]
 
     def test_success_alt(self):
-        cd = _mock_repoe_data()
+        cd = _mock_repoe_data(get_mod_pool=SAMPLE_MODS)
         eng = MagicMock()
         eng.simulate = AsyncMock(return_value=_make_sim_result(method="alt"))
 
@@ -666,7 +666,7 @@ class TestCraftSimulate:
         assert data["method"] == "alt"
 
     def test_multiple_targets(self):
-        cd = _mock_repoe_data()
+        cd = _mock_repoe_data(get_mod_pool=SAMPLE_MODS)
         eng = MagicMock()
         eng.simulate = AsyncMock(return_value=_make_sim_result())
 
@@ -697,7 +697,7 @@ class TestCraftSimulate:
         assert data["match_mode"] == "any"
 
     def test_custom_iterations(self):
-        cd = _mock_repoe_data()
+        cd = _mock_repoe_data(get_mod_pool=SAMPLE_MODS)
         eng = MagicMock()
         eng.simulate = AsyncMock(return_value=_make_sim_result(iterations=500))
 
@@ -722,7 +722,7 @@ class TestCraftSimulate:
         assert result.exit_code == 0
 
     def test_exception(self):
-        cd = _mock_repoe_data()
+        cd = _mock_repoe_data(get_mod_pool=SAMPLE_MODS)
         eng = MagicMock()
         eng.simulate = AsyncMock(side_effect=RuntimeError("sim failed"))
 
@@ -745,7 +745,7 @@ class TestCraftSimulate:
         assert result.exit_code != 0
 
     def test_with_influence(self):
-        cd = _mock_repoe_data()
+        cd = _mock_repoe_data(get_mod_pool=SAMPLE_MODS)
         eng = MagicMock()
         eng.simulate = AsyncMock(return_value=_make_sim_result())
 
@@ -770,7 +770,7 @@ class TestCraftSimulate:
         assert result.exit_code == 0
 
     def test_success_essence(self):
-        cd = _mock_repoe_data()
+        cd = _mock_repoe_data(get_mod_pool=SAMPLE_MODS)
         eng = MagicMock()
         eng.simulate = AsyncMock(return_value=_make_sim_result(method="essence"))
 
@@ -806,7 +806,7 @@ class TestCraftSimulate:
 
     def test_essence_method_requires_essence_option(self):
         """Using --method essence without --essence should error."""
-        cd = _mock_repoe_data()
+        cd = _mock_repoe_data(get_mod_pool=SAMPLE_MODS)
         eng = MagicMock()
         eng.simulate = AsyncMock(return_value=_make_sim_result(method="essence"))
 
@@ -871,7 +871,7 @@ class TestCraftPrices:
         assert data["league"] == "Settlers"
 
     def test_exception(self):
-        cd = _mock_repoe_data()
+        cd = _mock_repoe_data(get_mod_pool=SAMPLE_MODS)
         cd.get_prices.side_effect = RuntimeError("no prices")
         with (
             patch(_PATCH_CD, return_value=cd),
@@ -896,7 +896,7 @@ class TestCraftPrices:
 
 class TestCraftSimulateNewParams:
     def test_existing_mod_param(self):
-        cd = _mock_repoe_data()
+        cd = _mock_repoe_data(get_mod_pool=SAMPLE_MODS)
         eng = MagicMock()
         eng.simulate = AsyncMock(return_value=_make_sim_result())
 
@@ -923,7 +923,7 @@ class TestCraftSimulateNewParams:
         assert call_kwargs.kwargs.get("existing_mods") == ["ColdResistance"]
 
     def test_max_attempts_param(self):
-        cd = _mock_repoe_data()
+        cd = _mock_repoe_data(get_mod_pool=SAMPLE_MODS)
         eng = MagicMock()
         eng.simulate = AsyncMock(return_value=_make_sim_result())
 
@@ -955,7 +955,7 @@ class TestCraftSimulateNewParams:
 
 class TestCraftSimulateMultistep:
     def test_basic_multistep(self):
-        cd = _mock_repoe_data()
+        cd = _mock_repoe_data(get_mod_pool=SAMPLE_MODS)
         eng = MagicMock()
         eng.create_item.return_value = MagicMock(all_mods=[])
         with (
@@ -985,7 +985,7 @@ class TestCraftSimulateMultistep:
         assert data["iterations"] == 10
 
     def test_step_with_fossil_syntax(self):
-        cd = _mock_repoe_data()
+        cd = _mock_repoe_data(get_mod_pool=SAMPLE_MODS)
         eng = MagicMock()
         eng.create_item.return_value = MagicMock(all_mods=[])
         with (
@@ -1012,7 +1012,7 @@ class TestCraftSimulateMultistep:
         assert data["steps"] == ["fossil"]
 
     def test_new_craft_methods(self):
-        cd = _mock_repoe_data()
+        cd = _mock_repoe_data(get_mod_pool=SAMPLE_MODS)
         eng = MagicMock()
         eng.create_item.return_value = MagicMock(all_mods=[])
         with (
