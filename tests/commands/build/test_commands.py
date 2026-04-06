@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+import sys
 from unittest.mock import patch
+
+import pytest
 
 from poe.app import app
 from poe.exceptions import BuildNotFoundError
@@ -18,6 +21,7 @@ class TestEncodeNonexistent:
 
 
 class TestOpenNonexistent:
+    @pytest.mark.skipif(sys.platform != "win32", reason="poe build open requires Windows")
     def test_open_nonexistent_build(self, tmp_path):
         with patch(_PATCH_BUILDS, return_value=tmp_path):
             result = invoke_cli(app, ["build", "open", "nonexistent_build_xyz"])

@@ -16,10 +16,10 @@ class TestVariantFiltering:
     def test_comma_separated_variant_keeps_matching_mods(self, tmp_path):
         xml = (
             '<?xml version="1.0" encoding="UTF-8"?>\n'
-            '<PathOfBuilding>\n'
+            "<PathOfBuilding>\n"
             '<Build level="90" className="Ranger" ascendClassName="Deadeye"'
             ' mainSocketGroup="1" targetVersion="3_0">\n'
-            '</Build>\n'
+            "</Build>\n"
             '<Items activeItemSet="1">\n'
             '<Item id="1">\n'
             "Rarity: UNIQUE\nThe Taming\nPrismatic Ring\n"
@@ -48,10 +48,10 @@ class TestVariantFiltering:
     def test_single_variant_still_works(self, tmp_path):
         xml = (
             '<?xml version="1.0" encoding="UTF-8"?>\n'
-            '<PathOfBuilding>\n'
+            "<PathOfBuilding>\n"
             '<Build level="90" className="Witch" ascendClassName=""'
             ' mainSocketGroup="1" targetVersion="3_0">\n'
-            '</Build>\n'
+            "</Build>\n"
             '<Items activeItemSet="1">\n'
             '<Item id="1">\n'
             "Rarity: UNIQUE\nTest Unique\nPrismatic Ring\n"
@@ -76,8 +76,7 @@ class TestVariantFiltering:
 class TestFlaskBaseType:
     def test_magic_flask_strips_prefix(self, pob_builder):
         path = (
-            pob_builder
-            .with_class("Witch", level=90)
+            pob_builder.with_class("Witch", level=90)
             .with_item(
                 "Flask 1",
                 name="Experimenter's Jade Flask of the Impala",
@@ -91,8 +90,7 @@ class TestFlaskBaseType:
 
     def test_magic_flask_suffix_only(self, pob_builder):
         path = (
-            pob_builder
-            .with_class("Witch", level=90)
+            pob_builder.with_class("Witch", level=90)
             .with_item(
                 "Flask 2",
                 name="Quicksilver Flask of the Cheetah",
@@ -105,8 +103,7 @@ class TestFlaskBaseType:
 
     def test_magic_flask_prefix_only(self, pob_builder):
         path = (
-            pob_builder
-            .with_class("Witch", level=90)
+            pob_builder.with_class("Witch", level=90)
             .with_item(
                 "Flask 3",
                 name="Doctor's Divine Life Flask",
@@ -119,8 +116,7 @@ class TestFlaskBaseType:
 
     def test_unique_flask_keeps_name(self, pob_builder):
         path = (
-            pob_builder
-            .with_class("Witch", level=90)
+            pob_builder.with_class("Witch", level=90)
             .with_item(
                 "Flask 1",
                 name="Bottled Faith",
@@ -136,8 +132,7 @@ class TestFlaskBaseType:
 class TestPrefixSuffixSlots:
     def test_none_slots_are_python_none(self, pob_builder):
         path = (
-            pob_builder
-            .with_class("Witch", level=90)
+            pob_builder.with_class("Witch", level=90)
             .with_item(
                 "Helmet",
                 name="Doom Crown",
@@ -163,8 +158,7 @@ class TestPrefixSuffixSlots:
 
     def test_slots_roundtrip(self, pob_builder):
         path = (
-            pob_builder
-            .with_class("Witch", level=90)
+            pob_builder.with_class("Witch", level=90)
             .with_item(
                 "Body Armour",
                 name="Test Regalia",
@@ -192,8 +186,7 @@ class TestPrefixSuffixSlots:
 class TestModIdAssignment:
     def test_keyword_matching_assigns_correctly(self, pob_builder):
         path = (
-            pob_builder
-            .with_class("Witch", level=90)
+            pob_builder.with_class("Witch", level=90)
             .with_item(
                 "Weapon 1",
                 name="Test Wand",
@@ -219,8 +212,7 @@ class TestModIdAssignment:
 
     def test_custom_mods_excluded_from_assignment(self, pob_builder):
         path = (
-            pob_builder
-            .with_class("Witch", level=90)
+            pob_builder.with_class("Witch", level=90)
             .with_item(
                 "Body Armour",
                 name="Test Armour",
@@ -288,8 +280,7 @@ class TestJewelsFromSockets:
 class TestValidationStatNames:
     def test_overcap_uses_overcap_stat(self, pob_builder):
         build = (
-            pob_builder
-            .with_class("Witch", level=90)
+            pob_builder.with_class("Witch", level=90)
             .with_stat("FireResist", 75)
             .with_stat("FireResistOverCap", 120)
             .with_stat("ColdResist", 75)
@@ -304,8 +295,7 @@ class TestValidationStatNames:
 
     def test_mana_regen_uses_correct_stat(self, pob_builder):
         build = (
-            pob_builder
-            .with_class("Witch", level=90)
+            pob_builder.with_class("Witch", level=90)
             .with_stat("ManaPerSecondCost", 200)
             .with_stat("ManaRegenRecovery", 50)
             .with_stat("Life", 5000)
@@ -317,8 +307,7 @@ class TestValidationStatNames:
 
     def test_movement_speed_uses_effective(self, pob_builder):
         build = (
-            pob_builder
-            .with_class("Witch", level=90)
+            pob_builder.with_class("Witch", level=90)
             .with_stat("EffectiveMovementSpeedMod", 0)
             .with_stat("Life", 5000)
             .build_object()
@@ -331,8 +320,7 @@ class TestValidationStatNames:
 class TestNotesColorStripping:
     def test_pob_color_codes_stripped(self, pob_builder):
         path = (
-            pob_builder
-            .with_class("Witch", level=90)
+            pob_builder.with_class("Witch", level=90)
             .with_notes("^xE05030Red text^7 normal ^x70FF70green^7 end")
             .write("color_notes.xml")
         )
