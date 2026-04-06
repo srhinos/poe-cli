@@ -48,7 +48,7 @@ jobs:
       - name: Warm poe.ninja cache
         env:
           POE_NINJA_CACHE_TTL: "86400"
-        run: uv run pytest tests/integration/ -v -m integration --timeout=120 || true
+        run: uv run pytest tests/integration/ -v -m integration || true
 
   test:
     needs: warm-cache
