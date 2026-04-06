@@ -8,7 +8,7 @@ from poe.services.ninja.atlas import AtlasService
 
 
 def _make_atlas_service(tmp_path):
-    client = MagicMock()
+    client = MagicMock(no_cache=False)
     discovery = MagicMock()
     return AtlasService(client, discovery, base_dir=tmp_path)
 

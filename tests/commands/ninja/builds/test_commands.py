@@ -206,7 +206,7 @@ TOOLTIP_RESPONSE = {
 
 
 def _make_service(tmp_path, fixture_map=None):
-    client = MagicMock()
+    client = MagicMock(no_cache=False)
 
     def get_json(path, **_kwargs):
         if fixture_map:
@@ -348,7 +348,7 @@ class TestBuildsService:
 class TestBuildsCli:
     @patch("poe.commands.ninja.builds.commands.NinjaClient")
     def test_builds_inspect(self, mock_cls):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
 
         def get_json(path, **_kwargs):
             if "index-state" in path:
@@ -374,7 +374,7 @@ class TestBuildsCli:
 class TestMetaCli:
     @patch("poe.commands.ninja.meta.commands.NinjaClient")
     def test_meta_summary(self, mock_cls):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
 
         def get_json(path, **_kwargs):
             if "build-index-state" in path:
@@ -394,7 +394,7 @@ class TestMetaCli:
 
     @patch("poe.commands.ninja.meta.commands.NinjaClient")
     def test_meta_trend(self, mock_cls):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
 
         def get_json(path, **_kwargs):
             if "build-index-state" in path:
@@ -418,7 +418,7 @@ class TestBuildsSearchClassValidation:
     def test_invalid_class_errors(self, mock_cls):
         from poe.models.ninja.builds import DimensionEntry, ResolvedDimension, SearchResults
 
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
 
         def get_json(path, **_kwargs):
             if "index-state" in path:
@@ -454,7 +454,7 @@ def _make_ninja_context_manager(client):
 
 
 def _builds_client(fixture_map=None):
-    client = MagicMock()
+    client = MagicMock(no_cache=False)
 
     def get_json(path, **_kwargs):
         if fixture_map:
@@ -540,7 +540,7 @@ class TestBuildsSearchCli:
         )
         mock_builds_cls.return_value = mock_svc
 
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
         mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -556,7 +556,7 @@ class TestBuildsSearchCli:
         mock_svc.search.return_value = None
         mock_builds_cls.return_value = mock_svc
 
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
         mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -588,7 +588,7 @@ class TestBuildsCompareCli:
         mock_builds_cls.return_value = mock_svc
         mock_compare.return_value = {"character": "TestChar", "diff": {}}
 
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
         mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -604,7 +604,7 @@ class TestBuildsCompareCli:
         mock_svc.get_character.return_value = None
         mock_builds_cls.return_value = mock_svc
 
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
         mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -622,7 +622,7 @@ class TestBuildsCompareCli:
         mock_svc.search.return_value = None
         mock_builds_cls.return_value = mock_svc
 
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
         mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -647,7 +647,7 @@ class TestBuildsSuggestUpgradeCli:
         mock_svc.get_character.return_value = None
         mock_builds_cls.return_value = mock_svc
 
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
         mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -665,7 +665,7 @@ class TestBuildsSuggestUpgradeCli:
         mock_disc.get_current_league.return_value = None
         mock_disc_cls.return_value = mock_disc
 
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
         mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -688,7 +688,7 @@ class TestBuildsHeatmapCli:
         ]
         mock_atlas_cls.return_value = mock_atlas
 
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
         mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -752,7 +752,7 @@ class TestBuildsSuggestUpgradeSuccess:
         mock_cost.return_value = {"total": 100}
         mock_find.return_value = [{"slot": "Belt", "upgrade": "Mageblood"}]
 
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
         mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
 

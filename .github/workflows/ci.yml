@@ -48,41 +48,7 @@ jobs:
       - name: Warm poe.ninja cache
         env:
           POE_NINJA_CACHE_TTL: "86400"
-        run: |
-          uv run python -c "
-          from poe.services.ninja.client import NinjaClient
-          from poe.services.ninja.discovery import DiscoveryService
-          from poe.services.ninja.economy import EconomyService
-          from poe.services.ninja.history import HistoryService
-          client = NinjaClient()
-          disc = DiscoveryService(client)
-          econ = EconomyService(client)
-          # Warm index states
-          disc.get_poe1_index_state()
-          disc.get_poe2_index_state()
-          disc.get_build_index_state()
-          disc.get_atlas_tree_index_state()
-          # Warm economy data used by tests
-          league = disc.get_current_league()
-          if league:
-              econ.get_prices(league.name, 'Currency')
-              econ.get_prices(league.name, 'UniqueArmour')
-              econ.get_prices(league.name, 'DivinationCard')
-              econ.get_prices(league.name, 'Scarab')
-              econ.get_prices(league.name, 'UniqueAccessory')
-              hist = HistoryService(client, econ)
-              hist.get_price_history(league.name, 'Divine Orb', 'Currency')
-              hist.get_price_history(league.name, 'Headhunter', 'UniqueAccessory')
-          # Warm builds search
-          snap = disc.get_current_snapshot()
-          if snap:
-              raw = client.get_protobuf(
-                  f'/poe1/api/builds/{snap.version}/search',
-                  params={'overview': snap.snapshot_name, 'type': 'exp'},
-              )
-          client.close()
-          print('Cache warmed successfully')
-          "
+        run: uv run pytest tests/integration/ -v -m integration --timeout=120 || true
 
   test:
     needs: warm-cache
@@ -117,6 +83,7 @@ jobs:
       - name: Run all tests
         env:
           POB_PATH: /tmp/pob
+          POE_NINJA_CACHE_TTL: "86400"
         run: |
           if [ "${{ matrix.python-version }}" = "3.14" ] && [ "${{ matrix.pob-version }}" = "v2.62.0" ]; then
             uv run pytest tests/ \

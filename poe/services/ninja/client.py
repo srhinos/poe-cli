@@ -67,9 +67,11 @@ class NinjaClient:
         base_url: str = NINJA_BASE_URL,
         rate_limiter: RateLimiter | None = None,
         http_client: httpx.Client | None = None,
+        no_cache: bool = False,
     ) -> None:
         self._base_url = base_url.rstrip("/")
         self._rate_limiter = rate_limiter or RateLimiter()
+        self.no_cache = no_cache
         self._owns_client = http_client is None
         self._client = http_client or httpx.Client(
             timeout=httpx.Timeout(

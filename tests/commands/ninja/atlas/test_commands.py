@@ -34,7 +34,7 @@ INDEX_STATE = {
 
 
 def _make_atlas_service(tmp_path, fixture_map=None):
-    client = MagicMock()
+    client = MagicMock(no_cache=False)
 
     def get_json(path, **_kwargs):
         if fixture_map:
@@ -215,7 +215,7 @@ class TestHeatmap:
 class TestAtlasCli:
     @patch("poe.commands.ninja.atlas.commands.NinjaClient")
     def test_atlas_search_cli(self, mock_cls):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
 
         def get_json(path, **_kwargs):
             if "atlas-tree-index-state" in path:
@@ -235,7 +235,7 @@ class TestAtlasCli:
 
     @patch("poe.commands.ninja.atlas.commands.NinjaClient")
     def test_atlas_recommend_cli(self, mock_cls):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
 
         def get_json(path, **_kwargs):
             if "atlas-tree-index-state" in path:
@@ -284,7 +284,7 @@ class TestPopularNodesTopN:
 class TestAtlasProfitCli:
     @patch("poe.commands.ninja.atlas.commands.NinjaClient")
     def test_atlas_profit_cli(self, mock_cls):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
 
         def get_json(path, **_kwargs):
             if "atlas-tree-index-state" in path:
@@ -312,7 +312,7 @@ class TestAtlasProfitCli:
 class TestAtlasResolveLeague:
     @patch("poe.commands.ninja.atlas.commands.NinjaClient")
     def test_atlas_profit_with_league(self, mock_cls):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
 
         def get_json(path, **_kwargs):
             if "atlas-tree-index-state" in path:
@@ -338,7 +338,7 @@ class TestAtlasResolveLeague:
 
     @patch("poe.commands.ninja.atlas.commands.NinjaClient")
     def test_atlas_profit_no_league(self, mock_cls):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
 
         def get_json(path, **_kwargs):
             if "atlas-tree-index-state" in path:
@@ -366,7 +366,7 @@ class TestAtlasResolveLeague:
 class TestAtlasSearchCliNoData:
     @patch("poe.commands.ninja.atlas.commands.NinjaClient")
     def test_atlas_search_no_data(self, mock_cls):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
         empty = {**ATLAS_TREE_INDEX_STATE, "snapshotVersions": []}
 
         def get_json(path, **_kwargs):

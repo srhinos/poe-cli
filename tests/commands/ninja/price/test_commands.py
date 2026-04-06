@@ -189,7 +189,7 @@ class TestPriceHistory:
         }
         mock_hist_cls.return_value = mock_hist
 
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
         mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -214,7 +214,7 @@ class TestPriceHistory:
         mock_hist.get_price_history.return_value = None
         mock_hist_cls.return_value = mock_hist
 
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
         mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -244,7 +244,7 @@ class TestPriceCraft:
         )
         mock_econ_cls.return_value = mock_econ
 
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
         mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -265,7 +265,7 @@ class TestPriceBuild:
         mock_builds.get_character.return_value = None
         mock_builds_cls.return_value = mock_builds
 
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
         mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -297,7 +297,7 @@ class TestPriceBuildSuccess:
 
         mock_cost.return_value = {"total": 500}
 
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
         mock_ninja_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_ninja_cls.return_value.__exit__ = MagicMock(return_value=False)
 
@@ -313,7 +313,7 @@ class TestPriceBuildSuccess:
 class TestPriceNoLeague:
     @patch("poe.commands.ninja.price.commands.NinjaClient")
     def test_price_check_no_league(self, mock_cls):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
 
         def get_json(path, **_kwargs):
             if "index-state" in path:

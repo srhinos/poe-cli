@@ -111,7 +111,7 @@ ATLAS_TREE_INDEX_STATE_FIXTURE = {
 
 
 def _make_service(tmp_path, fixture_map=None):
-    client = MagicMock()
+    client = MagicMock(no_cache=False)
 
     def get_json_side_effect(path, **_kwargs):
         if fixture_map and path in fixture_map:

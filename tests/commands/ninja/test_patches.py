@@ -148,7 +148,7 @@ class TestFindBuildImpact:
 class TestToolsCli:
     @patch("poe.commands.ninja.commands.NinjaClient")
     def test_tooltip_cli(self, mock_cls):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
         client.get_json.return_value = {
             "name": "Whispers of Doom",
             "implicitMods": [],
@@ -165,7 +165,7 @@ class TestToolsCli:
 
     @patch("poe.commands.ninja.price.commands.NinjaClient")
     def test_price_craft_cli(self, mock_cls):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
 
         def get_json(path, **_kwargs):
             if "index-state" in path:

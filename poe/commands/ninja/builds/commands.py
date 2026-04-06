@@ -26,6 +26,7 @@ def builds_inspect(
     game: str = "poe1",
     snapshot_type: Annotated[str, cyclopts.Parameter(name="--type")] = "exp",
     *,
+    no_cache: bool = False,
     json: bool = False,
 ) -> None:
     """Inspect a character from poe.ninja.
@@ -40,10 +41,12 @@ def builds_inspect(
         poe1 or poe2.
     snapshot_type
         exp or depthsolo.
+    no_cache
+        Bypass cache and fetch fresh data.
     json
         Output raw JSON.
     """
-    with NinjaClient() as client:
+    with NinjaClient(no_cache=no_cache) as client:
         discovery = DiscoveryService(client)
         svc = BuildsService(client, discovery)
         result = svc.get_character(account, character, game=game, snapshot_type=snapshot_type)
@@ -60,6 +63,7 @@ def builds_import(
     game: str = "poe1",
     snapshot_type: Annotated[str, cyclopts.Parameter(name="--type")] = "exp",
     *,
+    no_cache: bool = False,
     json: bool = False,
 ) -> None:
     """Import a character build from poe.ninja.
@@ -74,10 +78,12 @@ def builds_import(
         poe1 or poe2.
     snapshot_type
         exp or depthsolo.
+    no_cache
+        Bypass cache and fetch fresh data.
     json
         Output raw JSON.
     """
-    with NinjaClient() as client:
+    with NinjaClient(no_cache=no_cache) as client:
         discovery = DiscoveryService(client)
         svc = BuildsService(client, discovery)
         result = svc.get_character(account, character, game=game, snapshot_type=snapshot_type)
@@ -112,6 +118,7 @@ def builds_search(
     pantheon: str | None = None,
     time_machine: str | None = None,
     *,
+    no_cache: bool = False,
     json: bool = False,
 ) -> None:
     """Search poe.ninja builds with filters.
@@ -142,10 +149,12 @@ def builds_search(
         Pantheon (PoE1).
     time_machine
         Time machine label.
+    no_cache
+        Bypass cache and fetch fresh data.
     json
         Output raw JSON.
     """
-    with NinjaClient() as client:
+    with NinjaClient(no_cache=no_cache) as client:
         discovery = DiscoveryService(client)
         svc = BuildsService(client, discovery)
         result = svc.search(
@@ -175,6 +184,7 @@ def builds_compare(
     game: str = "poe1",
     snapshot_type: Annotated[str, cyclopts.Parameter(name="--type")] = "exp",
     *,
+    no_cache: bool = False,
     json: bool = False,
 ) -> None:
     """Compare a character to the meta for their ascendancy.
@@ -189,10 +199,12 @@ def builds_compare(
         poe1 or poe2.
     snapshot_type
         exp or depthsolo.
+    no_cache
+        Bypass cache and fetch fresh data.
     json
         Output raw JSON.
     """
-    with NinjaClient() as client:
+    with NinjaClient(no_cache=no_cache) as client:
         discovery = DiscoveryService(client)
         svc = BuildsService(client, discovery)
         char = svc.get_character(account, character, game=game, snapshot_type=snapshot_type)
@@ -218,6 +230,7 @@ def builds_suggest_upgrade(
     game: str = "poe1",
     snapshot_type: Annotated[str, cyclopts.Parameter(name="--type")] = "exp",
     *,
+    no_cache: bool = False,
     json: bool = False,
 ) -> None:
     """Suggest budget gear upgrades for a character.
@@ -232,10 +245,12 @@ def builds_suggest_upgrade(
         poe1 or poe2.
     snapshot_type
         exp or depthsolo.
+    no_cache
+        Bypass cache and fetch fresh data.
     json
         Output raw JSON.
     """
-    with NinjaClient() as client:
+    with NinjaClient(no_cache=no_cache) as client:
         discovery = DiscoveryService(client)
         league = discovery.get_current_league(game=game)
         if not league:
@@ -256,6 +271,7 @@ def builds_suggest_upgrade(
 def builds_heatmap(
     class_filter: Annotated[str | None, cyclopts.Parameter(name="--class")] = None,
     *,
+    no_cache: bool = False,
     json: bool = False,
 ) -> None:
     """Get passive tree node usage heatmap from builds.
@@ -264,10 +280,12 @@ def builds_heatmap(
     ----------
     class_filter
         Ascendancy filter.
+    no_cache
+        Bypass cache and fetch fresh data.
     json
         Output raw JSON.
     """
-    with NinjaClient() as client:
+    with NinjaClient(no_cache=no_cache) as client:
         discovery = DiscoveryService(client)
         builds_svc = BuildsService(client, discovery)
         atlas_svc = AtlasService(client, discovery)

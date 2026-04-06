@@ -229,7 +229,7 @@ POE2_EXCHANGE_RESPONSE = {
 
 
 def _make_service(tmp_path, fixture_map=None):
-    client = MagicMock()
+    client = MagicMock(no_cache=False)
 
     def get_json_side_effect(path, *, params=None):
         if fixture_map:
@@ -481,7 +481,7 @@ class TestCraftingPrices:
         assert isinstance(result, CraftingPrices)
 
     def test_handles_missing_types(self, tmp_path):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
         client.get_json.side_effect = ApiSchemaError("not found")
         svc = EconomyService(client, base_dir=tmp_path)
         result = svc.get_crafting_prices("Mirage")
@@ -578,7 +578,7 @@ class TestFreshness:
 class TestLanguagePassthrough:
     @pytest.mark.parametrize("lang", sorted(NINJA_LANGUAGES))
     def test_language_passed_to_api(self, tmp_path, lang):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
         captured_params = {}
 
         def get_json(_path, *, params=None):

@@ -33,7 +33,7 @@ POE1_INDEX_STATE = {
 class TestLeagueInfo:
     @patch("poe.commands.ninja.commands.NinjaClient")
     def test_league_info_default(self, mock_client_cls):
-        mock_client = MagicMock()
+        mock_client = MagicMock(no_cache=False)
         mock_client.get_json.return_value = POE1_INDEX_STATE
         mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
         mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
@@ -46,7 +46,7 @@ class TestLeagueInfo:
 
     @patch("poe.commands.ninja.commands.NinjaClient")
     def test_league_info_with_snapshots(self, mock_client_cls):
-        mock_client = MagicMock()
+        mock_client = MagicMock(no_cache=False)
         mock_client.get_json.return_value = POE1_INDEX_STATE
         mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
         mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
@@ -84,7 +84,7 @@ class TestCacheStatus:
 class TestLeagueInfoForce:
     @patch("poe.commands.ninja.commands.NinjaClient")
     def test_force_flag_passes_through(self, mock_client_cls):
-        mock_client = MagicMock()
+        mock_client = MagicMock(no_cache=False)
         mock_client.get_json.return_value = POE1_INDEX_STATE
         mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
         mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
@@ -98,7 +98,7 @@ class TestTooltipNotFound:
     def test_tooltip_not_found(self, mock_cls):
         from poe.exceptions import PoeError
 
-        mock_client = MagicMock()
+        mock_client = MagicMock(no_cache=False)
         mock_client.get_json.return_value = None
         mock_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
         mock_cls.return_value.__exit__ = MagicMock(return_value=False)

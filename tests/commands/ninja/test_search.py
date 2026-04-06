@@ -197,7 +197,7 @@ class TestParseSearchResults:
 
 
 def _make_search_service(tmp_path, fixture_map=None):
-    client = MagicMock()
+    client = MagicMock(no_cache=False)
 
     def get_json(path, **_kwargs):
         if fixture_map:
@@ -266,7 +266,7 @@ class TestBuildsServiceSearch:
 class TestSearchCli:
     @patch("poe.commands.ninja.builds.commands.NinjaClient")
     def test_builds_search(self, mock_cls):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
 
         def get_json(path, **_kwargs):
             if "index-state" in path:
@@ -286,7 +286,7 @@ class TestSearchCli:
 
     @patch("poe.commands.ninja.builds.commands.NinjaClient")
     def test_builds_search_with_class(self, mock_cls):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
 
         def get_json(path, **_kwargs):
             if "index-state" in path:

@@ -226,7 +226,7 @@ class TestModelParsing:
 
 
 def _make_history_service(tmp_path, fixture_map=None):
-    client = MagicMock()
+    client = MagicMock(no_cache=False)
 
     def get_json(_path, **_kwargs):
         if fixture_map:
@@ -238,7 +238,7 @@ def _make_history_service(tmp_path, fixture_map=None):
 
     client.get_json.side_effect = get_json
 
-    economy_client = MagicMock()
+    economy_client = MagicMock(no_cache=False)
     economy_client.get_json.side_effect = get_json
     economy = EconomyService(economy_client, base_dir=tmp_path)
 
@@ -328,7 +328,7 @@ class TestHistoryService:
 class TestPriceHistoryCli:
     @patch("poe.commands.ninja.price.commands.NinjaClient")
     def test_price_history_found(self, mock_cls):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
 
         def get_json(path, **_kwargs):
             if "index-state" in path:
@@ -352,7 +352,7 @@ class TestPriceHistoryCli:
 
     @patch("poe.commands.ninja.price.commands.NinjaClient")
     def test_price_history_not_found(self, mock_cls):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
 
         def get_json(path, **_kwargs):
             if "index-state" in path:

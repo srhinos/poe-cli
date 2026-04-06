@@ -25,17 +25,21 @@ ninja_app.command(meta_app)
 
 
 @ninja_app.command(name="league-info")
-def league_info(game: str = "poe1", *, force: bool = False, json: bool = False) -> None:
+def league_info(
+    game: str = "poe1", *, force: bool = False, no_cache: bool = False, json: bool = False
+) -> None:
     """Show league index state from poe.ninja.
 
     Parameters
     ----------
     game
         Game version: poe1 or poe2.
+    no_cache
+        Bypass cache and fetch fresh data.
     json
         Output raw JSON.
     """
-    with NinjaClient() as client:
+    with NinjaClient(no_cache=no_cache) as client:
         svc = DiscoveryService(client)
         state = (
             svc.get_poe2_index_state(force=force)
@@ -43,6 +47,20 @@ def league_info(game: str = "poe1", *, force: bool = False, json: bool = False) 
             else svc.get_poe1_index_state(force=force)
         )
         render(state, json_mode=json)
+
+
+@ninja_app.command(name="cache-clear")
+def cache_clear(*, json: bool = False) -> None:
+    """Clear all cached poe.ninja data.
+
+    Parameters
+    ----------
+    json
+        Output raw JSON.
+    """
+    base = ninja_cache.cache_dir()
+    ninja_cache.invalidate_all(base)
+    render({"status": "ok", "cleared": str(base)}, json_mode=json)
 
 
 @ninja_app.command(name="cache-status")
@@ -86,6 +104,7 @@ def tooltip(
     name: str,
     tooltip_type: Annotated[str, cyclopts.Parameter(name="--type")] = "anointed",
     *,
+    no_cache: bool = False,
     json: bool = False,
 ) -> None:
     """Look up a tooltip by name and type.
@@ -96,10 +115,12 @@ def tooltip(
         Item or passive name.
     tooltip_type
         Type: anointed, bandit, pantheon, etc.
+    no_cache
+        Bypass cache and fetch fresh data.
     json
         Output raw JSON.
     """
-    with NinjaClient() as client:
+    with NinjaClient(no_cache=no_cache) as client:
         discovery = DiscoveryService(client)
         svc = BuildsService(client, discovery)
         result = svc.get_generic_tooltip(name, tooltip_type)

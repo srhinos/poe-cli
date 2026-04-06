@@ -7,7 +7,7 @@ from poe.services.ninja.errors import NetworkError
 
 
 def _make_builds_service(tmp_path, *, get_json_side_effect=None):
-    client = MagicMock()
+    client = MagicMock(no_cache=False)
     if get_json_side_effect:
         client.get_json.side_effect = get_json_side_effect
     discovery = MagicMock()

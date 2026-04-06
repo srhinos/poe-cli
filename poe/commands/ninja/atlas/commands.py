@@ -29,6 +29,7 @@ def atlas_search(
     blockers: str | None = None,
     scarab_specializations: str | None = None,
     *,
+    no_cache: bool = False,
     json: bool = False,
 ) -> None:
     """Search atlas tree nodes with filters.
@@ -41,10 +42,12 @@ def atlas_search(
         Beacon filter.
     keystones
         Keystone filter.
+    no_cache
+        Bypass cache and fetch fresh data.
     json
         Output raw JSON.
     """
-    with NinjaClient() as client:
+    with NinjaClient(no_cache=no_cache) as client:
         discovery = DiscoveryService(client)
         svc = AtlasService(client, discovery)
         result = svc.search(
@@ -62,15 +65,17 @@ def atlas_search(
 
 
 @atlas_app.command(name="recommend")
-def atlas_recommend(*, top_n: int = 20, json: bool = False) -> None:
+def atlas_recommend(*, top_n: int = 20, no_cache: bool = False, json: bool = False) -> None:
     """Get popular atlas nodes.
 
     Parameters
     ----------
+    no_cache
+        Bypass cache and fetch fresh data.
     json
         Output raw JSON.
     """
-    with NinjaClient() as client:
+    with NinjaClient(no_cache=no_cache) as client:
         discovery = DiscoveryService(client)
         svc = AtlasService(client, discovery)
         nodes = svc.get_popular_nodes(top_n=top_n)
@@ -78,17 +83,19 @@ def atlas_recommend(*, top_n: int = 20, json: bool = False) -> None:
 
 
 @atlas_app.command(name="profit")
-def atlas_profit(league: str | None = None, *, json: bool = False) -> None:
+def atlas_profit(league: str | None = None, *, no_cache: bool = False, json: bool = False) -> None:
     """Estimate atlas profit by mechanic.
 
     Parameters
     ----------
     league
         League name.
+    no_cache
+        Bypass cache and fetch fresh data.
     json
         Output raw JSON.
     """
-    with NinjaClient() as client:
+    with NinjaClient(no_cache=no_cache) as client:
         discovery = DiscoveryService(client)
         resolved_league = _resolve_league(discovery, league)
         economy = EconomyService(client)

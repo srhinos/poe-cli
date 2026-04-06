@@ -35,7 +35,7 @@ class BuildsService:
         self._cache_dir = base_dir or ninja_cache.cache_dir()
 
     def _fetch_cached(self, cache_key: str, path: str, params: dict[str, str]) -> Any:
-        if ninja_cache.is_fresh(self._cache_dir, cache_key, "builds"):
+        if not self._client.no_cache and ninja_cache.is_fresh(self._cache_dir, cache_key, "builds"):
             cached = ninja_cache.read_cache(self._cache_dir, cache_key)
             if cached is not None:
                 return cached
