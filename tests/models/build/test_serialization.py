@@ -117,8 +117,8 @@ class TestItemModels:
             id=1,
             text="test",
             rarity="RARE",
-            prefix_slots=["IncreasedLife6", "None", "None"],
-            suffix_slots=["AddedFireRes4", "None", "None"],
+            prefix_slots=["IncreasedLife6", None, None],
+            suffix_slots=["AddedFireRes4", None, None],
         )
         assert item.open_prefixes == 2
         assert item.open_suffixes == 2

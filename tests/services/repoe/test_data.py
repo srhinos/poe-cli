@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+import pytest
+
+from poe.exceptions import SimDataError
 from poe.services.repoe.data import RepoEData
 
 
@@ -40,39 +43,50 @@ class TestModPool:
     def test_prefix_filter(self, repoe_data):
         mods = repoe_data.get_mod_pool("Hubris Circlet", affix_type="prefix")
         for m in mods:
-            assert m["affix"] == "prefix"
+            assert m.affix == "prefix"
 
     def test_suffix_filter(self, repoe_data):
         mods = repoe_data.get_mod_pool("Hubris Circlet", affix_type="suffix")
         for m in mods:
-            assert m["affix"] == "suffix"
+            assert m.affix == "suffix"
 
     def test_influence_mods(self, repoe_data):
         mods = repoe_data.get_mod_pool("Hubris Circlet", influences=["Shaper"])
-        mod_names = [m["name"] for m in mods]
+        mod_names = [m.name for m in mods]
         assert "Shaper Life" in mod_names
+
+    def test_influence_case_insensitive(self, repoe_data):
+        mods_upper = repoe_data.get_mod_pool("Hubris Circlet", influences=["Shaper"])
+        mods_lower = repoe_data.get_mod_pool("Hubris Circlet", influences=["shaper"])
+        shaper_ids_upper = {m.mod_id for m in mods_upper if m.influence}
+        shaper_ids_lower = {m.mod_id for m in mods_lower if m.influence}
+        assert shaper_ids_upper == shaper_ids_lower
+        assert len(shaper_ids_lower) > 0
 
     def test_no_influence_excludes_influence_mods(self, repoe_data):
         mods = repoe_data.get_mod_pool("Hubris Circlet")
-        mod_names = [m["name"] for m in mods]
+        mod_names = [m.name for m in mods]
         assert "Shaper Life" not in mod_names
 
     def test_mod_structure(self, repoe_data):
+        from poe.services.repoe.sim import BestTier, ModPoolEntry
+
         mods = repoe_data.get_mod_pool("Hubris Circlet")
         for m in mods:
-            assert "mod_id" in m
-            assert "name" in m
-            assert "affix" in m
-            assert "group" in m
-            assert "weight" in m
-            assert "best_tier" in m
+            assert isinstance(m, ModPoolEntry)
+            assert isinstance(m.mod_id, str)
+            assert isinstance(m.name, str)
+            assert m.affix in ("prefix", "suffix")
+            assert isinstance(m.group, str)
+            assert isinstance(m.weight, int)
+            assert isinstance(m.best_tier, BestTier)
 
-    def test_implicit_tags_parsed_as_list(self, repoe_data):
+    def test_implicit_tags_parsed_as_tuple(self, repoe_data):
         mods = repoe_data.get_mod_pool("Hubris Circlet")
-        life_mods = [m for m in mods if m["group"] == "IncreasedLife"]
+        life_mods = [m for m in mods if m.group == "IncreasedLife"]
         assert len(life_mods) > 0
-        assert isinstance(life_mods[0]["implicit_tags"], list)
-        assert "life" in life_mods[0]["implicit_tags"]
+        assert isinstance(life_mods[0].implicit_tags, tuple)
+        assert "life" in life_mods[0].implicit_tags
 
     def test_unknown_base_returns_empty(self, repoe_data):
         mods = repoe_data.get_mod_pool("Nonexistent Base")
@@ -139,9 +153,9 @@ class TestEssences:
         essences = repoe_data.get_essences(base_name="Hubris Circlet")
         assert len(essences) >= 1
 
-    def test_filter_no_match_returns_all(self, repoe_data):
-        essences = repoe_data.get_essences(base_name="Nonexistent Base")
-        assert len(essences) >= 1
+    def test_invalid_base_name_raises(self, repoe_data):
+        with pytest.raises(SimDataError, match="not found"):
+            repoe_data.get_essences("NonexistentBase999")
 
 
 class TestBenchCrafts:
@@ -156,6 +170,11 @@ class TestBenchCrafts:
             assert "name" in c
             assert "cost" in c
             assert "cost_raw" in c
+
+    def test_cost_display_has_no_metadata_paths(self, repoe_data):
+        crafts = repoe_data.get_bench_crafts("Hubris Circlet")
+        for craft in crafts:
+            assert "Metadata/" not in craft["cost"], f"Raw path in cost: {craft['cost']}"
 
     def test_bench_crafts_unknown_base(self, repoe_data):
         crafts = repoe_data.get_bench_crafts("Nonexistent Base")
@@ -201,3 +220,10 @@ class TestEssenceTiers:
         assert RepoEData._extract_essence_tier("Deafening") == ("Deafening", 7)
         assert RepoEData._extract_essence_tier("Whispering") == ("Whispering", 1)
         assert RepoEData._extract_essence_tier("Unknown") == ("", 0)
+
+
+class TestDataCaching:
+    def test_load_caches_results(self, repoe_data):
+        result1 = repoe_data._load("mods")
+        result2 = repoe_data._load("mods")
+        assert result1 is result2

@@ -14,14 +14,21 @@ from poe.commands.ninja.commands import ninja_app
 from poe.commands.root import install_skill
 from poe.commands.sim.commands import sim_app
 from poe.exceptions import PoeError
+from poe.formatters import register_formatters
 
-app = cyclopts.App(name="poe", help="Path of Exile CLI toolkit.")
+try:
+    _version = _pkg_version("poe-tools")
+except PackageNotFoundError:
+    _version = "0.0.0"
+
+app = cyclopts.App(name="poe", help="Path of Exile CLI toolkit.", version=_version)
 
 app.command(build_app)
 app.command(dev_app)
 app.command(sim_app)
 app.command(ninja_app)
 app.command(install_skill, name="install-skill")
+register_formatters()
 
 
 def _check_skill_version() -> None:
@@ -40,15 +47,10 @@ def _check_skill_version() -> None:
         pass
 
 
-@app.meta.default
-def _main(*tokens: str) -> None:
-    _check_skill_version()
-    app(tokens)
-
-
 def run() -> None:
+    _check_skill_version()
     try:
-        _main()
+        app()
     except PoeError as e:
         print(json.dumps({"error": str(e)}), file=sys.stderr)
         raise SystemExit(1) from None

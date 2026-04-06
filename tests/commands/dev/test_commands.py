@@ -20,7 +20,7 @@ class TestBuildData:
             patch(_PATCH_PIPELINE) as mock_cls,
         ):
             mock_cls.return_value.build.return_value = mock_results
-            result = invoke_cli(cli, ["dev", "build-data"])
+            result = invoke_cli(cli, ["dev", "build-data", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["status"] == "built"

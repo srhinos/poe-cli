@@ -11,41 +11,33 @@ from poe.models.ninja.economy import (
 )
 from poe.services.ninja import cache as ninja_cache
 from poe.services.ninja.constants import (
+    CRAFTING_TYPE_MAP,
+    CURRENCY_ALIASES,
+    NINJA_DETAILS_BASE,
     NINJA_ENDPOINTS,
     NINJA_LOW_CONFIDENCE_THRESHOLD,
     NINJA_POE1_CURRENCY_STASH_TYPES,
-    NINJA_POE1_EXCHANGE_TYPES,
     NINJA_POE1_STASH_TYPES,
+    TYPE_CANONICAL,
 )
 from poe.services.ninja.errors import ApiSchemaError, NinjaError
 
 if TYPE_CHECKING:
     from poe.services.ninja.client import NinjaClient
 
-NINJA_DETAILS_BASE = "https://poe.ninja"
 
-CRAFTING_TYPE_MAP: dict[str, list[tuple[str, str]]] = {
-    "currency": [("Currency", "poe1_exchange")],
-    "fossils": [("Fossil", "poe1_exchange")],
-    "essences": [("Essence", "poe1_exchange")],
-    "resonators": [("Resonator", "poe1_exchange")],
-    "beasts": [("Beast", "poe1_stash_item")],
-    "fragments": [("Fragment", "poe1_exchange")],
-    "scarabs": [("Scarab", "poe1_exchange")],
-    "oils": [("Oil", "poe1_exchange")],
-}
-
-
-def _route_type(item_type: str, *, game: str) -> str:
+def _route_type(item_type: str, *, game: str) -> tuple[str, str]:
     if game == "poe2":
-        return "poe2_exchange"
-    if item_type in NINJA_POE1_CURRENCY_STASH_TYPES:
-        return "poe1_stash_currency"
-    if item_type in NINJA_POE1_STASH_TYPES:
-        return "poe1_stash_item"
-    if item_type in NINJA_POE1_EXCHANGE_TYPES:
-        return "poe1_exchange"
-    raise ApiSchemaError(f"Unknown item type '{item_type}' for {game}")
+        return "poe2_exchange", item_type
+    canonical = TYPE_CANONICAL.get(item_type.lower())
+    if canonical is None:
+        valid = sorted(TYPE_CANONICAL.values())
+        raise ApiSchemaError(f"Unknown item type '{item_type}' for {game}. Valid types: {valid}")
+    if canonical in NINJA_POE1_CURRENCY_STASH_TYPES:
+        return "poe1_stash_currency", canonical
+    if canonical in NINJA_POE1_STASH_TYPES:
+        return "poe1_stash_item", canonical
+    return "poe1_exchange", canonical
 
 
 def _endpoint_path(route: str) -> str:
@@ -78,7 +70,9 @@ class EconomyService:
         self._cache_dir = base_dir or ninja_cache.cache_dir()
 
     def _fetch_cached(self, cache_key: str, path: str, params: dict[str, str]) -> Any:
-        if ninja_cache.is_fresh(self._cache_dir, cache_key, "economy"):
+        if not self._client.no_cache and ninja_cache.is_fresh(
+            self._cache_dir, cache_key, "economy"
+        ):
             cached = ninja_cache.read_cache(self._cache_dir, cache_key)
             if cached is not None:
                 return cached
@@ -122,17 +116,17 @@ class EconomyService:
         game: str = "poe1",
         language: str = "en",
     ) -> list[PriceResult]:
-        route = _route_type(item_type, game=game)
+        route, canonical_type = _route_type(item_type, game=game)
 
         if route == "poe1_stash_currency":
-            cache_key = f"currency_{league}_{item_type}_{language}"
-            results = self._prices_from_currency(league, item_type, language=language)
+            cache_key = f"currency_{league}_{canonical_type}_{language}"
+            results = self._prices_from_currency(league, canonical_type, language=language)
         elif route == "poe1_stash_item":
-            cache_key = f"item_{league}_{item_type}_{language}"
-            results = self._prices_from_items(league, item_type, language=language)
+            cache_key = f"item_{league}_{canonical_type}_{language}"
+            results = self._prices_from_items(league, canonical_type, language=language)
         else:
-            cache_key = f"exchange_{game}_{league}_{item_type}"
-            results = self._prices_from_exchange(league, item_type, game=game)
+            cache_key = f"exchange_{game}_{league}_{canonical_type}"
+            results = self._prices_from_exchange(league, canonical_type, game=game)
 
         freshness = ninja_cache.get_freshness(self._cache_dir, cache_key, "economy")
         for r in results:
@@ -222,6 +216,14 @@ class EconomyService:
         game: str = "poe1",
         language: str = "en",
     ) -> PriceResult | None:
+        if item_name.lower() == "chaos orb" and item_type.lower() == "currency" and game == "poe1":
+            return PriceResult(
+                name="Chaos Orb",
+                chaos_value=1.0,
+                divine_value=0.0,
+                details_id="chaos-orb",
+                category="Currency",
+            )
         prices = self.get_prices(league, item_type, game=game, language=language)
         name_lower = item_name.lower()
         return next(
@@ -270,14 +272,20 @@ class EconomyService:
         *,
         game: str = "poe1",
     ) -> float:
+        if amount <= 0:
+            raise NinjaError("Amount must be positive")
         prices = self.get_prices(league, "Currency", game=game)
         price_map = {p.name.lower(): p.chaos_value for p in prices}
         price_map["chaos orb"] = 1.0
 
-        from_chaos = price_map.get(from_currency.lower(), 0.0)
-        to_chaos = price_map.get(to_currency.lower(), 0.0)
-        if to_chaos <= 0:
-            return 0.0
+        from_key = CURRENCY_ALIASES.get(from_currency.lower(), from_currency.lower())
+        to_key = CURRENCY_ALIASES.get(to_currency.lower(), to_currency.lower())
+        from_chaos = price_map.get(from_key)
+        if from_chaos is None:
+            raise NinjaError(f"Currency not found: {from_currency!r}")
+        to_chaos = price_map.get(to_key)
+        if to_chaos is None or to_chaos <= 0:
+            raise NinjaError(f"Currency not found: {to_currency!r}")
         return amount * from_chaos / to_chaos
 
     def get_crafting_prices(self, league: str, *, language: str = "en") -> CraftingPrices:

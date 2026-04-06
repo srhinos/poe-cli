@@ -36,11 +36,21 @@ POE2_CHARACTER_WITH_CHARMS = {
     "jewels": [],
     "charms": [
         {
-            "name": "Charm of Haste",
-            "typeLine": "Gold Charm",
-            "explicitMods": ["+10% Movement Speed"],
+            "itemSlot": 1,
+            "itemData": {
+                "name": "Charm of Haste",
+                "typeLine": "Gold Charm",
+                "explicitMods": ["+10% Movement Speed"],
+            },
         },
-        {"name": "Charm of Life", "typeLine": "Ruby Charm", "explicitMods": ["+50 to Life"]},
+        {
+            "itemSlot": 2,
+            "itemData": {
+                "name": "Charm of Life",
+                "typeLine": "Ruby Charm",
+                "explicitMods": ["+50 to Life"],
+            },
+        },
     ],
     "keystones": [],
     "passives": [10, 20],
@@ -52,16 +62,15 @@ class TestPoE2Charms:
     def test_charms_parsed(self):
         resp = CharacterResponse.model_validate(POE2_CHARACTER_WITH_CHARMS)
         assert len(resp.charms) == 2
-        assert resp.charms[0].name == "Charm of Haste"
-        assert resp.charms[0].explicit_mods == ["+10% Movement Speed"]
+        assert resp.charms[0].item_data["name"] == "Charm of Haste"
+        assert resp.charms[0].item_data["explicitMods"] == ["+10% Movement Speed"]
 
     def test_charm_model(self):
         charm = CharacterCharm(
-            name="Test Charm",
-            type_line="Gold Charm",
-            explicit_mods=["+5% Speed"],
+            itemSlot=1,
+            itemData={"name": "Test Charm", "typeLine": "Gold Charm"},
         )
-        assert charm.name == "Test Charm"
+        assert charm.item_data["name"] == "Test Charm"
 
     def test_empty_charms_poe1(self):
         poe1 = {

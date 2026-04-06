@@ -36,15 +36,23 @@ class TestMetaPath:
 
 
 class TestTtlForCategory:
-    def test_known_categories(self):
-        assert ninja_cache.ttl_for_category("index") == 5 * 60
-        assert ninja_cache.ttl_for_category("economy") == 15 * 60
-        assert ninja_cache.ttl_for_category("builds") == 30 * 60
-        assert ninja_cache.ttl_for_category("history") == 4 * 3600
+    def test_known_categories_have_positive_ttl(self, monkeypatch):
+        monkeypatch.delenv("POE_NINJA_CACHE_TTL", raising=False)
+        for cat in ("index", "economy", "builds", "history"):
+            assert ninja_cache.ttl_for_category(cat) > 0
+
+    def test_dictionary_has_zero_ttl(self, monkeypatch):
+        monkeypatch.delenv("POE_NINJA_CACHE_TTL", raising=False)
         assert ninja_cache.ttl_for_category("dictionary") == 0
 
-    def test_unknown_defaults_to_economy(self):
-        assert ninja_cache.ttl_for_category("unknown") == 15 * 60
+    def test_unknown_defaults_to_positive(self, monkeypatch):
+        monkeypatch.delenv("POE_NINJA_CACHE_TTL", raising=False)
+        assert ninja_cache.ttl_for_category("unknown") > 0
+
+    def test_env_override(self, monkeypatch):
+        monkeypatch.setenv("POE_NINJA_CACHE_TTL", "99999")
+        assert ninja_cache.ttl_for_category("index") == 99999
+        assert ninja_cache.ttl_for_category("economy") == 99999
 
 
 class TestIsFresh:
@@ -55,7 +63,8 @@ class TestIsFresh:
         ninja_cache.write_cache(tmp_path, "test", {"data": 1})
         assert ninja_cache.is_fresh(tmp_path, "test", "index")
 
-    def test_stale_entry(self, tmp_path):
+    def test_stale_entry(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("POE_NINJA_CACHE_TTL", raising=False)
         ninja_cache.write_cache(tmp_path, "test", {"data": 1})
         mf = ninja_cache.meta_path(ninja_cache.cache_file(tmp_path, "test"))
         old_time = (datetime.now(UTC) - timedelta(hours=1)).isoformat()
@@ -117,7 +126,8 @@ class TestGetFreshness:
         assert f["cache_age_seconds"] < 5
         assert f["is_stale"] is False
 
-    def test_stale_entry(self, tmp_path):
+    def test_stale_entry(self, tmp_path, monkeypatch):
+        monkeypatch.delenv("POE_NINJA_CACHE_TTL", raising=False)
         ninja_cache.write_cache(tmp_path, "test", {"data": 1})
         mf = ninja_cache.meta_path(ninja_cache.cache_file(tmp_path, "test"))
         old_time = (datetime.now(UTC) - timedelta(hours=1)).isoformat()

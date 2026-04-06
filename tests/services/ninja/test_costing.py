@@ -25,6 +25,26 @@ def _mock_economy(prices_by_type: dict[str, list[PriceResult]] | None = None):
     return economy
 
 
+def _item(name: str, inventory_id: str = "", frame_type: int = 0) -> CharacterItem:
+    return CharacterItem(
+        itemSlot=0,
+        itemData={
+            "name": name,
+            "typeLine": name,
+            "inventoryId": inventory_id,
+            "frameType": frame_type,
+        },
+    )
+
+
+def _flask(name: str) -> CharacterFlask:
+    return CharacterFlask(itemSlot=0, itemData={"name": name, "typeLine": name})
+
+
+def _jewel(name: str) -> CharacterJewel:
+    return CharacterJewel(itemSlot=0, itemData={"name": name, "typeLine": name})
+
+
 def _make_character(**overrides) -> CharacterResponse:
     defaults = {
         "account": "test",
@@ -33,22 +53,14 @@ def _make_character(**overrides) -> CharacterResponse:
         "level": 95,
         "class": "Pathfinder",
         "items": [
-            CharacterItem(
-                name="Headhunter",
-                inventory_id="Belt",
-                rarity="unique",
-            ),
-            CharacterItem(
-                name="Hyrri's Ire",
-                inventory_id="BodyArmour",
-                rarity="unique",
-            ),
+            _item("Headhunter", "Belt", frame_type=3),
+            _item("Hyrri's Ire", "BodyArmour", frame_type=3),
         ],
         "flasks": [
-            CharacterFlask(name="Dying Sun"),
+            _flask("Dying Sun"),
         ],
         "jewels": [
-            CharacterJewel(name="Watcher's Eye"),
+            _jewel("Watcher's Eye"),
         ],
     }
     defaults.update(overrides)
@@ -121,7 +133,7 @@ class TestCostBuild:
 
     def test_unpriced_items(self):
         char = _make_character(
-            items=[CharacterItem(name="Unknown Item", inventory_id="Helm")],
+            items=[_item("Unknown Item", "Helm")],
             flasks=[],
             jewels=[],
         )
@@ -134,7 +146,7 @@ class TestCostBuild:
 
     def test_skips_unnamed_items(self):
         char = _make_character(
-            items=[CharacterItem(name="", inventory_id="Helm")],
+            items=[CharacterItem(itemSlot=0, itemData={"name": "", "typeLine": ""})],
             flasks=[],
             jewels=[],
         )
@@ -172,7 +184,7 @@ class TestBudgetAlternatives:
 
     def test_no_alternatives_for_cheap_items(self):
         char = _make_character(
-            items=[CharacterItem(name="Cheap Belt", inventory_id="Belt", rarity="unique")],
+            items=[_item("Cheap Belt", "Belt", frame_type=3)],
             flasks=[],
             jewels=[],
         )

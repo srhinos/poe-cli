@@ -2,6 +2,8 @@ from __future__ import annotations
 
 DEFAULT_ILVL = 84
 DEFAULT_ITERATIONS = 10000
+DEFAULT_MAX_ATTEMPTS = 1000
+DEFAULT_WORKERS = 4
 
 ESSENCE_TIER_PREFIXES: dict[str, int] = {
     "whispering": 1,
@@ -66,8 +68,62 @@ CURRENCY_PATH_NAMES: dict[str, str] = {
     "Metadata/Items/Currency/CurrencyFlaskQuality": "Glassblower's Bauble",
     "Metadata/Items/Currency/CurrencyMapQuality": "Cartographer's Chisel",
     "Metadata/Items/Currency/CurrencyPassiveRefund": "Orb of Regret",
+    "Metadata/Items/Currency/CurrencyAddModToMagic": "Orb of Augmentation",
+    "Metadata/Items/Currency/CurrencyArmourQuality": "Armourer's Scrap",
+    "Metadata/Items/Currency/CurrencyModValues": "Divine Orb",
+}
+
+RARITY_PRODUCED: dict[str, str] = {
+    "chaos": "rare",
+    "alchemy": "rare",
+    "fossil": "rare",
+    "harvest": "rare",
+    "alt": "magic",
+    "transmutation": "magic",
+    "scour": "normal",
+}
+
+RARITY_REQUIRED: dict[str, str] = {
+    "regal": "magic",
+    "augmentation": "magic",
+    "exalt": "rare",
+}
+
+MOD_DOMAIN_FOR_BASE_DOMAIN: dict[str, frozenset[str]] = {
+    "item": frozenset({"item", "crafted", "unveiled", "delve"}),
+    "flask": frozenset({"flask"}),
+    "abyss_jewel": frozenset({"abyss_jewel"}),
+    "affliction_jewel": frozenset({"affliction_jewel", "misc"}),
+    "misc": frozenset({"misc"}),
 }
 
 RECOMBINATOR_TRANSFER_CHANCE = 0.5
 TAINTED_OUTCOME_CHANCE = 0.5
 VALUE_RANGE_LENGTH = 2
+
+PLAYER_ITEM_DOMAINS = frozenset(
+    {
+        "item",
+        "crafted",
+        "flask",
+        "abyss_jewel",
+        "affliction_jewel",
+        "misc",
+        "unveiled",
+        "delve",
+        "watchstone",
+        "heist_trinket",
+    }
+)
+
+INFLUENCE_SUFFIXES: frozenset[str] = frozenset(INFLUENCE_TAG_MAP)
+
+BASE_ITEM_DOMAINS = frozenset(
+    {
+        "item",
+        "flask",
+        "abyss_jewel",
+        "affliction_jewel",
+        "misc",
+    }
+)

@@ -48,7 +48,12 @@ def _parse_item_text(text: str) -> dict:
 
 
 def _slot_matches_type(slot_name: str, slot_type: str) -> bool:
+    canonical = normalize_slot(slot_type)
+    if canonical and slot_name == canonical:
+        return True
     normalized = slot_type.casefold()
+    if slot_name.casefold() == normalized:
+        return True
     if normalized == "jewel":
         return slot_name.startswith("Jewel")
     mapped = SLOT_TYPE_MAP.get(normalized)
@@ -96,10 +101,17 @@ class ItemsService:
             ],
         )
 
-    def list_items(self, name: str, *, item_set: str | None = None) -> list[EquippedItem]:
-        _, build_obj = self._build.load(name)
+    def list_items(
+        self, name: str, *, item_set: str | None = None, file_path: str | None = None
+    ) -> list[EquippedItem]:
+        _, build_obj = self._build.load(name, file_path)
         equipped = build_obj.get_equipped_items(item_set_id=item_set)
-        return [EquippedItem(slot=slot_name, **item.model_dump()) for slot_name, item in equipped]
+        flask_slots = set(SLOT_TYPE_MAP["flask"])
+        return [
+            EquippedItem(slot=slot_name, **item.model_dump())
+            for slot_name, item in equipped
+            if slot_name not in flask_slots
+        ]
 
     def add_item(
         self,
@@ -123,6 +135,9 @@ class ItemsService:
         synthesised: bool = False,
         file_path: str | None = None,
     ) -> dict:
+        canonical_slot = normalize_slot(slot)
+        if not canonical_slot:
+            raise SlotError(f"Unknown slot: {slot!r}")
         path, build_obj, cloned_from = self._build.load_for_write(name, file_path)
         next_id = max((i.id for i in build_obj.items), default=0) + 1
         item = Item(
@@ -147,13 +162,12 @@ class ItemsService:
         build_obj.items.append(item)
         if build_obj.item_sets:
             target_set = _find_active_item_set(build_obj) or build_obj.item_sets[0]
-            canonical_slot = normalize_slot(slot) or slot
             target_set.slots = [s for s in target_set.slots if s.name != canonical_slot]
             target_set.slots.append(ItemSlot(name=canonical_slot, item_id=next_id))
         self._build.save(build_obj, path)
         return MutationResult(
             item_id=next_id,
-            slot=slot,
+            slot=canonical_slot,
             warning=STALE_STATS_WARNING,
             cloned_from=cloned_from,
             working_copy=str(path) if cloned_from else None,
@@ -326,8 +340,11 @@ class ItemsService:
     ) -> list[EquippedItem]:
         _, build_obj = self._build.load(name, file_path)
         equipped = build_obj.get_equipped_items()
+        flask_slots = set(SLOT_TYPE_MAP["flask"])
         result = []
         for slot_name, item in equipped:
+            if slot_name in flask_slots:
+                continue
             if slot and not _slot_matches_type(slot_name, slot):
                 continue
             if influence and influence not in item.influences:

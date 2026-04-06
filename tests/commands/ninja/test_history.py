@@ -226,7 +226,7 @@ class TestModelParsing:
 
 
 def _make_history_service(tmp_path, fixture_map=None):
-    client = MagicMock()
+    client = MagicMock(no_cache=False)
 
     def get_json(_path, **_kwargs):
         if fixture_map:
@@ -238,7 +238,7 @@ def _make_history_service(tmp_path, fixture_map=None):
 
     client.get_json.side_effect = get_json
 
-    economy_client = MagicMock()
+    economy_client = MagicMock(no_cache=False)
     economy_client.get_json.side_effect = get_json
     economy = EconomyService(economy_client, base_dir=tmp_path)
 
@@ -328,7 +328,7 @@ class TestHistoryService:
 class TestPriceHistoryCli:
     @patch("poe.commands.ninja.price.commands.NinjaClient")
     def test_price_history_found(self, mock_cls):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
 
         def get_json(path, **_kwargs):
             if "index-state" in path:
@@ -344,7 +344,7 @@ class TestPriceHistoryCli:
         mock_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = invoke_cli(app, ["ninja", "price", "history", "Exalted Orb", "Currency"])
+        result = invoke_cli(app, ["ninja", "price", "history", "Exalted Orb", "Currency", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["item_name"] == "Exalted Orb"
@@ -352,7 +352,7 @@ class TestPriceHistoryCli:
 
     @patch("poe.commands.ninja.price.commands.NinjaClient")
     def test_price_history_not_found(self, mock_cls):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
 
         def get_json(path, **_kwargs):
             if "index-state" in path:
@@ -366,7 +366,7 @@ class TestPriceHistoryCli:
         mock_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = invoke_cli(app, ["ninja", "price", "history", "Fake Orb", "Currency"])
+        result = invoke_cli(app, ["ninja", "price", "history", "Fake Orb", "Currency", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert "error" in data

@@ -42,10 +42,50 @@ ASCENDANCY_IDS: dict[str, tuple[int, int]] = {
     "Assassin": (6, 1),
     "Trickster": (6, 2),
     "Saboteur": (6, 3),
+    "Warden": (2, 4),
+    "Reliquarian": (3, 4),
 }
 
 ASCENDANCY_ID_TO_NAME: dict[tuple[int, int], str] = {v: k for k, v in ASCENDANCY_IDS.items()}
 ASCENDANCY_ID_TO_NAME[(0, 0)] = ""
+
+VALID_BANDITS: frozenset[str] = frozenset({"None", "Alira", "Kraityn", "Oak"})
+
+VALID_PANTHEON_MAJOR: frozenset[str] = frozenset(
+    {
+        "",
+        "Brine King",
+        "Lunaris",
+        "Solaris",
+        "Arakaali",
+        "Soul of the Brine King",
+        "Soul of Lunaris",
+        "Soul of Solaris",
+        "Soul of Arakaali",
+    }
+)
+
+VALID_PANTHEON_MINOR: frozenset[str] = frozenset(
+    {
+        "",
+        "Abberath",
+        "Garukhan",
+        "Gruthkul",
+        "Yugul",
+        "Shakari",
+        "Tukohama",
+        "Ralakesh",
+        "Ryslatha",
+        "Soul of Abberath",
+        "Soul of Garukhan",
+        "Soul of Gruthkul",
+        "Soul of Yugul",
+        "Soul of Shakari",
+        "Soul of Tukohama",
+        "Soul of Ralakesh",
+        "Soul of Ryslatha",
+    }
+)
 
 DEFAULT_TREE_VERSION = "3_28"
 
@@ -182,6 +222,10 @@ METADATA_PREFIXES = (
     "WardBasePercentile:",
     "Variant:",
     "Selected Variant:",
+    "Has Variant:",
+    "Has Alt Variant",
+    "Selected Alt Variant",
+    "AltVariant:",
     "League:",
     "{variant:",
     "Catalyst:",
@@ -195,12 +239,66 @@ METADATA_PREFIXES = (
     "Limited to:",
     "Item Class:",
     "Foil Unique",
+    "Fractured Item",
     "Corrupted",
     "Mirrored",
     "Split",
     "Has Veiled",
+    "Source:",
 )
 
 PREFIX_RE = re.compile(r"^Prefix:\s*(.*)")
 SUFFIX_RE = re.compile(r"^Suffix:\s*(.*)")
 SLOT_MOD_RE = re.compile(r"^\{range:([^}]*)\}(.+)$")
+
+POB_COLOR_RE = re.compile(r"\^x[0-9A-Fa-f]{6}|\^[0-9]")
+
+MAGIC_SUFFIX_RE = re.compile(r"\s+of\s+(?:the\s+)?\S[\w\s]*$", re.IGNORECASE)
+FLASK_SIZE_PREFIXES = (
+    r"(?:Divine |Eternal |Hallowed |Sanctified |Sulphur |Silver |"
+    r"Grand |Greater |Large |Medium |Small |Colossal |Giant )?"
+)
+FLASK_TYPES = (
+    r"(?:Life|Mana|Hybrid|Utility|Bismuth|Diamond|Jade|Quartz|"
+    r"Granite|Basalt|Quicksilver|Stibnite|Amethyst|Ruby|Sapphire|"
+    r"Topaz|Aquamarine|Gold|Iron|Silver|Sulphur) Flask"
+)
+FLASK_BASE_RE = re.compile(
+    rf"({FLASK_SIZE_PREFIXES}{FLASK_TYPES})",
+    re.IGNORECASE,
+)
+
+MOD_KEYWORD_NOISE = frozenset(
+    {"base", "local", "additional", "display", "old", "new", "is", "has", "per", "while"}
+)
+MIN_KEYWORD_LENGTH = 3
+
+AFFIX_NO_MATCH = object()
+
+CATEGORY_ALIASES: dict[str, str] = {
+    "offence": "off",
+    "offense": "off",
+    "defence": "def",
+    "defense": "def",
+}
+
+ENGINE_OFF_TERMS = frozenset(
+    {"DPS", "Damage", "Hit", "Crit", "Speed", "AverageHit", "AverageBurst"}
+)
+ENGINE_DEF_TERMS = frozenset(
+    {
+        "Life",
+        "Mana",
+        "EnergyShield",
+        "Armour",
+        "Evasion",
+        "Resist",
+        "Block",
+        "Dodge",
+        "Suppress",
+        "EHP",
+        "DamageReduction",
+        "Regen",
+        "Ward",
+    }
+)

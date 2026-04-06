@@ -33,12 +33,12 @@ POE1_INDEX_STATE = {
 class TestLeagueInfo:
     @patch("poe.commands.ninja.commands.NinjaClient")
     def test_league_info_default(self, mock_client_cls):
-        mock_client = MagicMock()
+        mock_client = MagicMock(no_cache=False)
         mock_client.get_json.return_value = POE1_INDEX_STATE
         mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
         mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = invoke_cli(app, ["ninja", "league-info"])
+        result = invoke_cli(app, ["ninja", "league-info", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert "economy_leagues" in data
@@ -46,12 +46,12 @@ class TestLeagueInfo:
 
     @patch("poe.commands.ninja.commands.NinjaClient")
     def test_league_info_with_snapshots(self, mock_client_cls):
-        mock_client = MagicMock()
+        mock_client = MagicMock(no_cache=False)
         mock_client.get_json.return_value = POE1_INDEX_STATE
         mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
         mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = invoke_cli(app, ["ninja", "league-info"])
+        result = invoke_cli(app, ["ninja", "league-info", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert len(data["snapshot_versions"]) == 1
@@ -61,7 +61,7 @@ class TestLeagueInfo:
 class TestCacheStatus:
     def test_cache_status_empty(self, tmp_path, monkeypatch):
         monkeypatch.setattr("poe.commands.ninja.commands.ninja_cache.cache_dir", lambda: tmp_path)
-        result = invoke_cli(app, ["ninja", "cache-status"])
+        result = invoke_cli(app, ["ninja", "cache-status", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert "entries" in data
@@ -73,7 +73,7 @@ class TestCacheStatus:
         monkeypatch.setattr("poe.commands.ninja.commands.ninja_cache.cache_dir", lambda: tmp_path)
         ninja_cache.write_cache(tmp_path, "poe1_index_state", {"test": True})
 
-        result = invoke_cli(app, ["ninja", "cache-status"])
+        result = invoke_cli(app, ["ninja", "cache-status", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         poe1_entry = next(e for e in data["entries"] if e["name"] == "poe1_index_state")
@@ -84,13 +84,33 @@ class TestCacheStatus:
 class TestLeagueInfoForce:
     @patch("poe.commands.ninja.commands.NinjaClient")
     def test_force_flag_passes_through(self, mock_client_cls):
-        mock_client = MagicMock()
+        mock_client = MagicMock(no_cache=False)
         mock_client.get_json.return_value = POE1_INDEX_STATE
         mock_client_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
         mock_client_cls.return_value.__exit__ = MagicMock(return_value=False)
 
         result = invoke_cli(app, ["ninja", "league-info", "--force"])
         assert result.exit_code == 0
+
+
+class TestTooltipNotFound:
+    @patch("poe.commands.ninja.commands.NinjaClient")
+    def test_tooltip_not_found(self, mock_cls):
+        from poe.exceptions import PoeError
+
+        mock_client = MagicMock(no_cache=False)
+        mock_client.get_json.return_value = None
+        mock_cls.return_value.__enter__ = MagicMock(return_value=mock_client)
+        mock_cls.return_value.__exit__ = MagicMock(return_value=False)
+
+        with patch("poe.commands.ninja.commands.BuildsService") as mock_builds_cls:
+            mock_svc = MagicMock()
+            mock_svc.get_generic_tooltip.return_value = None
+            mock_builds_cls.return_value = mock_svc
+
+            result = invoke_cli(app, ["ninja", "tooltip", "FakeItem", "--json"])
+        assert result.exit_code == 1
+        assert isinstance(result.exception, PoeError)
 
 
 class TestNinjaHelp:

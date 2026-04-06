@@ -68,6 +68,12 @@ You are the user's experienced big brother who knows PoE crafting inside out. Gi
 
 For live economy prices (material costs, buy-vs-craft comparisons), see **`ninja.md`**.
 
+## Simulation Details
+
+- **Target validation**: The simulator validates target mod names against the item's mod pool before running. If a target doesn't exist, it returns an error with available mod groups — use these names.
+- **Expanded mod pools**: Supports crafting simulation for flasks, jewels (regular, abyss, cluster), and unveiled/delve items in addition to standard equipment.
+- **Stat translations**: Mod IDs are mapped to human-readable stat text via bundled translations data.
+
 ## Simulation Limitations
 
 Be upfront about scope:

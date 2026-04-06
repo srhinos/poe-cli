@@ -341,3 +341,27 @@ class TestItemsCompare:
         svc = ItemsService()
         diffs = svc.compare_items("ignored", "Helmet", file_path=str(rich_build))
         assert isinstance(diffs, list)
+
+
+class TestItemsListExcludesFlasks:
+    def test_list_items_excludes_flask_slots(self, builds_dir):
+        svc = ItemsService()
+        items = svc.list_items("TestBuild")
+        flask_slots = {"Flask 1", "Flask 2", "Flask 3", "Flask 4", "Flask 5"}
+        for item in items:
+            assert item.slot not in flask_slots, f"Flask slot {item.slot} in items list"
+
+
+class TestSlotMatchesIndividualNames:
+    def test_matches_helmet(self):
+        assert _slot_matches_type("Helmet", "Helmet")
+
+    def test_matches_helmet_case_insensitive(self):
+        assert _slot_matches_type("Helmet", "helmet")
+
+    def test_matches_ring_1(self):
+        assert _slot_matches_type("Ring 1", "Ring 1")
+
+    def test_category_still_works(self):
+        assert _slot_matches_type("Helmet", "armour")
+        assert _slot_matches_type("Ring 1", "jewellery")

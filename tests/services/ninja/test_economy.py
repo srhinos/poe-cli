@@ -24,7 +24,7 @@ from poe.services.ninja.economy import (
     _exchange_chaos_value,
     _route_type,
 )
-from poe.services.ninja.errors import ApiSchemaError
+from poe.services.ninja.errors import ApiSchemaError, NinjaError
 
 CURRENCY_RESPONSE = {
     "lines": [
@@ -229,7 +229,7 @@ POE2_EXCHANGE_RESPONSE = {
 
 
 def _make_service(tmp_path, fixture_map=None):
-    client = MagicMock()
+    client = MagicMock(no_cache=False)
 
     def get_json_side_effect(path, *, params=None):
         if fixture_map:
@@ -249,29 +249,37 @@ def _make_service(tmp_path, fixture_map=None):
 class TestRouteType:
     @pytest.mark.parametrize("item_type", sorted(NINJA_POE1_CURRENCY_STASH_TYPES))
     def test_poe1_currency_stash_types(self, item_type):
-        assert _route_type(item_type, game="poe1") == "poe1_stash_currency"
+        route, canonical = _route_type(item_type, game="poe1")
+        assert route == "poe1_stash_currency"
+        assert canonical == item_type
 
     @pytest.mark.parametrize(
         "item_type",
         sorted(NINJA_POE1_STASH_TYPES - NINJA_POE1_CURRENCY_STASH_TYPES),
     )
     def test_poe1_item_stash_types(self, item_type):
-        assert _route_type(item_type, game="poe1") == "poe1_stash_item"
+        route, canonical = _route_type(item_type, game="poe1")
+        assert route == "poe1_stash_item"
+        assert canonical == item_type
 
     @pytest.mark.parametrize(
         "item_type",
         sorted(NINJA_POE1_EXCHANGE_TYPES - NINJA_POE1_CURRENCY_STASH_TYPES),
     )
     def test_poe1_exchange_types(self, item_type):
-        assert _route_type(item_type, game="poe1") == "poe1_exchange"
+        route, canonical = _route_type(item_type, game="poe1")
+        assert route == "poe1_exchange"
+        assert canonical == item_type
 
     def test_currency_and_fragment_prefer_stash(self):
         for t in ("Currency", "Fragment"):
-            assert _route_type(t, game="poe1") == "poe1_stash_currency"
+            route, _canonical = _route_type(t, game="poe1")
+            assert route == "poe1_stash_currency"
 
     @pytest.mark.parametrize("item_type", sorted(NINJA_POE2_EXCHANGE_TYPES))
     def test_poe2_exchange_types(self, item_type):
-        assert _route_type(item_type, game="poe2") == "poe2_exchange"
+        route, _canonical = _route_type(item_type, game="poe2")
+        assert route == "poe2_exchange"
 
     def test_unknown_type_raises(self):
         with pytest.raises(ApiSchemaError, match="Unknown item type"):
@@ -280,6 +288,11 @@ class TestRouteType:
     def test_no_overlap_stash_exchange(self):
         overlap = NINJA_POE1_STASH_TYPES & NINJA_POE1_EXCHANGE_TYPES
         assert overlap == frozenset()
+
+    def test_case_insensitive(self):
+        assert _route_type("currency", game="poe1") == _route_type("Currency", game="poe1")
+        assert _route_type("FOSSIL", game="poe1") == _route_type("Fossil", game="poe1")
+        assert _route_type("uniquearmour", game="poe1") == _route_type("UniqueArmour", game="poe1")
 
 
 class TestExchangeChaosValue:
@@ -375,6 +388,29 @@ class TestPriceCheck:
         result = svc.price_check("Mirage", "Fake Orb", "Currency")
         assert result is None
 
+    def test_chaos_orb_returns_one(self, tmp_path):
+        svc = _make_service(tmp_path, {"currency/overview": CURRENCY_RESPONSE})
+        result = svc.price_check("Mirage", "Chaos Orb", "Currency")
+        assert result is not None
+        assert result.chaos_value == 1.0
+
+    def test_chaos_orb_has_category(self, tmp_path):
+        svc = _make_service(tmp_path, {"currency/overview": CURRENCY_RESPONSE})
+        result = svc.price_check("Mirage", "Chaos Orb", "Currency")
+        assert result.category == "Currency"
+
+    def test_chaos_orb_poe2_not_hardcoded(self, tmp_path):
+        empty_exchange = {"items": [], "lines": []}
+        svc = _make_service(
+            tmp_path,
+            {
+                "currency/overview": CURRENCY_RESPONSE,
+                "poe2": empty_exchange,
+            },
+        )
+        result = svc.price_check("Mirage", "Chaos Orb", "Currency", game="poe2")
+        assert result is None or result.chaos_value != 1.0
+
 
 class TestPriceList:
     def test_sorted_by_value(self, tmp_path):
@@ -405,10 +441,30 @@ class TestCurrencyConvert:
         result = svc.currency_convert("Mirage", 1, "Exalted Orb", "Chaos Orb")
         assert result == pytest.approx(17.5, rel=0.01)
 
-    def test_zero_target(self, tmp_path):
+    def test_unknown_target_raises(self, tmp_path):
         svc = _make_service(tmp_path, {"currency/overview": CURRENCY_RESPONSE})
-        result = svc.currency_convert("Mirage", 10, "Exalted Orb", "Unknown")
-        assert result == 0.0
+        with pytest.raises(NinjaError, match="Currency not found"):
+            svc.currency_convert("Mirage", 10, "Exalted Orb", "FakeOrb")
+
+    def test_unknown_source_raises(self, tmp_path):
+        svc = _make_service(tmp_path, {"currency/overview": CURRENCY_RESPONSE})
+        with pytest.raises(NinjaError, match="Currency not found"):
+            svc.currency_convert("Mirage", 100, "FakeOrb", "Divine Orb")
+
+    def test_negative_amount_raises(self, tmp_path):
+        svc = _make_service(tmp_path, {"currency/overview": CURRENCY_RESPONSE})
+        with pytest.raises(NinjaError, match="positive"):
+            svc.currency_convert("Mirage", -5, "Divine Orb", "Chaos Orb")
+
+    def test_zero_amount_raises(self, tmp_path):
+        svc = _make_service(tmp_path, {"currency/overview": CURRENCY_RESPONSE})
+        with pytest.raises(NinjaError, match="positive"):
+            svc.currency_convert("Mirage", 0, "Divine Orb", "Chaos Orb")
+
+    def test_short_name_aliases(self, tmp_path):
+        svc = _make_service(tmp_path, {"currency/overview": CURRENCY_RESPONSE})
+        result = svc.currency_convert("Mirage", 10, "exalted", "divine")
+        assert result == pytest.approx(10 * 17.5 / 150.0, rel=0.01)
 
 
 class TestCraftingPrices:
@@ -425,7 +481,7 @@ class TestCraftingPrices:
         assert isinstance(result, CraftingPrices)
 
     def test_handles_missing_types(self, tmp_path):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
         client.get_json.side_effect = ApiSchemaError("not found")
         svc = EconomyService(client, base_dir=tmp_path)
         result = svc.get_crafting_prices("Mirage")
@@ -522,7 +578,7 @@ class TestFreshness:
 class TestLanguagePassthrough:
     @pytest.mark.parametrize("lang", sorted(NINJA_LANGUAGES))
     def test_language_passed_to_api(self, tmp_path, lang):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
         captured_params = {}
 
         def get_json(_path, *, params=None):

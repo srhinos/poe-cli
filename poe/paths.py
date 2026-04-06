@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 from poe.constants import CLAUDE_SUBFOLDER, POB_XML_EXTENSION
+from poe.exceptions import BuildNotFoundError, BuildValidationError
 
 _WINDOWS_INVALID_CHARS = frozenset(':*?"<>|')
 _WINDOWS_RESERVED = frozenset(
@@ -20,14 +21,14 @@ _WINDOWS_RESERVED = frozenset(
 
 def validate_build_name(name: str) -> None:
     if not name or not name.strip():
-        raise ValueError(f"Invalid build name: {name!r}")
+        raise BuildValidationError(f"Invalid build name: {name!r}")
     if ".." in name or "\\" in name or "/" in name:
-        raise ValueError(f"Invalid build name: {name!r}")
+        raise BuildValidationError(f"Invalid build name: {name!r}")
     stem = name.removesuffix(".xml")
     if any(c in stem for c in _WINDOWS_INVALID_CHARS):
-        raise ValueError(f"Build name contains invalid characters: {name!r}")
+        raise BuildValidationError(f"Build name contains invalid characters: {name!r}")
     if stem.upper() in _WINDOWS_RESERVED:
-        raise ValueError(f"Build name uses a reserved word: {name!r}")
+        raise BuildValidationError(f"Build name uses a reserved word: {name!r}")
 
 
 def get_pob_path() -> Path:
@@ -43,7 +44,7 @@ def get_pob_path() -> Path:
         if p.exists():
             return p
 
-    raise FileNotFoundError(
+    raise BuildNotFoundError(
         "Could not find Path of Building Community installation. "
         "Set the POB_PATH environment variable to the installation directory."
     )
@@ -64,7 +65,7 @@ def get_builds_path() -> Path:
     if onedrive.exists():
         return onedrive
 
-    raise FileNotFoundError(
+    raise BuildNotFoundError(
         "Could not find builds directory. Set the POB_BUILDS_PATH environment variable."
     )
 
@@ -93,7 +94,7 @@ def resolve_build_file(name: str) -> Path:
 
     path = builds_path / name
     if not path.resolve().is_relative_to(builds_path.resolve()):
-        raise ValueError(f"Invalid build name: {name!r}")
+        raise BuildValidationError(f"Invalid build name: {name!r}")
     if path.exists():
         return path
 
@@ -101,7 +102,17 @@ def resolve_build_file(name: str) -> Path:
         if f.name.casefold() == name.casefold():
             return f
 
-    raise FileNotFoundError(f"Build file not found: {name}")
+    stem = name.removesuffix(POB_XML_EXTENSION).casefold()
+    prefix_matches = [
+        f for f in builds_path.rglob(f"*{POB_XML_EXTENSION}") if f.stem.casefold().startswith(stem)
+    ]
+    if len(prefix_matches) == 1:
+        return prefix_matches[0]
+    if len(prefix_matches) > 1:
+        names = [f.stem for f in prefix_matches]
+        raise BuildNotFoundError(f"Ambiguous prefix {name!r}: matches {names}")
+
+    raise BuildNotFoundError(f"Build file not found: {name}")
 
 
 def resolve_or_file(name: str, file_path: str | None) -> Path:

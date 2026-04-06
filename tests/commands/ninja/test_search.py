@@ -197,7 +197,7 @@ class TestParseSearchResults:
 
 
 def _make_search_service(tmp_path, fixture_map=None):
-    client = MagicMock()
+    client = MagicMock(no_cache=False)
 
     def get_json(path, **_kwargs):
         if fixture_map:
@@ -266,7 +266,7 @@ class TestBuildsServiceSearch:
 class TestSearchCli:
     @patch("poe.commands.ninja.builds.commands.NinjaClient")
     def test_builds_search(self, mock_cls):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
 
         def get_json(path, **_kwargs):
             if "index-state" in path:
@@ -279,14 +279,14 @@ class TestSearchCli:
         mock_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = invoke_cli(app, ["ninja", "builds", "search"])
+        result = invoke_cli(app, ["ninja", "builds", "search", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["total"] == 124428
 
     @patch("poe.commands.ninja.builds.commands.NinjaClient")
     def test_builds_search_with_class(self, mock_cls):
-        client = MagicMock()
+        client = MagicMock(no_cache=False)
 
         def get_json(path, **_kwargs):
             if "index-state" in path:
@@ -299,7 +299,7 @@ class TestSearchCli:
         mock_cls.return_value.__enter__ = MagicMock(return_value=client)
         mock_cls.return_value.__exit__ = MagicMock(return_value=False)
 
-        result = invoke_cli(app, ["ninja", "builds", "search", "--class", "Pathfinder"])
+        result = invoke_cli(app, ["ninja", "builds", "search", "--class", "Pathfinder", "--json"])
         assert result.exit_code == 0
         data = json.loads(result.output)
         assert data["total"] == 124428

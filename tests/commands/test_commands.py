@@ -31,6 +31,25 @@ requires_symlinks = pytest.mark.skipif(
 )
 
 
+class TestGetPackageVersion:
+    def test_returns_version_when_installed(self, monkeypatch):
+        from poe.commands.root import _get_package_version
+
+        monkeypatch.setattr("poe.commands.root._pkg_version", lambda _name: "1.2.3")
+        assert _get_package_version() == "1.2.3"
+
+    def test_returns_none_when_not_installed(self, monkeypatch):
+        from importlib.metadata import PackageNotFoundError
+
+        from poe.commands.root import _get_package_version
+
+        def _raise(_name):
+            raise PackageNotFoundError("not found")
+
+        monkeypatch.setattr("poe.commands.root._pkg_version", _raise)
+        assert _get_package_version() is None
+
+
 class TestFindSkillSource:
     def test_finds_skill_in_package(self, tmp_path):
         poe_dir = tmp_path / "poe"

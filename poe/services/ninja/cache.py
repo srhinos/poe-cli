@@ -40,6 +40,9 @@ def meta_path(cf: Path) -> Path:
 
 
 def ttl_for_category(category: str) -> int:
+    override = os.environ.get("POE_NINJA_CACHE_TTL")
+    if override:
+        return int(override)
     return TTL_BY_CATEGORY.get(category, NINJA_TTL_ECONOMY)
 
 

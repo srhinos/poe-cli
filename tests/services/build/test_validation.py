@@ -327,13 +327,13 @@ class TestAccuracyValidation:
 
 class TestManaValidation:
     def test_mana_cost_exceeds_regen(self):
-        build = _build_with_stats(ManaCost=100, ManaRegen=50, Life=5000)
+        build = _build_with_stats(ManaPerSecondCost=100, ManaRegenRecovery=50, Life=5000)
         issues = validate_build(build)
         mana_issues = [i for i in issues if i.category == "mana"]
         assert len(mana_issues) == 1
 
     def test_mana_sustainable(self):
-        build = _build_with_stats(ManaCost=50, ManaRegen=100, Life=5000)
+        build = _build_with_stats(ManaPerSecondCost=50, ManaRegenRecovery=100, Life=5000)
         issues = validate_build(build)
         mana_issues = [i for i in issues if i.category == "mana"]
         assert mana_issues == []
@@ -371,7 +371,8 @@ class TestGearValidation:
 class TestOvercappedResistance:
     def test_overcapped_fire(self):
         build = _build_with_stats(
-            FireResist=120,
+            FireResist=75,
+            FireResistOverCap=120,
             ColdResist=75,
             LightningResist=75,
             Life=5000,
@@ -382,7 +383,8 @@ class TestOvercappedResistance:
 
     def test_not_overcapped(self):
         build = _build_with_stats(
-            FireResist=100,
+            FireResist=75,
+            FireResistOverCap=30,
             ColdResist=75,
             LightningResist=75,
             Life=5000,
@@ -394,13 +396,13 @@ class TestOvercappedResistance:
 
 class TestMovementSpeed:
     def test_no_movement_speed_bonus(self):
-        build = _build_with_stats(MovementSpeedMod=0, Life=5000)
+        build = _build_with_stats(EffectiveMovementSpeedMod=0, Life=5000)
         issues = validate_build(build)
         move_issues = [i for i in issues if i.category == "movement"]
         assert len(move_issues) == 1
 
     def test_has_movement_speed(self):
-        build = _build_with_stats(MovementSpeedMod=30, Life=5000)
+        build = _build_with_stats(EffectiveMovementSpeedMod=30, Life=5000)
         issues = validate_build(build)
         move_issues = [i for i in issues if i.category == "movement"]
         assert move_issues == []

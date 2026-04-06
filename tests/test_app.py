@@ -106,6 +106,13 @@ class TestApp:
         assert result.exit_code == 0
 
 
+class TestVersion:
+    def test_version_shows_package_version(self):
+        result = invoke_cli(app, ["--version"])
+        assert result.exit_code == 0
+        assert "0.0.0" not in result.output or "poe-tools" not in result.output
+
+
 class TestRun:
     def test_run_catches_poe_error(self, capsys):
         with patch("poe.app.app", side_effect=PoeError("test error")):

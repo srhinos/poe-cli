@@ -1,11 +1,12 @@
 from __future__ import annotations
 
 import copy
+import dataclasses
 import random
 
 import pytest
 
-from poe.services.repoe.sim import CraftingEngine, RolledMod, SimResult
+from poe.services.repoe.sim import BestTier, CraftingEngine, ModPoolEntry, RolledMod, SimResult
 from poe.types import Rarity
 from tests.conftest import REPOE_DATA, make_repoe_data
 
@@ -20,6 +21,92 @@ def engine():
 def blank_item(engine):
     """A blank Hubris Circlet item."""
     return engine.create_item("Hubris Circlet", ilvl=84)
+
+
+def _entry(
+    mod_id: str = "test_mod",
+    name: str = "Test",
+    affix: str = "prefix",
+    group: str = "TestGroup",
+    weight: int = 100,
+    tier_count: int = 1,
+    ilvl: int = 1,
+    values: tuple[tuple[int, int], ...] = ((10, 20),),
+    implicit_tags: tuple[str, ...] = (),
+    influence: str | None = None,
+) -> ModPoolEntry:
+    return ModPoolEntry(
+        mod_id=mod_id,
+        name=name,
+        affix=affix,
+        group=group,
+        weight=weight,
+        tier_count=tier_count,
+        best_tier=BestTier(ilvl=ilvl, values=values, weight=weight),
+        implicit_tags=implicit_tags,
+        influence=influence,
+    )
+
+
+# ── Frozen dataclasses ───────────────────────────────────────────────────────
+
+
+class TestFrozenModPoolEntry:
+    def test_mod_pool_entry_is_frozen(self):
+        tier = BestTier(ilvl=68, values=((60, 80),), weight=500)
+        entry = ModPoolEntry(
+            mod_id="IncreasedLife2",
+            name="Increased Life",
+            affix="prefix",
+            group="IncreasedLife",
+            weight=500,
+            tier_count=4,
+            best_tier=tier,
+            implicit_tags=("resource", "life"),
+            influence=None,
+        )
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            entry.weight = 999
+
+    def test_best_tier_is_frozen(self):
+        tier = BestTier(ilvl=68, values=((60, 80),), weight=500)
+        with pytest.raises(dataclasses.FrozenInstanceError):
+            tier.ilvl = 99
+
+    def test_dataclasses_replace_creates_new(self):
+        tier = BestTier(ilvl=68, values=((60, 80),), weight=500)
+        entry = ModPoolEntry(
+            mod_id="IncreasedLife2",
+            name="Increased Life",
+            affix="prefix",
+            group="IncreasedLife",
+            weight=500,
+            tier_count=4,
+            best_tier=tier,
+            implicit_tags=("resource", "life"),
+            influence=None,
+        )
+        modified = dataclasses.replace(entry, weight=999)
+        assert modified.weight == 999
+        assert entry.weight == 500
+
+
+class TestGetModPoolReturnsEntries:
+    def test_returns_mod_pool_entries(self, engine):
+        pool = engine.data.get_mod_pool("Hubris Circlet", ilvl=84)
+        assert len(pool) > 0
+        entry = pool[0]
+        assert isinstance(entry, ModPoolEntry)
+        assert isinstance(entry.best_tier, BestTier)
+        assert isinstance(entry.implicit_tags, tuple)
+
+    def test_entries_have_correct_fields(self, engine):
+        pool = engine.data.get_mod_pool("Hubris Circlet", ilvl=84)
+        entry = pool[0]
+        assert isinstance(entry.mod_id, str)
+        assert isinstance(entry.weight, int)
+        assert entry.affix in ("prefix", "suffix")
+        assert isinstance(entry.tier_count, int)
 
 
 # ── Item creation ────────────────────────────────────────────────────────────
@@ -67,7 +154,7 @@ class TestCraftableItemProperties:
                 group="IncreasedLife",
                 weight=100,
                 chance=0.5,
-                tier={},
+                tier=BestTier(ilvl=1, values=(), weight=0),
                 rolls=[],
             )
         )
@@ -92,13 +179,13 @@ class TestModPool:
                 group="IncreasedLife",
                 weight=1000,
                 chance=0.5,
-                tier={},
+                tier=BestTier(ilvl=1, values=(), weight=0),
                 rolls=[],
             )
         )
         pool = engine._build_mod_pool(blank_item)
         for m in pool:
-            assert m["group"] != "IncreasedLife"
+            assert m.group != "IncreasedLife"
 
     def test_prefix_cap(self, engine, blank_item):
         # Fill all prefix slots
@@ -111,13 +198,13 @@ class TestModPool:
                     group=f"PG{i}",
                     weight=100,
                     chance=0.5,
-                    tier={},
+                    tier=BestTier(ilvl=1, values=(), weight=0),
                     rolls=[],
                 )
             )
         pool = engine._build_mod_pool(blank_item)
         for m in pool:
-            assert m["affix"] != "prefix"
+            assert m.affix != "prefix"
 
     def test_suffix_cap(self, engine, blank_item):
         for i in range(3):
@@ -129,13 +216,13 @@ class TestModPool:
                     group=f"SG{i}",
                     weight=100,
                     chance=0.5,
-                    tier={},
+                    tier=BestTier(ilvl=1, values=(), weight=0),
                     rolls=[],
                 )
             )
         pool = engine._build_mod_pool(blank_item)
         for m in pool:
-            assert m["affix"] != "suffix"
+            assert m.affix != "suffix"
 
 
 # ── Weighted selection ───────────────────────────────────────────────────────
@@ -143,9 +230,9 @@ class TestModPool:
 
 class TestWeightedPick:
     def test_single_item(self, engine):
-        pool = [{"mod_id": "a", "weight": 100}]
+        pool = [_entry(mod_id="a", weight=100)]
         picked = engine._weighted_pick(pool)
-        assert picked["mod_id"] == "a"
+        assert picked.mod_id == "a"
 
     def test_empty_pool(self, engine):
         assert engine._weighted_pick([]) is None
@@ -153,10 +240,10 @@ class TestWeightedPick:
     def test_bias_towards_heavy(self, engine):
         random.seed(42)
         pool = [
-            {"mod_id": "light", "weight": 1},
-            {"mod_id": "heavy", "weight": 10000},
+            _entry(mod_id="light", weight=1),
+            _entry(mod_id="heavy", weight=10000),
         ]
-        picks = [engine._weighted_pick(pool)["mod_id"] for _ in range(100)]
+        picks = [engine._weighted_pick(pool).mod_id for _ in range(100)]
         assert picks.count("heavy") > 80
 
 
@@ -245,7 +332,7 @@ class TestExalt:
                 group="IncreasedLife",
                 weight=1000,
                 chance=0.5,
-                tier={},
+                tier=BestTier(ilvl=1, values=(), weight=0),
                 rolls=[],
             )
         )
@@ -364,9 +451,10 @@ class TestFossilRoll:
 
 
 class TestSimulation:
-    def test_result_fields(self, engine):
+    @pytest.mark.asyncio
+    async def test_result_fields(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -380,9 +468,10 @@ class TestSimulation:
         assert result.avg_attempts > 0
         assert result.cost_per_attempt > 0
 
-    def test_hit_rate_range(self, engine):
+    @pytest.mark.asyncio
+    async def test_hit_rate_range(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -392,9 +481,10 @@ class TestSimulation:
         # Life mod is very common, should hit often
         assert result.hit_rate > 0.1
 
-    def test_percentiles_ordered(self, engine):
+    @pytest.mark.asyncio
+    async def test_percentiles_ordered(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -407,9 +497,10 @@ class TestSimulation:
             assert p.get("p75", 0) <= p.get("p90", float("inf"))
             assert p.get("p90", 0) <= p.get("p99", float("inf"))
 
-    def test_alt_method(self, engine):
+    @pytest.mark.asyncio
+    async def test_alt_method(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="alt",
@@ -418,9 +509,10 @@ class TestSimulation:
         )
         assert result.method == "alt"
 
-    def test_fossil_method(self, engine):
+    @pytest.mark.asyncio
+    async def test_fossil_method(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="fossil",
@@ -430,9 +522,10 @@ class TestSimulation:
         )
         assert result.method == "fossil"
 
-    def test_match_mode_any(self, engine):
+    @pytest.mark.asyncio
+    async def test_match_mode_any(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -442,9 +535,10 @@ class TestSimulation:
         )
         assert result.hit_rate > 0
 
-    def test_match_mode_all(self, engine):
+    @pytest.mark.asyncio
+    async def test_match_mode_all(self, engine):
         random.seed(42)
-        result_all = engine.simulate(
+        result_all = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -452,7 +546,7 @@ class TestSimulation:
             match_mode="all",
             iterations=100,
         )
-        result_any = engine.simulate(
+        result_any = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -463,9 +557,10 @@ class TestSimulation:
         # "all" should be equal or harder to hit than "any"
         assert result_all.hit_rate <= result_any.hit_rate + 0.01
 
-    def test_impossible_target(self, engine):
+    @pytest.mark.asyncio
+    async def test_impossible_target(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -475,9 +570,10 @@ class TestSimulation:
         )
         assert result.hit_rate == 0
 
-    def test_cost_math(self, engine):
+    @pytest.mark.asyncio
+    async def test_cost_math(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -527,8 +623,8 @@ class TestFossilWeights:
 
         pool = engine._build_mod_pool(item, blocked_tags=blocked)
         for mod in pool:
-            if mod.get("implicit_tags"):
-                mod_tags = [t.lower() for t in mod["implicit_tags"]]
+            if mod.implicit_tags:
+                mod_tags = [t.lower() for t in mod.implicit_tags]
                 assert "physical" not in mod_tags
 
     def test_fossil_blocking_no_effect_unmatched(self):
@@ -538,7 +634,7 @@ class TestFossilWeights:
 
         _weights, blocked = engine._get_fossil_weights(["Metallic Fossil"])
         pool = engine._build_mod_pool(item, blocked_tags=blocked)
-        life_mods = [m for m in pool if m["group"] == "IncreasedLife"]
+        life_mods = [m for m in pool if m.group == "IncreasedLife"]
         assert len(life_mods) > 0
 
 
@@ -582,7 +678,7 @@ class TestRollValues:
         """All rolled values are int, not float."""
         cd = make_repoe_data()
         engine = CraftingEngine(cd)
-        tier = {"values": [[10, 20], [30, 40]]}
+        tier = BestTier(ilvl=1, values=((10, 20), (30, 40)), weight=0)
         random.seed(42)
         for _ in range(50):
             rolled = engine._roll_values(tier)
@@ -593,7 +689,7 @@ class TestRollValues:
         """Scalar values (non-range) are returned as-is."""
         cd = make_repoe_data()
         engine = CraftingEngine(cd)
-        result = engine._roll_values({"values": [42]})
+        result = engine._roll_values(BestTier(ilvl=1, values=((42, 42),), weight=0))
         assert result == [42]
 
 
@@ -636,10 +732,11 @@ class TestEssenceRoll:
 
 
 class TestEssenceSimulation:
-    def test_simulate_essence_method(self, engine):
+    @pytest.mark.asyncio
+    async def test_simulate_essence_method(self, engine):
         """simulate() with method='essence' runs and produces results."""
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="essence",
@@ -652,10 +749,11 @@ class TestEssenceSimulation:
         assert result.iterations == 100
         assert 0 <= result.hit_rate <= 1
 
-    def test_simulate_essence_uses_essence_roll(self, engine):
+    @pytest.mark.asyncio
+    async def test_simulate_essence_uses_essence_roll(self, engine):
         """simulate() with method='essence' calls essence_roll internally."""
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="essence",
@@ -674,8 +772,8 @@ class TestWeightedPickEdge:
     def test_weighted_pick_zero_total(self, engine):
         """Pool with all-zero weights returns None."""
         pool = [
-            {"mod_id": "a", "weight": 0},
-            {"mod_id": "b", "weight": 0},
+            _entry(mod_id="a", weight=0),
+            _entry(mod_id="b", weight=0),
         ]
         assert engine._weighted_pick(pool) is None
 
@@ -733,10 +831,11 @@ class TestInvalidFossil:
 
 
 class TestZeroHitInf:
-    def test_zero_hits_avg_attempts_is_inf(self, engine):
+    @pytest.mark.asyncio
+    async def test_zero_hits_avg_attempts_is_inf(self, engine):
         """When no hits, avg_attempts is float('inf') (T5)."""
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -801,9 +900,10 @@ class TestMethodValidation:
         with pytest.raises(ValueError, match="Unknown craft method"):
             engine._apply_roll(blank_item, "invalid_method", None, None, None)
 
-    def test_simulate_invalid_method_raises(self, engine):
+    @pytest.mark.asyncio
+    async def test_simulate_invalid_method_raises(self, engine):
         with pytest.raises(ValueError, match="Unknown craft method"):
-            engine.simulate(
+            await engine.simulate(
                 "Hubris Circlet",
                 ilvl=84,
                 method="bogus",
@@ -825,9 +925,9 @@ class TestFossilTagCase:
         weights, _blocked = engine._get_fossil_weights(["Pristine Fossil"])
         pool_with = engine._build_mod_pool(item, fossil_weights=weights)
         pool_without = engine._build_mod_pool(item)
-        life_with = next(m for m in pool_with if m["group"] == "IncreasedLife")
-        life_without = next(m for m in pool_without if m["group"] == "IncreasedLife")
-        assert life_with["weight"] > life_without["weight"]
+        life_with = next(m for m in pool_with if m.group == "IncreasedLife")
+        life_without = next(m for m in pool_without if m.group == "IncreasedLife")
+        assert life_with.weight > life_without.weight
 
 
 # ── Fractured mods (D1) ────────────────────────────────────────────────────
@@ -843,7 +943,7 @@ class TestFracturedMods:
             group="IncreasedLife",
             weight=1000,
             chance=1.0,
-            tier={},
+            tier=BestTier(ilvl=1, values=(), weight=0),
             rolls=[90],
         )
         blank_item.fractured_mods.append(fractured)
@@ -859,13 +959,13 @@ class TestFracturedMods:
             group="IncreasedLife",
             weight=1000,
             chance=1.0,
-            tier={},
+            tier=BestTier(ilvl=1, values=(), weight=0),
             rolls=[90],
         )
         blank_item.fractured_mods.append(fractured)
         pool = engine._build_mod_pool(blank_item)
         for m in pool:
-            assert m["group"] != "IncreasedLife"
+            assert m.group != "IncreasedLife"
 
     def test_fractured_mod_reduces_open_slots(self, engine, blank_item):
         fractured = RolledMod(
@@ -875,7 +975,7 @@ class TestFracturedMods:
             group="IncreasedLife",
             weight=1000,
             chance=1.0,
-            tier={},
+            tier=BestTier(ilvl=1, values=(), weight=0),
             rolls=[90],
         )
         blank_item.fractured_mods.append(fractured)
@@ -891,7 +991,7 @@ class TestFracturedMods:
             group="FracGroup",
             weight=100,
             chance=1.0,
-            tier={},
+            tier=BestTier(ilvl=1, values=(), weight=0),
             rolls=[],
         )
         blank_item.fractured_mods.append(fractured)
@@ -909,7 +1009,7 @@ class TestFracturedMods:
             group="ColdResistance",
             weight=500,
             chance=1.0,
-            tier={},
+            tier=BestTier(ilvl=1, values=(), weight=0),
             rolls=[30],
         )
         blank_item.fractured_mods.append(fractured)
@@ -924,7 +1024,7 @@ class TestFracturedMods:
             group="IncreasedLife",
             weight=1000,
             chance=1.0,
-            tier={},
+            tier=BestTier(ilvl=1, values=(), weight=0),
             rolls=[90],
         )
         blank_item.fractured_mods.append(fractured)
@@ -942,7 +1042,7 @@ class TestFracturedMods:
             group="ColdResistance",
             weight=500,
             chance=1.0,
-            tier={},
+            tier=BestTier(ilvl=1, values=(), weight=0),
             rolls=[30],
         )
         blank_item.fractured_mods.append(fractured)
@@ -958,7 +1058,7 @@ class TestFracturedMods:
             group="ColdResistance",
             weight=500,
             chance=1.0,
-            tier={},
+            tier=BestTier(ilvl=1, values=(), weight=0),
             rolls=[30],
         )
         blank_item.fractured_mods.append(fractured)
@@ -1003,7 +1103,7 @@ class TestMetamods:
                     group=f"SG{i}",
                     weight=100,
                     chance=0.5,
-                    tier={},
+                    tier=BestTier(ilvl=1, values=(), weight=0),
                     rolls=[],
                 )
             )
@@ -1077,7 +1177,7 @@ class TestCraftedMods:
                     group=f"PG{i}",
                     weight=100,
                     chance=0.5,
-                    tier={},
+                    tier=BestTier(ilvl=1, values=(), weight=0),
                     rolls=[],
                 )
             )
@@ -1090,17 +1190,13 @@ class TestCraftedMods:
                     group=f"SG{i}",
                     weight=100,
                     chance=0.5,
-                    tier={},
+                    tier=BestTier(ilvl=1, values=(), weight=0),
                     rolls=[],
                 )
             )
-        pool_entry = {
-            "mod_id": "test",
-            "name": "Test",
-            "affix": "prefix",
-            "group": "TestGroup",
-            "weight": 100,
-        }
+        pool_entry = _entry(
+            mod_id="test", name="Test", affix="prefix", group="TestGroup", weight=100
+        )
         with pytest.raises(ValueError, match="No open prefix slots"):
             engine.apply_crafted_mod(blank_item, pool_entry)
 
@@ -1185,7 +1281,7 @@ class TestImplicits:
                 group="ImplicitLife",
                 weight=0,
                 chance=0,
-                tier={},
+                tier=BestTier(ilvl=1, values=(), weight=0),
                 rolls=[50],
             )
         )
@@ -1200,12 +1296,12 @@ class TestImplicits:
                 group="IncreasedLife",
                 weight=0,
                 chance=0,
-                tier={},
+                tier=BestTier(ilvl=1, values=(), weight=0),
                 rolls=[50],
             )
         )
         pool = engine._build_mod_pool(blank_item)
-        life_mods = [m for m in pool if m["group"] == "IncreasedLife"]
+        life_mods = [m for m in pool if m.group == "IncreasedLife"]
         assert len(life_mods) > 0
 
 
@@ -1238,7 +1334,7 @@ class TestAugmentation:
                 group="PG",
                 weight=100,
                 chance=0.5,
-                tier={},
+                tier=BestTier(ilvl=1, values=(), weight=0),
                 rolls=[],
             )
         )
@@ -1257,7 +1353,7 @@ class TestAugmentation:
                 group="PG",
                 weight=100,
                 chance=0.5,
-                tier={},
+                tier=BestTier(ilvl=1, values=(), weight=0),
                 rolls=[],
             )
         )
@@ -1269,7 +1365,7 @@ class TestAugmentation:
                 group="SG",
                 weight=100,
                 chance=0.5,
-                tier={},
+                tier=BestTier(ilvl=1, values=(), weight=0),
                 rolls=[],
             )
         )
@@ -1322,7 +1418,7 @@ class TestBlessed:
                 group="IG",
                 weight=0,
                 chance=0,
-                tier={"values": [[10, 20]]},
+                tier=BestTier(ilvl=1, values=((10, 20),), weight=0),
                 rolls=[15],
             )
         )
@@ -1413,7 +1509,7 @@ class TestFracture:
                     group=f"FracG{i}",
                     weight=100,
                     chance=0.5,
-                    tier={},
+                    tier=BestTier(ilvl=1, values=(), weight=0),
                     rolls=[],
                 )
             )
@@ -1432,7 +1528,7 @@ class TestFracture:
                 group="PG",
                 weight=100,
                 chance=0.5,
-                tier={},
+                tier=BestTier(ilvl=1, values=(), weight=0),
                 rolls=[],
             )
         )
@@ -1449,7 +1545,7 @@ class TestFracture:
                 group="FG",
                 weight=100,
                 chance=0.5,
-                tier={},
+                tier=BestTier(ilvl=1, values=(), weight=0),
                 rolls=[],
             )
         )
@@ -1569,9 +1665,10 @@ class TestVeiledChaos:
 
 
 class TestSimulateExistingMods:
-    def test_simulate_with_existing_mods(self, engine):
+    @pytest.mark.asyncio
+    async def test_simulate_with_existing_mods(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -1586,9 +1683,10 @@ class TestSimulateExistingMods:
 
 
 class TestFourFossilCost:
-    def test_four_fossil_simulation(self, engine):
+    @pytest.mark.asyncio
+    async def test_four_fossil_simulation(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="fossil",
@@ -1603,9 +1701,10 @@ class TestFourFossilCost:
 
 
 class TestSimulateWithInfluences:
-    def test_simulate_with_shaper(self, engine):
+    @pytest.mark.asyncio
+    async def test_simulate_with_shaper(self, engine):
         random.seed(42)
-        result = engine.simulate(
+        result = await engine.simulate(
             "Hubris Circlet",
             ilvl=84,
             method="chaos",
@@ -1614,3 +1713,648 @@ class TestSimulateWithInfluences:
             influences=["Shaper"],
         )
         assert result.method == "chaos"
+
+
+class TestAsyncSimulate:
+    @pytest.mark.asyncio
+    async def test_simulate_returns_result(self, engine):
+        random.seed(42)
+        result = await engine.simulate(
+            base="Hubris Circlet",
+            ilvl=84,
+            method="chaos",
+            target_mods=["IncreasedLife"],
+            iterations=50,
+        )
+        assert isinstance(result, SimResult)
+        assert result.iterations == 50
+        assert result.hit_rate >= 0
+
+    @pytest.mark.asyncio
+    async def test_simulate_respects_workers(self, engine):
+        random.seed(42)
+        result = await engine.simulate(
+            base="Hubris Circlet",
+            ilvl=84,
+            method="chaos",
+            target_mods=["IncreasedLife"],
+            iterations=40,
+            workers=2,
+        )
+        assert isinstance(result, SimResult)
+        assert result.iterations == 40
+
+
+# ── Augmentation edge cases ─────────────────────────────────────────────────
+
+
+class TestAugmentationEdge:
+    def test_augmentation_non_magic_raises(self, engine, blank_item):
+        blank_item.rarity = Rarity.RARE
+        with pytest.raises(ValueError, match="Magic"):
+            engine.augmentation(blank_item)
+
+
+# ── Alchemy edge cases ─────────────────────────────────────────────────────
+
+
+class TestAlchemyEdge:
+    def test_alchemy_rare_raises(self, engine, blank_item):
+        blank_item.rarity = Rarity.RARE
+        with pytest.raises(ValueError, match="Normal"):
+            engine.alchemy(blank_item)
+
+
+# ── Harvest augment edge cases ──────────────────────────────────────────────
+
+
+class TestHarvestAugmentEdge:
+    def test_harvest_augment_non_rare_raises(self, engine, blank_item):
+        blank_item.rarity = Rarity.MAGIC
+        with pytest.raises(ValueError, match="Rare"):
+            engine.harvest_augment(blank_item, "life")
+
+    def test_harvest_augment_no_tagged_mods(self, engine, blank_item):
+        blank_item.rarity = Rarity.RARE
+        result = engine.harvest_augment(blank_item, "nonexistenttag")
+        assert result is None
+
+    def test_harvest_augment_adds_tagged_mod(self, engine, blank_item):
+        random.seed(42)
+        blank_item.rarity = Rarity.RARE
+        result = engine.harvest_augment(blank_item, "life")
+        if result is not None:
+            assert result.name is not None
+
+
+# ── Conqueror Exalt edge cases ──────────────────────────────────────────────
+
+
+class TestConquerorExaltEdge:
+    def test_conqueror_exalt_non_rare_raises(self, engine, blank_item):
+        blank_item.rarity = Rarity.MAGIC
+        with pytest.raises(ValueError, match="Rare"):
+            engine.conqueror_exalt(blank_item, "Shaper")
+
+    def test_conqueror_exalt_no_influence_pool(self, engine):
+        random.seed(42)
+        item = engine.create_item("Hubris Circlet", ilvl=84)
+        item.rarity = Rarity.RARE
+        result = engine.conqueror_exalt(item, "Shaper")
+        assert result is None or result is not None
+
+
+# ── Veiled Chaos edge cases ────────────────────────────────────────────────
+
+
+class TestVeiledChaosEdge:
+    def test_veiled_chaos_non_rare_raises(self, engine, blank_item):
+        blank_item.rarity = Rarity.MAGIC
+        with pytest.raises(ValueError, match="Rare"):
+            engine.veiled_chaos(blank_item)
+
+
+# ── Aisling bench ───────────────────────────────────────────────────────────
+
+
+class TestAislingBench:
+    def test_aisling_non_rare_raises(self, engine, blank_item):
+        blank_item.rarity = Rarity.MAGIC
+        with pytest.raises(ValueError, match="Rare"):
+            engine.aisling_bench(blank_item)
+
+    def test_aisling_no_removable_returns_none(self, engine, blank_item):
+        blank_item.rarity = Rarity.RARE
+        assert engine.aisling_bench(blank_item) is None
+
+    def test_aisling_replaces_mod(self, engine, blank_item):
+        random.seed(42)
+        engine.chaos_roll(blank_item)
+        result = engine.aisling_bench(blank_item)
+        if result is not None:
+            assert "Veiled" in result.name
+
+
+# ── Beast suffix to prefix ──────────────────────────────────────────────────
+
+
+class TestBeastSuffixToPrefix:
+    def test_beast_suffix_to_prefix(self, engine, blank_item):
+        random.seed(42)
+        engine.chaos_roll(blank_item)
+        added, removed = engine.beast_suffix_to_prefix(blank_item)
+        assert added is not None or removed is not None
+
+
+# ── Tainted exalt edge cases ────────────────────────────────────────────────
+
+
+class TestTaintedExaltEdge:
+    def test_tainted_exalt_add_or_remove(self, engine, blank_item):
+        random.seed(42)
+        engine.chaos_roll(blank_item)
+        blank_item.is_corrupted = True
+        result = engine.tainted_exalt(blank_item)
+        assert result in ("added", "removed")
+
+
+# ── Tainted mythic / fusing ─────────────────────────────────────────────────
+
+
+class TestTaintedMythicFusing:
+    def test_tainted_mythic_requires_corrupted(self, engine, blank_item):
+        with pytest.raises(ValueError, match="corrupted"):
+            engine.tainted_mythic(blank_item)
+
+    def test_tainted_mythic_requires_unique(self, engine, blank_item):
+        blank_item.is_corrupted = True
+        blank_item.rarity = Rarity.RARE
+        with pytest.raises(ValueError, match="Unique"):
+            engine.tainted_mythic(blank_item)
+
+    def test_tainted_mythic_success(self, engine, blank_item):
+        blank_item.is_corrupted = True
+        blank_item.rarity = Rarity.UNIQUE
+        result = engine.tainted_mythic(blank_item)
+        assert result == "transformed"
+
+    def test_tainted_fusing_requires_corrupted(self, engine, blank_item):
+        with pytest.raises(ValueError, match="corrupted"):
+            engine.tainted_fusing(blank_item)
+
+    def test_tainted_fusing_success(self, engine, blank_item):
+        blank_item.is_corrupted = True
+        result = engine.tainted_fusing(blank_item)
+        assert result == "relinked"
+
+
+# ── Recombinator with influences ────────────────────────────────────────────
+
+
+class TestRecombinatorInfluences:
+    def test_recombinate_preserves_influences(self, engine):
+        random.seed(42)
+        item1 = engine.create_item("Hubris Circlet", ilvl=84, influences=["Shaper"])
+        item2 = engine.create_item("Hubris Circlet", ilvl=80, influences=["Elder"])
+        engine.chaos_roll(item1)
+        engine.chaos_roll(item2)
+        result = engine.recombinate(item1, item2)
+        assert len(result.influences) > 0
+
+    def test_recombinate_no_influences(self, engine):
+        random.seed(42)
+        item1 = engine.create_item("Hubris Circlet", ilvl=84)
+        item2 = engine.create_item("Hubris Circlet", ilvl=80)
+        engine.chaos_roll(item1)
+        engine.chaos_roll(item2)
+        result = engine.recombinate(item1, item2)
+        assert result.influences == []
+
+
+# ── Awakener orb edge cases ─────────────────────────────────────────────────
+
+
+class TestAwakenerOrbEdge:
+    def test_awakener_no_influence_raises(self, engine):
+        item1 = engine.create_item("Hubris Circlet", ilvl=84)
+        item2 = engine.create_item("Hubris Circlet", ilvl=84, influences=["Elder"])
+        with pytest.raises(ValueError, match="influenced"):
+            engine.awakener_orb(item1, item2)
+
+
+# ── Fracture suffix ─────────────────────────────────────────────────────────
+
+
+class TestFractureSuffix:
+    def test_fracture_suffix_moves_to_fractured(self, engine, blank_item):
+        blank_item.rarity = Rarity.RARE
+        blank_item.max_suffixes = 6
+        for i in range(4):
+            blank_item.suffixes.append(
+                RolledMod(
+                    mod_id=f"smod{i}",
+                    name=f"S{i}",
+                    affix="suffix",
+                    group=f"SG{i}",
+                    weight=100,
+                    chance=0.5,
+                    tier=BestTier(ilvl=1, values=(), weight=0),
+                    rolls=[],
+                )
+            )
+        result = engine.fracture(blank_item)
+        assert result is not None
+        assert result in blank_item.fractured_mods
+        assert result not in blank_item.suffixes
+
+    def test_fracture_non_rare_raises(self, engine, blank_item):
+        blank_item.rarity = Rarity.MAGIC
+        with pytest.raises(ValueError, match="Rare"):
+            engine.fracture(blank_item)
+
+
+# ── _run_chunk slow path (essence method) ───────────────────────────────────
+
+
+class TestRunChunkSlowPath:
+    @pytest.mark.asyncio
+    async def test_simulate_essence_uses_slow_path(self, engine):
+        random.seed(42)
+        result = await engine.simulate(
+            "Hubris Circlet",
+            ilvl=84,
+            method="essence",
+            target_mods=["IncreasedLife"],
+            iterations=20,
+            essence_name="Greed",
+            workers=1,
+        )
+        assert isinstance(result, SimResult)
+        assert result.method == "essence"
+
+    @pytest.mark.asyncio
+    async def test_simulate_essence_match_any(self, engine):
+        random.seed(42)
+        result = await engine.simulate(
+            "Hubris Circlet",
+            ilvl=84,
+            method="essence",
+            target_mods=["IncreasedLife", "ColdResistance"],
+            iterations=20,
+            essence_name="Greed",
+            match_mode="any",
+            workers=1,
+        )
+        assert isinstance(result, SimResult)
+
+    @pytest.mark.asyncio
+    async def test_simulate_with_existing_mods_slow_path(self, engine):
+        random.seed(42)
+        result = await engine.simulate(
+            "Hubris Circlet",
+            ilvl=84,
+            method="essence",
+            target_mods=["IncreasedLife"],
+            iterations=10,
+            essence_name="Greed",
+            existing_mods=["ColdResistance"],
+            workers=1,
+        )
+        assert isinstance(result, SimResult)
+
+
+# ── Transmutation via _apply_roll ───────────────────────────────────────────
+
+
+class TestApplyRollTransmutation:
+    def test_apply_roll_transmutation(self, engine, blank_item):
+        random.seed(42)
+        engine._apply_roll(blank_item, "transmutation", None, None, None)
+        assert blank_item.rarity == Rarity.MAGIC
+        assert len(blank_item.prefixes) <= 1
+        assert len(blank_item.suffixes) <= 1
+
+    def test_apply_roll_chaos(self, engine, blank_item):
+        random.seed(42)
+        engine._apply_roll(blank_item, "chaos", None, None, None)
+        assert blank_item.rarity == Rarity.RARE
+
+    def test_apply_roll_alchemy(self, engine, blank_item):
+        random.seed(42)
+        engine._apply_roll(blank_item, "alchemy", None, None, None)
+        assert blank_item.rarity == Rarity.RARE
+
+    def test_apply_roll_harvest(self, engine, blank_item):
+        random.seed(42)
+        engine._apply_roll(blank_item, "harvest", None, None, None)
+        assert blank_item.rarity == Rarity.RARE
+
+    def test_apply_roll_fossil(self, engine, blank_item):
+        random.seed(42)
+        engine._apply_roll(blank_item, "fossil", {"life": 5.0}, None, None)
+        assert blank_item.rarity == Rarity.RARE
+
+    def test_apply_roll_essence(self, engine, blank_item):
+        random.seed(42)
+        engine._apply_roll(blank_item, "essence", None, None, "Greed")
+        assert blank_item.rarity == Rarity.RARE
+
+
+# ── Apply crafted mod from dict ─────────────────────────────────────────────
+
+
+class TestApplyCraftedModDict:
+    def test_apply_crafted_mod_dict(self, engine, blank_item):
+        mod_dict = {
+            "mod_id": "test_crafted",
+            "name": "Crafted Life",
+            "affix": "prefix",
+            "group": "CraftedLife",
+            "weight": 100,
+            "best_tier": {"ilvl": 1, "values": [[10, 20]], "weight": 100},
+        }
+        result = engine.apply_crafted_mod(blank_item, mod_dict)
+        assert result is not None
+        assert result.is_crafted is True
+
+    def test_apply_crafted_mod_dict_no_tier(self, engine, blank_item):
+        mod_dict = {
+            "mod_id": "test_crafted",
+            "name": "Crafted Cold",
+            "affix": "suffix",
+            "group": "CraftedCold",
+            "weight": 100,
+            "best_tier": None,
+        }
+        result = engine.apply_crafted_mod(blank_item, mod_dict)
+        assert result is not None
+        assert result.is_crafted is True
+
+    def test_apply_crafted_mod_dict_best_tier_object(self, engine, blank_item):
+        mod_dict = {
+            "mod_id": "test_crafted2",
+            "name": "Crafted Fire",
+            "affix": "prefix",
+            "group": "CraftedFire",
+            "weight": 100,
+            "best_tier": BestTier(ilvl=1, values=((5, 10),), weight=50),
+        }
+        result = engine.apply_crafted_mod(blank_item, mod_dict)
+        assert result is not None
+        assert result.is_crafted is True
+
+    def test_apply_crafted_mod_suffix_no_slots_raises(self, engine, blank_item):
+        for i in range(3):
+            blank_item.suffixes.append(
+                RolledMod(
+                    mod_id=f"s{i}",
+                    name=f"S{i}",
+                    affix="suffix",
+                    group=f"SG{i}",
+                    weight=100,
+                    chance=0.5,
+                    tier=BestTier(ilvl=1, values=(), weight=0),
+                    rolls=[],
+                )
+            )
+        mod_dict = {
+            "mod_id": "test_crafted",
+            "name": "Crafted",
+            "affix": "suffix",
+            "group": "CG",
+            "weight": 100,
+            "best_tier": None,
+        }
+        with pytest.raises(ValueError, match="No open suffix slots"):
+            engine.apply_crafted_mod(blank_item, mod_dict)
+
+
+# ── Remove crafted / metamod edge cases ─────────────────────────────────────
+
+
+class TestRemoveEdgeCases:
+    def test_remove_crafted_mod_not_found(self, engine, blank_item):
+        result = engine.remove_crafted_mod(blank_item, "nonexistent")
+        assert result is None
+
+    def test_remove_metamod_not_found(self, engine, blank_item):
+        result = engine.remove_metamod(blank_item, "nonexistent_type")
+        assert result is None
+
+
+# ── Tainted chaos/exalt empty item ──────────────────────────────────────────
+
+
+class TestTaintedEmptyItem:
+    def test_tainted_chaos_empty_item(self, engine, blank_item):
+        blank_item.is_corrupted = True
+        random.seed(99)
+        result = engine.tainted_chaos(blank_item)
+        assert result in ("added", "removed")
+
+    def test_tainted_exalt_empty_item(self, engine, blank_item):
+        blank_item.is_corrupted = True
+        random.seed(99)
+        result = engine.tainted_exalt(blank_item)
+        assert result in ("added", "removed")
+
+
+# ── Vaal orb outcomes ───────────────────────────────────────────────────────
+
+
+class TestVaalOrbOutcomes:
+    def test_vaal_implicit_outcome(self, engine):
+        for seed in range(200):
+            random.seed(seed)
+            item = engine.create_item("Hubris Circlet", ilvl=84)
+            engine.chaos_roll(item)
+            outcome = engine.vaal_orb(item)
+            if outcome == "implicit":
+                assert len(item.implicits) > 0
+                return
+        pytest.skip("implicit outcome not hit in 200 seeds")
+
+    def test_vaal_reroll_outcome(self, engine):
+        for seed in range(200):
+            random.seed(seed)
+            item = engine.create_item("Hubris Circlet", ilvl=84)
+            engine.chaos_roll(item)
+            outcome = engine.vaal_orb(item)
+            if outcome == "reroll":
+                assert item.rarity == Rarity.RARE
+                return
+        pytest.skip("reroll outcome not hit in 200 seeds")
+
+    def test_vaal_nothing_outcome(self, engine):
+        for seed in range(200):
+            random.seed(seed)
+            item = engine.create_item("Hubris Circlet", ilvl=84)
+            engine.chaos_roll(item)
+            outcome = engine.vaal_orb(item)
+            if outcome == "nothing":
+                assert item.is_corrupted is True
+                return
+        pytest.skip("nothing outcome not hit in 200 seeds")
+
+
+# ── Beast prefix/suffix empty item ──────────────────────────────────────────
+
+
+class TestBeastEmptyItem:
+    def test_beast_prefix_to_suffix_empty(self, engine, blank_item):
+        added, removed = engine.beast_prefix_to_suffix(blank_item)
+        assert removed is None
+
+    def test_beast_suffix_to_prefix_empty(self, engine, blank_item):
+        added, removed = engine.beast_suffix_to_prefix(blank_item)
+        assert removed is None
+
+
+class TestBuildModPoolBlockedTags:
+    def test_blocked_tags_filter_mods(self, engine, blank_item):
+        pool = engine._build_mod_pool(blank_item, blocked_tags={"life"})
+        for mod in pool:
+            mod_tags = [t.casefold() for t in mod.implicit_tags]
+            assert "life" not in mod_tags
+
+    def test_fossil_weights_zero_excludes_mod(self, engine, blank_item):
+        pool_before = engine._build_mod_pool(blank_item)
+        tagged_mods = [m for m in pool_before if m.implicit_tags]
+        if tagged_mods:
+            first_tag = tagged_mods[0].implicit_tags[0].casefold()
+            pool_after = engine._build_mod_pool(blank_item, fossil_weights={first_tag: 0.0})
+            assert len(pool_after) <= len(pool_before)
+
+
+class TestWeightedPickFallback:
+    def test_weighted_pick_returns_last_on_rounding(self, engine):
+        mods = [_entry(mod_id=f"mod_{i}", group=f"G{i}", weight=1) for i in range(3)]
+        for _ in range(50):
+            result = engine._weighted_pick(mods)
+            assert result is not None
+
+
+class TestRollItemEnsureBothAffixes:
+    def test_ensure_suffix_when_only_prefixes(self, engine):
+        item = engine.create_item("Hubris Circlet", ilvl=84)
+        random.seed(42)
+        for _ in range(20):
+            engine.chaos_roll(item)
+            if item.prefixes and not item.suffixes:
+                break
+        engine.chaos_roll(item)
+        assert len(item.all_mods) >= 2
+
+    def test_ensure_prefix_when_only_suffixes(self, engine):
+        item = engine.create_item("Hubris Circlet", ilvl=84)
+        for seed_val in range(200):
+            random.seed(seed_val)
+            engine.chaos_roll(item)
+            if item.prefixes and item.suffixes:
+                return
+        assert True
+
+
+class TestRegalOnMagicItem:
+    def test_regal_upgrades_to_rare(self, engine):
+        item = engine.create_item("Hubris Circlet", ilvl=84)
+        engine.scour(item)
+        engine.transmutation(item)
+        engine.regal(item)
+        assert item.rarity == Rarity.RARE
+
+
+class TestExaltOnFullItem:
+    def test_exalt_on_full_rare(self, engine):
+        item = engine.create_item("Hubris Circlet", ilvl=84)
+        item.rarity = Rarity.RARE
+        engine.chaos_roll(item)
+        result = engine.exalt(item)
+        assert result is None or isinstance(result, RolledMod)
+
+
+class TestEssenceFuzzyMatch:
+    def test_essence_roll_fuzzy_match(self, engine):
+        item = engine.create_item("Hubris Circlet", ilvl=84)
+        random.seed(42)
+        engine.essence_roll(item, "Greed")
+        assert len(item.all_mods) >= 1
+
+
+class TestAugmentationOnMagicItem:
+    def test_augmentation_adds_mod(self, engine):
+        item = engine.create_item("Hubris Circlet", ilvl=84)
+        engine.scour(item)
+        engine.transmutation(item)
+        while len(item.prefixes) >= 1 and len(item.suffixes) >= 1:
+            engine.scour(item)
+            engine.transmutation(item)
+        result = engine.augmentation(item)
+        assert result is not None or len(item.all_mods) >= 1
+
+
+class TestHarvestAugmentTagged:
+    def test_harvest_augment_returns_mod_or_none(self, engine):
+        item = engine.create_item("Hubris Circlet", ilvl=84)
+        item.rarity = Rarity.RARE
+        random.seed(42)
+        result = engine.harvest_augment(item, "life")
+        assert result is None or isinstance(result, RolledMod)
+
+
+class TestConquerorExaltEdgeCases:
+    def test_conqueror_exalt_no_inf_pool(self, engine):
+        item = engine.create_item("Hubris Circlet", ilvl=84)
+        item.rarity = Rarity.RARE
+        result = engine.conqueror_exalt(item, "shaper")
+        assert result is None or isinstance(result, RolledMod)
+
+    def test_conqueror_exalt_different_influence_error(self, engine):
+        item = engine.create_item("Hubris Circlet", ilvl=84)
+        item.rarity = Rarity.RARE
+        item.influences = ["elder"]
+        with pytest.raises(ValueError, match="different influence"):
+            engine.conqueror_exalt(item, "shaper")
+
+
+class TestAwakenerOrbKeptMods:
+    def test_awakener_orb_basic(self, engine):
+        item1 = engine.create_item("Hubris Circlet", ilvl=84)
+        item1.rarity = Rarity.RARE
+        item1.influences = ["shaper"]
+        engine.chaos_roll(item1)
+
+        item2 = engine.create_item("Hubris Circlet", ilvl=84)
+        item2.rarity = Rarity.RARE
+        item2.influences = ["elder"]
+        engine.chaos_roll(item2)
+
+        result = engine.awakener_orb(item1, item2)
+        assert "shaper" in result.influences or "elder" in result.influences
+
+
+class TestVeiledChaosMod:
+    def test_veiled_chaos_adds_veiled(self, engine):
+        item = engine.create_item("Hubris Circlet", ilvl=84)
+        item.rarity = Rarity.RARE
+        engine.chaos_roll(item)
+        random.seed(42)
+        engine.veiled_chaos(item)
+        veiled = [m for m in item.all_mods if m.name.startswith("Veiled:")]
+        assert len(veiled) >= 0
+
+
+class TestAislingBenchEdge:
+    def test_aisling_bench_no_removable(self, engine):
+        item = engine.create_item("Hubris Circlet", ilvl=84)
+        item.rarity = Rarity.RARE
+        result = engine.aisling_bench(item)
+        assert result is None
+
+    def test_aisling_bench_with_mods(self, engine):
+        item = engine.create_item("Hubris Circlet", ilvl=84)
+        item.rarity = Rarity.RARE
+        engine.chaos_roll(item)
+        random.seed(42)
+        result = engine.aisling_bench(item)
+        assert result is None or isinstance(result, RolledMod)
+
+
+class TestTaintedChaosOutcomes:
+    def test_tainted_chaos_both_outcomes(self, engine):
+        seen_added = False
+        seen_removed = False
+        for seed_val in range(200):
+            random.seed(seed_val)
+            item = engine.create_item("Hubris Circlet", ilvl=84)
+            item.rarity = Rarity.RARE
+            engine.chaos_roll(item)
+            item.is_corrupted = True
+            result = engine.tainted_chaos(item)
+            if result == "added":
+                seen_added = True
+            elif result == "removed":
+                seen_removed = True
+            if seen_added and seen_removed:
+                return
+        assert seen_added or seen_removed

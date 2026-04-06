@@ -7,14 +7,14 @@ from poe.models.ninja.builds import (
     DimensionEntry,
     IntegerRange,
     MetaSummary,
-    PopularAnoint,
-    PopularSkill,
     ResolvedDimension,
+    SearchCharacter,
     SearchResults,
     TooltipResponse,
 )
 from poe.models.ninja.protobuf import Dictionary, NinjaSearchResult
 from poe.services.ninja import cache as ninja_cache
+from poe.services.ninja.errors import NinjaError
 
 if TYPE_CHECKING:
     from poe.services.ninja.client import NinjaClient
@@ -35,7 +35,7 @@ class BuildsService:
         self._cache_dir = base_dir or ninja_cache.cache_dir()
 
     def _fetch_cached(self, cache_key: str, path: str, params: dict[str, str]) -> Any:
-        if ninja_cache.is_fresh(self._cache_dir, cache_key, "builds"):
+        if not self._client.no_cache and ninja_cache.is_fresh(self._cache_dir, cache_key, "builds"):
             cached = ninja_cache.read_cache(self._cache_dir, cache_key)
             if cached is not None:
                 return cached
@@ -66,7 +66,10 @@ class BuildsService:
             params["type"] = snapshot_type
 
         cache_key = f"char_{game}_{account}_{character}"
-        raw = self._fetch_cached(cache_key, path, params)
+        try:
+            raw = self._fetch_cached(cache_key, path, params)
+        except NinjaError:
+            return None
         return CharacterResponse.model_validate(raw)
 
     def get_tooltip(
@@ -103,43 +106,11 @@ class BuildsService:
         params = {"type": tooltip_type, "name": name, "treeName": tree_name}
 
         cache_key = f"tooltip_any_{tooltip_type}_{name}"
-        raw = self._fetch_cached(cache_key, path, params)
+        try:
+            raw = self._fetch_cached(cache_key, path, params)
+        except NinjaError:
+            return None
         return TooltipResponse.model_validate(raw)
-
-    def get_popular_skills(self, *, game: str = "poe2") -> list[PopularSkill]:
-        snap = self._discovery.get_current_snapshot(game=game)
-        if not snap:
-            return []
-
-        path = f"/poe2/api/builds/{snap.version}/popular-skills"
-        params = {"overview": snap.snapshot_name}
-
-        cache_key = f"popular_skills_{game}"
-        raw = self._fetch_cached(cache_key, path, params)
-        if isinstance(raw, list):
-            return [PopularSkill.model_validate(s) for s in raw]
-        return []
-
-    def get_popular_anoints(
-        self,
-        *,
-        game: str = "poe2",
-        character_class: str | None = None,
-    ) -> list[PopularAnoint]:
-        snap = self._discovery.get_current_snapshot(game=game)
-        if not snap:
-            return []
-
-        path = f"/poe2/api/builds/{snap.version}/popular-anoints"
-        params: dict[str, str] = {"overview": snap.snapshot_name}
-        if character_class:
-            params["characterClass"] = character_class
-
-        cache_key = f"popular_anoints_{game}_{character_class or 'all'}"
-        raw = self._fetch_cached(cache_key, path, params)
-        if isinstance(raw, list):
-            return [PopularAnoint.model_validate(a) for a in raw]
-        return []
 
     def get_meta_summary(self, *, game: str = "poe1") -> MetaSummary:
         state = self._discovery.get_build_index_state(game=game)
@@ -331,9 +302,61 @@ def _parse_search_results(
         for d in sr.integer_dimensions
     ]
 
+    vl_map = {vl.id: vl.values for vl in sr.value_lists}
+    characters = _extract_characters(vl_map, dictionaries)
+
     return SearchResults(
         total=sr.total,
+        characters=characters,
         dimensions=dimensions,
         integer_ranges=integer_ranges,
         game=game,
     )
+
+
+def _resolve_ids(ids: list[int], vocab: list[str]) -> list[str]:
+    return [vocab[idx] if idx < len(vocab) else f"unknown-{idx}" for idx in ids]
+
+
+def _extract_characters(
+    vl_map: dict[str, list],
+    dictionaries: dict[str, list[str]],
+) -> list[SearchCharacter]:
+    names = vl_map.get("name", [])
+    accounts = vl_map.get("account", [])
+    levels = vl_map.get("level", [])
+    lives = vl_map.get("life", [])
+    es_vals = vl_map.get("energyshield", [])
+    dps_vals = vl_map.get("dps", [])
+    ehp_vals = vl_map.get("ehp", [])
+    class_vals = vl_map.get("class", [])
+    skill_vals = vl_map.get("skills", [])
+    keystone_vals = vl_map.get("keypassives", [])
+
+    gem_vocab = dictionaries.get("gem", [])
+    keystone_vocab = dictionaries.get("keypassive", [])
+
+    count = len(names)
+    characters = []
+    for i in range(count):
+        name = names[i].str_val if i < len(names) else ""
+        account = accounts[i].str_val if i < len(accounts) else ""
+        if not name or not account:
+            continue
+        raw_skills = skill_vals[i].numbers if i < len(skill_vals) else []
+        raw_keystones = keystone_vals[i].numbers if i < len(keystone_vals) else []
+        characters.append(
+            SearchCharacter(
+                name=name,
+                account=account,
+                level=levels[i].number if i < len(levels) else 0,
+                life=lives[i].number if i < len(lives) else 0,
+                energy_shield=es_vals[i].number if i < len(es_vals) else 0,
+                dps=dps_vals[i].str_val if i < len(dps_vals) else "",
+                ehp=ehp_vals[i].str_val if i < len(ehp_vals) else "",
+                class_id=class_vals[i].number if i < len(class_vals) else 0,
+                skills=_resolve_ids(raw_skills, gem_vocab),
+                keystones=_resolve_ids(raw_keystones, keystone_vocab),
+            )
+        )
+    return characters

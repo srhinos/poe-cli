@@ -15,11 +15,11 @@ from poe.models.build import (
 
 class TestItemSlots:
     def test_open_prefixes_all_open(self):
-        item = Item(id=1, text="", prefix_slots=["None", "None", "None"])
+        item = Item(id=1, text="", prefix_slots=[None, None, None])
         assert item.open_prefixes == 3
 
     def test_open_prefixes_some_filled(self):
-        item = Item(id=1, text="", prefix_slots=["IncreasedLife6", "None", "SpellDamage3"])
+        item = Item(id=1, text="", prefix_slots=["IncreasedLife6", None, "SpellDamage3"])
         assert item.open_prefixes == 1
 
     def test_open_prefixes_none_open(self):
@@ -27,19 +27,19 @@ class TestItemSlots:
         assert item.open_prefixes == 0
 
     def test_open_suffixes_all_open(self):
-        item = Item(id=1, text="", suffix_slots=["None", "None", "None"])
+        item = Item(id=1, text="", suffix_slots=[None, None, None])
         assert item.open_suffixes == 3
 
     def test_open_suffixes_mixed(self):
-        item = Item(id=1, text="", suffix_slots=["ColdRes5", "None"])
+        item = Item(id=1, text="", suffix_slots=["ColdRes5", None])
         assert item.open_suffixes == 1
 
     def test_filled_prefixes(self):
-        item = Item(id=1, text="", prefix_slots=["IncreasedLife6", "None", "SpellDamage3"])
+        item = Item(id=1, text="", prefix_slots=["IncreasedLife6", None, "SpellDamage3"])
         assert item.filled_prefixes == 2
 
     def test_filled_suffixes(self):
-        item = Item(id=1, text="", suffix_slots=["ColdRes5", "LightRes4", "None"])
+        item = Item(id=1, text="", suffix_slots=["ColdRes5", "LightRes4", None])
         assert item.filled_suffixes == 2
 
     def test_empty_slots_lists(self):

@@ -31,7 +31,7 @@ class TestParseBuildSection:
 
     def test_bandit_and_view_mode(self, minimal_build_xml):
         build = parse_build_file(minimal_build_xml)
-        assert build.bandit == "None"
+        assert build.bandit is None
         assert build.view_mode == "TREE"
         assert build.target_version == "3_0"
 
@@ -168,7 +168,7 @@ class TestParseItems:
         item = build.items[0]
         assert "IncreasedLife6" in item.prefix_slots
         assert "SpellDamage3" in item.prefix_slots
-        assert "None" in item.prefix_slots
+        assert None in item.prefix_slots
         assert item.open_prefixes == 1
         assert "ColdResistance5" in item.suffix_slots
         assert item.open_suffixes == 1
@@ -676,3 +676,128 @@ class TestParseBuildFile:
         assert len(build.items) >= 1
         equipped = build.get_equipped_items()
         assert any(slot == "Helmet" for slot, _ in equipped)
+
+
+# ── Metadata filter (Bug 1) ──────────────────────────────────────────────────
+
+
+class TestPoBMetadataNotExplicits:
+    def _make_xml(self, item_text: str) -> str:
+        return textwrap.dedent(f"""\
+            <?xml version="1.0"?>
+            <PathOfBuilding>
+                <Build level="1" className="Witch" ascendClassName=""/>
+                <Items activeItemSet="1">
+                    <Item id="1">
+{item_text}
+                    </Item>
+                </Items>
+            </PathOfBuilding>
+        """)
+
+    def test_has_alt_variant_not_in_explicits(self, tmp_path):
+        xml = self._make_xml(
+            "Rarity: UNIQUE\nWatcher's Eye\nPrismatic Jewel\n"
+            "Has Alt Variant: true\nSelected Alt Variant: 9\n"
+            "Implicits: 0\n+50 to maximum Life"
+        )
+        build = parse_build_file(_write_xml(tmp_path, xml))
+        item = build.items[0]
+        texts = [m.text for m in item.explicits]
+        assert not any("Has Alt Variant" in t for t in texts)
+        assert not any("Selected Alt Variant" in t for t in texts)
+
+    def test_has_alt_variant_two_not_in_explicits(self, tmp_path):
+        xml = self._make_xml(
+            "Rarity: UNIQUE\nWatcher's Eye\nPrismatic Jewel\n"
+            "Has Alt Variant: true\nSelected Alt Variant: 29\n"
+            "Has Alt Variant Two: true\nSelected Alt Variant Two: 1\n"
+            "Implicits: 0\n+50 to maximum Life"
+        )
+        build = parse_build_file(_write_xml(tmp_path, xml))
+        item = build.items[0]
+        texts = [m.text for m in item.explicits]
+        assert not any("Has Alt Variant" in t for t in texts)
+        assert not any("Selected Alt Variant" in t for t in texts)
+        assert len(item.explicits) == 1
+        assert item.explicits[0].text == "+50 to maximum Life"
+
+    def test_has_variant_not_in_explicits(self, tmp_path):
+        xml = self._make_xml(
+            "Rarity: UNIQUE\nSome Jewel\nPrismatic Jewel\n"
+            "Has Variant: 2\n"
+            "Implicits: 0\n+50 to maximum Life"
+        )
+        build = parse_build_file(_write_xml(tmp_path, xml))
+        item = build.items[0]
+        texts = [m.text for m in item.explicits]
+        assert not any("Has Variant" in t for t in texts)
+
+    def test_source_not_in_explicits(self, tmp_path):
+        xml = self._make_xml(
+            "Rarity: RARE\nTest Crown\nHubris Circlet\n"
+            "Source: Some League\n"
+            "Implicits: 0\n+50 to maximum Life"
+        )
+        build = parse_build_file(_write_xml(tmp_path, xml))
+        item = build.items[0]
+        texts = [m.text for m in item.explicits]
+        assert not any("Source:" in t for t in texts)
+        assert len(item.explicits) == 1
+
+
+# ── Magic item base_type (Bug 2) ─────────────────────────────────────────────
+
+
+class TestMagicItemBaseType:
+    def _make_xml(self, item_text: str) -> str:
+        return textwrap.dedent(f"""\
+            <?xml version="1.0"?>
+            <PathOfBuilding>
+                <Build level="1" className="Witch" ascendClassName=""/>
+                <Items activeItemSet="1">
+                    <Item id="1">
+{item_text}
+                    </Item>
+                </Items>
+            </PathOfBuilding>
+        """)
+
+    def test_magic_flask_base_type_strips_suffix(self, tmp_path):
+        xml = self._make_xml(
+            "Rarity: MAGIC\nChemist's Silver Flask of the Owl\n"
+            "Crafted: true\nPrefix: FlaskChargesUsed4\nSuffix: FlaskBuff\n"
+            "Quality: 20\nLevelReq: 22\nImplicits: 0\n"
+            "24% reduced Charges per use"
+        )
+        build = parse_build_file(_write_xml(tmp_path, xml))
+        item = build.items[0]
+        assert item.rarity == "MAGIC"
+        assert item.name == "Chemist's Silver Flask of the Owl"
+        assert item.base_type == "Silver Flask"
+
+    def test_magic_flask_suffix_only_strips(self, tmp_path):
+        xml = self._make_xml(
+            "Rarity: MAGIC\nJade Flask of the Deer\n"
+            "Quality: 0\nLevelReq: 27\nImplicits: 0\n"
+            "20% increased Movement Speed during Effect"
+        )
+        build = parse_build_file(_write_xml(tmp_path, xml))
+        item = build.items[0]
+        assert item.base_type == "Jade Flask"
+
+    def test_normal_item_base_type_equals_name(self, tmp_path):
+        xml = self._make_xml("Rarity: NORMAL\nSilver Flask\nQuality: 0\nLevelReq: 22\nImplicits: 0")
+        build = parse_build_file(_write_xml(tmp_path, xml))
+        item = build.items[0]
+        assert item.name == "Silver Flask"
+        assert item.base_type == "Silver Flask"
+
+    def test_rare_item_base_type_distinct_from_name(self, tmp_path):
+        xml = self._make_xml(
+            "Rarity: RARE\nDoom Crown\nHubris Circlet\nImplicits: 0\n+50 to maximum Life"
+        )
+        build = parse_build_file(_write_xml(tmp_path, xml))
+        item = build.items[0]
+        assert item.name == "Doom Crown"
+        assert item.base_type == "Hubris Circlet"

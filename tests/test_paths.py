@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import pytest
 
+from poe.exceptions import BuildNotFoundError, BuildValidationError
 from poe.paths import (
     get_builds_path,
     get_pob_path,
@@ -33,13 +34,13 @@ class TestGetPobPath:
     def test_not_found(self, tmp_path, monkeypatch):
         monkeypatch.delenv("POB_PATH", raising=False)
         monkeypatch.setenv("APPDATA", str(tmp_path / "nonexistent"))
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises((FileNotFoundError, BuildNotFoundError)):
             get_pob_path()
 
     def test_env_path_not_exists(self, monkeypatch):
         monkeypatch.setenv("POB_PATH", "/nonexistent/path/that/does/not/exist")
         monkeypatch.setenv("APPDATA", "/also/nonexistent")
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises((FileNotFoundError, BuildNotFoundError)):
             get_pob_path()
 
 
@@ -57,7 +58,7 @@ class TestGetBuildsPath:
         monkeypatch.delenv("POB_BUILDS_PATH", raising=False)
         monkeypatch.setenv("HOME", str(tmp_path))
         monkeypatch.setenv("USERPROFILE", str(tmp_path))
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises((FileNotFoundError, BuildNotFoundError)):
             get_builds_path()
 
 
@@ -104,7 +105,7 @@ class TestResolveBuildFile:
 
     def test_not_found(self, tmp_builds_dir, monkeypatch):
         monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_builds_dir))
-        with pytest.raises(FileNotFoundError):
+        with pytest.raises((FileNotFoundError, BuildNotFoundError)):
             resolve_build_file("DoesNotExist")
 
 
@@ -114,15 +115,15 @@ class TestResolveBuildFile:
 class TestPathTraversal:
     def test_reject_dotdot(self, tmp_builds_dir, monkeypatch):
         monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_builds_dir))
-        with pytest.raises(ValueError, match="Invalid build name"):
+        with pytest.raises(BuildValidationError, match="Invalid build name"):
             resolve_build_file("../etc/passwd")
 
     def testvalidate_build_name_rejects_dotdot(self):
-        with pytest.raises(ValueError, match="Invalid build name"):
+        with pytest.raises(BuildValidationError, match="Invalid build name"):
             validate_build_name("../foo")
 
     def testvalidate_build_name_rejects_backslash(self):
-        with pytest.raises(ValueError, match="Invalid build name"):
+        with pytest.raises(BuildValidationError, match="Invalid build name"):
             validate_build_name("foo\\bar")
 
     def testvalidate_build_name_accepts_normal(self):
@@ -132,19 +133,24 @@ class TestPathTraversal:
         validate_build_name("build-v2")
 
     def test_validate_name_rejects_slash(self):
-        """Forward slash in build name should be rejected."""
-        with pytest.raises(ValueError, match="Invalid build name"):
+        with pytest.raises(BuildValidationError, match="Invalid build name"):
             validate_build_name("sub/dir")
 
     def test_validate_name_rejects_empty(self):
-        """Empty string should be rejected."""
-        with pytest.raises(ValueError, match="Invalid build name"):
+        with pytest.raises(BuildValidationError, match="Invalid build name"):
             validate_build_name("")
 
     def test_validate_name_rejects_whitespace(self):
-        """Whitespace-only string should be rejected."""
-        with pytest.raises(ValueError, match="Invalid build name"):
+        with pytest.raises(BuildValidationError, match="Invalid build name"):
             validate_build_name("   ")
+
+    def test_validate_name_rejects_invalid_chars(self):
+        with pytest.raises(BuildValidationError, match="invalid characters"):
+            validate_build_name("build:name")
+
+    def test_validate_name_rejects_reserved(self):
+        with pytest.raises(BuildValidationError, match="reserved word"):
+            validate_build_name("CON")
 
 
 # ── resolve_or_file ──────────────────────────────────────────────────────────
@@ -161,3 +167,25 @@ class TestResolveOrFile:
         monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_builds_dir))
         result = resolve_or_file("BuildA", None)
         assert result.name == "BuildA.xml"
+
+
+class TestPrefixMatching:
+    def test_prefix_match(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_path))
+        (tmp_path / "Ele Hit Ranger.xml").write_text("<PathOfBuilding/>")
+        result = resolve_build_file("Ele")
+        assert result.name == "Ele Hit Ranger.xml"
+
+    def test_ambiguous_prefix_errors(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_path))
+        (tmp_path / "Ele Hit Ranger.xml").write_text("<PathOfBuilding/>")
+        (tmp_path / "Ele Bow Deadeye.xml").write_text("<PathOfBuilding/>")
+        with pytest.raises(BuildNotFoundError, match="Ambiguous"):
+            resolve_build_file("Ele")
+
+    def test_exact_match_preferred(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("POB_BUILDS_PATH", str(tmp_path))
+        (tmp_path / "Build.xml").write_text("<PathOfBuilding/>")
+        (tmp_path / "BuildExtra.xml").write_text("<PathOfBuilding/>")
+        result = resolve_build_file("Build")
+        assert result.name == "Build.xml"

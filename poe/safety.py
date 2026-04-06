@@ -4,6 +4,7 @@ import shutil
 from pathlib import Path
 
 from poe.constants import CLAUDE_SUBFOLDER
+from poe.exceptions import BuildValidationError
 from poe.paths import get_builds_path, resolve_build_file, validate_build_name
 
 
@@ -35,7 +36,7 @@ def resolve_for_write(name: str) -> tuple[Path, str | None]:
 
     claude_path = claude_dir / filename
     if not claude_path.resolve().is_relative_to(claude_dir.resolve()):
-        raise ValueError(f"Invalid build name: {name!r}")
+        raise BuildValidationError(f"Invalid build name: {name!r}")
     if claude_path.exists():
         return claude_path, None
 

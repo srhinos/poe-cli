@@ -80,7 +80,7 @@ class BuildDocument(BaseModel):
     class_name: str = ""
     ascend_class_name: str = ""
     level: int = 1
-    bandit: str = "None"
+    bandit: str | None = None
     view_mode: str = "TREE"
     target_version: str = "3_0"
     main_socket_group: int = 1

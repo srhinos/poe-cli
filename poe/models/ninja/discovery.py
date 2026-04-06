@@ -6,7 +6,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class LeagueInfo(BaseModel):
     """League identity from index-state endpoints."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="allow")
 
     name: str
     url: str
@@ -18,7 +18,7 @@ class LeagueInfo(BaseModel):
 class Poe1Snapshot(BaseModel):
     """PoE1 snapshot version with time machine labels."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="allow")
 
     url: str
     type: str
@@ -34,7 +34,7 @@ class Poe1Snapshot(BaseModel):
 class Poe2Snapshot(BaseModel):
     """PoE2 snapshot version with time machine labels."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="allow")
 
     url: str
     name: str
@@ -48,7 +48,7 @@ class Poe2Snapshot(BaseModel):
 class Poe1IndexState(BaseModel):
     """PoE1 index-state response with leagues and snapshots."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="allow")
 
     economy_leagues: list[LeagueInfo] = []
     old_economy_leagues: list[LeagueInfo] = []
@@ -60,7 +60,7 @@ class Poe1IndexState(BaseModel):
 class Poe2IndexState(BaseModel):
     """PoE2 index-state response with leagues and snapshots."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="allow")
 
     economy_leagues: list[LeagueInfo] = []
     old_economy_leagues: list[LeagueInfo] = []
@@ -72,10 +72,10 @@ class Poe2IndexState(BaseModel):
 class BuildStat(BaseModel):
     """Top class/skill combo from build-index-state."""
 
-    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
 
     class_name: str = Field(alias="class")
-    skill: str
+    skill: str = ""
     percentage: float
     trend: int = 0
 
@@ -83,7 +83,7 @@ class BuildStat(BaseModel):
 class LeagueBuild(BaseModel):
     """Per-league build summary from build-index-state."""
 
-    model_config = ConfigDict(extra="ignore", populate_by_name=True)
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
 
     league_name: str
     league_url: str
@@ -95,7 +95,7 @@ class LeagueBuild(BaseModel):
 class BuildIndexState(BaseModel):
     """Build index-state response listing leagues and build counts."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="allow")
 
     league_builds: list[LeagueBuild] = []
 
@@ -103,7 +103,7 @@ class BuildIndexState(BaseModel):
 class AtlasLeague(BaseModel):
     """League entry from atlas-tree-index-state."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="allow")
 
     league_name: str
     league_url: str
@@ -112,17 +112,23 @@ class AtlasLeague(BaseModel):
 class AtlasSnapshot(BaseModel):
     """Atlas tree snapshot version."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="allow")
 
-    type: str
-    version: str
-    snapshot_name: str
+    url: str = ""
+    type: str = ""
+    name: str = ""
+    time_machine_labels: list[str] = []
+    version: str = ""
+    snapshot_name: str = ""
+    overview_type: int = 0
+    passive_tree: str = ""
+    atlas_tree: str = ""
 
 
 class AtlasTreeIndexState(BaseModel):
     """Atlas tree index-state response."""
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(extra="allow")
 
     leagues: list[AtlasLeague] = []
     old_leagues: list[AtlasLeague] = []
